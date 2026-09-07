@@ -10,8 +10,8 @@ export const AuditLogsView: React.FC = () => {
   const filtered = logs.filter(
     l =>
       l.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      l.action.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      l.entity.toLowerCase().includes(searchTerm.toLowerCase())
+      l.operation.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      l.module.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -64,11 +64,11 @@ export const AuditLogsView: React.FC = () => {
                   </td>
                   <td className="py-3 px-4">
                     <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-800">
-                      {log.action}
+                      {log.operation}
                     </span>
                   </td>
-                  <td className="py-3 px-4 text-slate-700 font-semibold">{log.entity}</td>
-                  <td className="py-3 px-4 font-sans text-slate-600 max-w-xs truncate">{log.details}</td>
+                  <td className="py-3 px-4 text-slate-700 font-semibold">{log.module}</td>
+                  <td className="py-3 px-4 font-sans text-slate-600 max-w-xs truncate">{log.recordIdentifier}</td>
                   <td className="py-3 px-4 text-slate-400 text-[10px]">{log.ipAddress}</td>
                 </tr>
               ))}
