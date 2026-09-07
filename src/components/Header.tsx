@@ -29,6 +29,7 @@ interface HeaderProps {
   onOpenTvMode: () => void;
   municipalityName: string;
   onQuickAdd: () => void;
+  onHome: () => void;
 }
 
 const ROLES_LIST: { role: UserRole; label: string; badgeColor: string }[] = [
@@ -55,6 +56,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenTvMode,
   municipalityName,
   onQuickAdd,
+  onHome,
 }) => {
   const isOnline = useOnlineStatus();
   const { isInstallable, isInstalled, install, isIOS } = usePWAInstall();
@@ -76,7 +78,7 @@ export const Header: React.FC<HeaderProps> = ({
             <Menu className="w-5 h-5" />
           </button>
 
-          <div className="flex items-center gap-2.5">
+          <button onClick={onHome} className="flex items-center gap-2.5 cursor-pointer hover:opacity-90 transition" title="Voltar ao Início">
             <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-blue-500 to-sky-700 flex items-center justify-center shadow-inner">
               <Shield className="w-5 h-5 text-white" />
             </div>
@@ -93,7 +95,7 @@ export const Header: React.FC<HeaderProps> = ({
                 {municipalityName} — 1º Ciclo 2026
               </p>
             </div>
-          </div>
+          </button>
         </div>
 
         {/* Right: Actions, Sync, Notifications & Role Switcher */}

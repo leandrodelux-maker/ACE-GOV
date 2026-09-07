@@ -167,6 +167,7 @@ export default function App() {
         onOpenTvMode={() => setCurrentView('tv_mode')}
         municipalityName={municipality.name}
         onQuickAdd={() => setQuickAddOpen(true)}
+        onHome={() => setCurrentView('dashboard')}
       />
 
       {/* Body Layout: Sidebar + Main Content */}
