@@ -12,6 +12,7 @@ import {
   ChevronDown,
   Download,
   AlertTriangle,
+  Plus,
 } from 'lucide-react';
 import { User, UserRole } from '../types';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
@@ -27,6 +28,8 @@ interface HeaderProps {
   onOpenAlerts: () => void;
   onOpenTvMode: () => void;
   municipalityName: string;
+  onQuickAdd: () => void;
+  onHome: () => void;
 }
 
 const ROLES_LIST: { role: UserRole; label: string; badgeColor: string }[] = [
@@ -52,6 +55,8 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenAlerts,
   onOpenTvMode,
   municipalityName,
+  onQuickAdd,
+  onHome,
 }) => {
   const isOnline = useOnlineStatus();
   const { isInstallable, isInstalled, install, isIOS } = usePWAInstall();
@@ -73,7 +78,7 @@ export const Header: React.FC<HeaderProps> = ({
             <Menu className="w-5 h-5" />
           </button>
 
-          <div className="flex items-center gap-2.5">
+          <button onClick={onHome} className="flex items-center gap-2.5 cursor-pointer hover:opacity-90 transition" title="Voltar ao Início">
             <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-blue-500 to-sky-700 flex items-center justify-center shadow-inner">
               <Shield className="w-5 h-5 text-white" />
             </div>
@@ -90,11 +95,21 @@ export const Header: React.FC<HeaderProps> = ({
                 {municipalityName} — 1º Ciclo 2026
               </p>
             </div>
-          </div>
+          </button>
         </div>
 
         {/* Right: Actions, Sync, Notifications & Role Switcher */}
         <div className="flex items-center gap-2 sm:gap-3">
+          {/* Quick Add Button */}
+          <button
+            onClick={onQuickAdd}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-sm transition"
+            title="Cadastro Rápido de Novas Entradas"
+          >
+            <Plus className="w-4 h-4" />
+            <span className="hidden sm:inline">Novo Cadastro</span>
+          </button>
+
           {/* PWA Install Button */}
           {!isInstalled && (
             <>

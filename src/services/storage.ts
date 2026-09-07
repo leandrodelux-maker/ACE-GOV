@@ -64,87 +64,156 @@ const STORAGE_KEYS = {
   AUDIT_LOGS: 'endemias_gov_audit_logs',
 };
 
-function getFromStorage<T>(key: string, fallback: T): T {
-  try {
-    const item = localStorage.getItem(key);
-    return item ? JSON.parse(item) : fallback;
-  } catch {
-    return fallback;
+// ── In-memory cache (replaces localStorage) ───────────────────
+const cache: Record<string, any> = {};
+
+// ── API helpers ───────────────────────────────────────────────
+const API = '/api';
+
+function entityTypeFromKey(key: string): string {
+  return key.replace('endemias_gov_', '');
+}
+
+async function fetchEntities(key: string): Promise<any[]> {
+  const res = await fetch(`${API}/entities/${entityTypeFromKey(key)}`);
+  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  return res.json();
+}
+
+async function fetchState(key: string): Promise<any> {
+  const res = await fetch(`${API}/state/${key.replace('endemias_gov_', '')}`);
+  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  return res.json();
+}
+
+function saveToApi(key: string, data: any): void {
+  if (key === STORAGE_KEYS.OFFLINE_QUEUE) return;
+  if (key === STORAGE_KEYS.CURRENT_USER) {
+    fetch(`${API}/state/current_user`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    }).catch(e => console.error('API state save error:', e));
+    return;
   }
+  const type = entityTypeFromKey(key);
+  const entities = Array.isArray(data) ? data : [data];
+  fetch(`${API}/entities/${type}/bulk`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(entities),
+  }).catch(e => console.error('API save error:', e));
+}
+
+// ── Storage helpers (cache-backed, with API sync) ─────────────
+function getFromStorage<T>(key: string, fallback: T): T {
+  if (key === STORAGE_KEYS.OFFLINE_QUEUE) {
+    try {
+      const item = localStorage.getItem(key);
+      return item ? JSON.parse(item) : fallback;
+    } catch {
+      return fallback;
+    }
+  }
+  return cache[key] !== undefined ? (cache[key] as T) : fallback;
 }
 
 function saveToStorage<T>(key: string, data: T): void {
-  try {
-    localStorage.setItem(key, JSON.stringify(data));
-  } catch (err) {
-    console.error(`Error saving to storage key ${key}:`, err);
+  if (key === STORAGE_KEYS.OFFLINE_QUEUE) {
+    try {
+      localStorage.setItem(key, JSON.stringify(data));
+    } catch (err) {
+      console.error(`Error saving offline queue:`, err);
+    }
+    return;
   }
+  cache[key] = data;
+  saveToApi(key, data);
 }
 
 class EndemiasStorageService {
-  // Initialize defaults if empty
+  private initialized = false;
+
+  // Initialize from API (called by App.tsx on mount)
+  async initFromApi() {
+    try {
+      const [
+        municipalities, users, currentUser, cycles,
+        neighborhoods, properties, visits,
+        ovitraps, strategicPoints, specialProperties,
+        epiEvents, epiBlocks,
+        complaints, supplies, equipments,
+        tasks, alerts, referrals, auditLogs,
+      ] = await Promise.all([
+        fetchEntities(STORAGE_KEYS.MUNICIPALITY),
+        fetchEntities(STORAGE_KEYS.USERS),
+        fetchState(STORAGE_KEYS.CURRENT_USER),
+        fetchEntities(STORAGE_KEYS.CYCLE),
+        fetchEntities(STORAGE_KEYS.NEIGHBORHOODS),
+        fetchEntities(STORAGE_KEYS.PROPERTIES),
+        fetchEntities(STORAGE_KEYS.VISITS),
+        fetchEntities(STORAGE_KEYS.OVITRAPS),
+        fetchEntities(STORAGE_KEYS.STRATEGIC_POINTS),
+        fetchEntities(STORAGE_KEYS.SPECIAL_PROPERTIES),
+        fetchEntities(STORAGE_KEYS.EPIDEMIOLOGY_EVENTS),
+        fetchEntities(STORAGE_KEYS.EPIDEMIOLOGY_BLOCKS),
+        fetchEntities(STORAGE_KEYS.COMPLAINTS),
+        fetchEntities(STORAGE_KEYS.SUPPLIES),
+        fetchEntities(STORAGE_KEYS.EQUIPMENTS),
+        fetchEntities(STORAGE_KEYS.TASKS),
+        fetchEntities(STORAGE_KEYS.ALERTS),
+        fetchEntities(STORAGE_KEYS.REFERRALS),
+        fetchEntities(STORAGE_KEYS.AUDIT_LOGS),
+      ]);
+
+      cache[STORAGE_KEYS.MUNICIPALITY] = municipalities[0] || initialMunicipality;
+      cache[STORAGE_KEYS.USERS] = users;
+      cache[STORAGE_KEYS.CURRENT_USER] = currentUser || initialUsers[3];
+      cache[STORAGE_KEYS.CYCLE] = cycles[0] || initialCycle;
+      cache[STORAGE_KEYS.NEIGHBORHOODS] = neighborhoods;
+      cache[STORAGE_KEYS.PROPERTIES] = properties;
+      cache[STORAGE_KEYS.VISITS] = visits;
+      cache[STORAGE_KEYS.OVITRAPS] = ovitraps;
+      cache[STORAGE_KEYS.STRATEGIC_POINTS] = strategicPoints;
+      cache[STORAGE_KEYS.SPECIAL_PROPERTIES] = specialProperties;
+      cache[STORAGE_KEYS.EPIDEMIOLOGY_EVENTS] = epiEvents;
+      cache[STORAGE_KEYS.EPIDEMIOLOGY_BLOCKS] = epiBlocks;
+      cache[STORAGE_KEYS.COMPLAINTS] = complaints;
+      cache[STORAGE_KEYS.SUPPLIES] = supplies;
+      cache[STORAGE_KEYS.EQUIPMENTS] = equipments;
+      cache[STORAGE_KEYS.TASKS] = tasks;
+      cache[STORAGE_KEYS.ALERTS] = alerts;
+      cache[STORAGE_KEYS.REFERRALS] = referrals;
+      cache[STORAGE_KEYS.AUDIT_LOGS] = auditLogs;
+    } catch (e) {
+      console.error('Failed to fetch from API, using seed data:', e);
+      // Fall back to seed data
+      cache[STORAGE_KEYS.MUNICIPALITY] = initialMunicipality;
+      cache[STORAGE_KEYS.USERS] = initialUsers;
+      cache[STORAGE_KEYS.CURRENT_USER] = initialUsers[3];
+      cache[STORAGE_KEYS.CYCLE] = initialCycle;
+      cache[STORAGE_KEYS.NEIGHBORHOODS] = initialNeighborhoods;
+      cache[STORAGE_KEYS.PROPERTIES] = initialProperties;
+      cache[STORAGE_KEYS.VISITS] = [];
+      cache[STORAGE_KEYS.OVITRAPS] = initialOvitraps;
+      cache[STORAGE_KEYS.STRATEGIC_POINTS] = initialStrategicPoints;
+      cache[STORAGE_KEYS.SPECIAL_PROPERTIES] = initialSpecialProperties;
+      cache[STORAGE_KEYS.EPIDEMIOLOGY_EVENTS] = initialEpidemiologicalEvents;
+      cache[STORAGE_KEYS.EPIDEMIOLOGY_BLOCKS] = initialEpidemiologicalBlocks;
+      cache[STORAGE_KEYS.COMPLAINTS] = initialComplaints;
+      cache[STORAGE_KEYS.SUPPLIES] = initialSupplies;
+      cache[STORAGE_KEYS.EQUIPMENTS] = initialEquipments;
+      cache[STORAGE_KEYS.TASKS] = initialTasks;
+      cache[STORAGE_KEYS.ALERTS] = initialAlerts;
+      cache[STORAGE_KEYS.REFERRALS] = initialReferrals;
+      cache[STORAGE_KEYS.AUDIT_LOGS] = initialAuditLogs;
+    }
+    this.initialized = true;
+  }
+
+  // No-op (kept for backward compatibility; real init is initFromApi)
   init() {
-    if (!localStorage.getItem(STORAGE_KEYS.MUNICIPALITY)) {
-      saveToStorage(STORAGE_KEYS.MUNICIPALITY, initialMunicipality);
-    }
-    if (!localStorage.getItem(STORAGE_KEYS.USERS)) {
-      saveToStorage(STORAGE_KEYS.USERS, initialUsers);
-    }
-    if (!localStorage.getItem(STORAGE_KEYS.CURRENT_USER)) {
-      // Default to Endemias Coordinator for full administrative view, can be switched anytime
-      saveToStorage(STORAGE_KEYS.CURRENT_USER, initialUsers[3]);
-    }
-    if (!localStorage.getItem(STORAGE_KEYS.CYCLE)) {
-      saveToStorage(STORAGE_KEYS.CYCLE, initialCycle);
-    }
-    if (!localStorage.getItem(STORAGE_KEYS.NEIGHBORHOODS)) {
-      saveToStorage(STORAGE_KEYS.NEIGHBORHOODS, initialNeighborhoods);
-    }
-    if (!localStorage.getItem(STORAGE_KEYS.PROPERTIES)) {
-      saveToStorage(STORAGE_KEYS.PROPERTIES, initialProperties);
-    }
-    if (!localStorage.getItem(STORAGE_KEYS.OVITRAPS)) {
-      saveToStorage(STORAGE_KEYS.OVITRAPS, initialOvitraps);
-    }
-    if (!localStorage.getItem(STORAGE_KEYS.STRATEGIC_POINTS)) {
-      saveToStorage(STORAGE_KEYS.STRATEGIC_POINTS, initialStrategicPoints);
-    }
-    if (!localStorage.getItem(STORAGE_KEYS.SPECIAL_PROPERTIES)) {
-      saveToStorage(STORAGE_KEYS.SPECIAL_PROPERTIES, initialSpecialProperties);
-    }
-    if (!localStorage.getItem(STORAGE_KEYS.EPIDEMIOLOGY_EVENTS)) {
-      saveToStorage(STORAGE_KEYS.EPIDEMIOLOGY_EVENTS, initialEpidemiologicalEvents);
-    }
-    if (!localStorage.getItem(STORAGE_KEYS.EPIDEMIOLOGY_BLOCKS)) {
-      saveToStorage(STORAGE_KEYS.EPIDEMIOLOGY_BLOCKS, initialEpidemiologicalBlocks);
-    }
-    if (!localStorage.getItem(STORAGE_KEYS.COMPLAINTS)) {
-      saveToStorage(STORAGE_KEYS.COMPLAINTS, initialComplaints);
-    }
-    if (!localStorage.getItem(STORAGE_KEYS.SUPPLIES)) {
-      saveToStorage(STORAGE_KEYS.SUPPLIES, initialSupplies);
-    }
-    if (!localStorage.getItem(STORAGE_KEYS.EQUIPMENTS)) {
-      saveToStorage(STORAGE_KEYS.EQUIPMENTS, initialEquipments);
-    }
-    if (!localStorage.getItem(STORAGE_KEYS.TASKS)) {
-      saveToStorage(STORAGE_KEYS.TASKS, initialTasks);
-    }
-    if (!localStorage.getItem(STORAGE_KEYS.ALERTS)) {
-      saveToStorage(STORAGE_KEYS.ALERTS, initialAlerts);
-    }
-    if (!localStorage.getItem(STORAGE_KEYS.REFERRALS)) {
-      saveToStorage(STORAGE_KEYS.REFERRALS, initialReferrals);
-    }
-    if (!localStorage.getItem(STORAGE_KEYS.AUDIT_LOGS)) {
-      saveToStorage(STORAGE_KEYS.AUDIT_LOGS, initialAuditLogs);
-    }
-    if (!localStorage.getItem(STORAGE_KEYS.VISITS)) {
-      saveToStorage(STORAGE_KEYS.VISITS, []);
-    }
-    if (!localStorage.getItem(STORAGE_KEYS.OFFLINE_QUEUE)) {
-      saveToStorage(STORAGE_KEYS.OFFLINE_QUEUE, []);
-    }
+    // Initialization happens via initFromApi() called from App.tsx
   }
 
   // --- CURRENT USER & AUTH ---
@@ -839,5 +908,3 @@ class EndemiasStorageService {
 }
 
 export const db = new EndemiasStorageService();
-// Self-initialize on module load
-db.init();

@@ -34,12 +34,22 @@ import { ReferralsView } from './components/views/ReferralsView';
 import { AuditLogsView } from './components/views/AuditLogsView';
 import { AdministrationView } from './components/views/AdministrationView';
 import { SystemHealthView } from './components/views/SystemHealthView';
+import { QuickAddModal } from './components/QuickAddModal';
 
 export default function App() {
   const [currentView, setCurrentView] = useState<ViewModule>('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<User>(db.getCurrentUser());
   const [pendingSyncCount, setPendingSyncCount] = useState<number>(0);
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
+
+  useEffect(() => {
+    db.initFromApi().then(() => {
+      setCurrentUser(db.getCurrentUser());
+      setLoading(false);
+    });
+  }, []);
 
   const municipality = db.getMunicipality();
   const alerts = db.getAlerts();
@@ -54,7 +64,7 @@ export default function App() {
   const handleSwitchRole = (newRole: UserRole) => {
     const updatedUser: User = { ...currentUser, role: newRole };
     setCurrentUser(updatedUser);
-    localStorage.setItem('endemias_current_user', JSON.stringify(updatedUser));
+    db.setCurrentUser(updatedUser);
   };
 
   const handleSync = () => {
@@ -132,6 +142,17 @@ export default function App() {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-slate-600 font-semibold text-sm">Carregando dados municipais...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col font-sans text-slate-800 antialiased selection:bg-blue-600 selection:text-white">
       {/* Top Main Navigation Header */}
@@ -145,6 +166,8 @@ export default function App() {
         onOpenAlerts={() => setCurrentView('alerts')}
         onOpenTvMode={() => setCurrentView('tv_mode')}
         municipalityName={municipality.name}
+        onQuickAdd={() => setQuickAddOpen(true)}
+        onHome={() => setCurrentView('dashboard')}
       />
 
       {/* Body Layout: Sidebar + Main Content */}
@@ -169,6 +192,9 @@ export default function App() {
           </div>
         </main>
       </div>
+
+      {/* Quick Add Modal */}
+      <QuickAddModal isOpen={quickAddOpen} onClose={() => setQuickAddOpen(false)} />
     </div>
   );
 }
