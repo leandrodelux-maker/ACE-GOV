@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="shieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0284c7" />
+      <stop offset="100%" stop-color="#03487a" />
+    </linearGradient>
+    <linearGradient id="crossGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#10b981" />
+      <stop offset="100%" stop-color="#059669" />
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="128" fill="#042749" />
+  <!-- Outer Shield -->
+  <path d="M 256 64 C 360 90 416 110 416 230 C 416 350 310 420 256 448 C 202 420 96 350 96 230 C 96 110 152 90 256 64 Z" fill="url(#shieldGrad)" />
+  <!-- Inner Cross / Vector Radar -->
+  <circle cx="256" cy="240" r="100" fill="none" stroke="#ffffff" stroke-opacity="0.15" stroke-width="8" />
+  <circle cx="256" cy="240" r="60" fill="none" stroke="#ffffff" stroke-opacity="0.25" stroke-width="6" />
+  <!-- Health Cross -->
+  <rect x="236" y="170" width="40" height="140" rx="8" fill="#ffffff" />
+  <rect x="186" y="220" width="140" height="40" rx="8" fill="#ffffff" />
+  <!-- Target Dot -->
+  <circle cx="256" cy="240" r="12" fill="#ef4444" />
+  <circle cx="256" cy="240" r="24" fill="none" stroke="#ef4444" stroke-width="4" stroke-dasharray="6,6" />
+  <!-- Star / SUS emblem -->
+  <path d="M 256 96 L 264 116 L 285 116 L 268 128 L 274 148 L 256 136 L 238 148 L 244 128 L 227 116 L 248 116 Z" fill="#fbbf24" />
+</svg>

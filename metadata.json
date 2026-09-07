@@ -1,0 +1,10 @@
+{
+  "name": "Endemias GOV",
+  "description": "Plataforma Municipal de Inteligência, Vigilância Epidemiológica e Controle de Endemias",
+  "requestFramePermissions": [
+    "geolocation"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
