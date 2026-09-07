@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Send, Plus, CheckCircle, Clock, Building, MapPin, X } from 'lucide-react';
+import { Send, Plus, CheckCircle, Clock, Building, MapPin, X, Search } from 'lucide-react';
 import { db } from '../../services/storage';
 import { IntersectoralReferral } from '../../types';
 
@@ -9,6 +9,20 @@ export const ReferralsView: React.FC = () => {
   const [targetSector, setTargetSector] = useState<IntersectoralReferral['targetSector']>('LIMPEZA_URBANA');
   const [propertyAddress, setPropertyAddress] = useState('');
   const [description, setDescription] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterStatus, setFilterStatus] = useState('ALL');
+  const [filterSector, setFilterSector] = useState('ALL');
+
+  const filteredReferrals = referrals.filter(ref => {
+    const matchesSearch =
+      ref.propertyAddress.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      ref.protocol.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      ref.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      ref.issuedByAgentName.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = filterStatus === 'ALL' || ref.status === filterStatus;
+    const matchesSector = filterSector === 'ALL' || ref.targetSector === filterSector;
+    return matchesSearch && matchesStatus && matchesSector;
+  });
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,9 +70,44 @@ export const ReferralsView: React.FC = () => {
         </button>
       </div>
 
+      {/* Search & Filter Bar */}
+      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-2 bg-slate-50 px-3 py-2 rounded-lg border border-slate-200 flex-1 min-w-[240px] text-xs">
+          <Search className="w-4 h-4 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Buscar por endereço, protocolo ou agente..."
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+            className="w-full bg-transparent outline-none text-slate-800 placeholder-slate-400"
+          />
+        </div>
+        <select
+          value={filterStatus}
+          onChange={e => setFilterStatus(e.target.value)}
+          className="bg-slate-50 px-3 py-2 rounded-lg border border-slate-200 font-medium text-slate-700 text-xs outline-none cursor-pointer"
+        >
+          <option value="ALL">Todos os Status</option>
+          <option value="ENVIADO">Enviado</option>
+          <option value="RESOLVIDO">Resolvido</option>
+        </select>
+        <select
+          value={filterSector}
+          onChange={e => setFilterSector(e.target.value)}
+          className="bg-slate-50 px-3 py-2 rounded-lg border border-slate-200 font-medium text-slate-700 text-xs outline-none cursor-pointer"
+        >
+          <option value="ALL">Todos os Órgãos</option>
+          <option value="LIMPEZA_URBANA">Limpeza Urbana</option>
+          <option value="VIGILANCIA_SANITARIA">Vigilância Sanitária</option>
+          <option value="MEIO_AMBIENTE">Meio Ambiente</option>
+          <option value="OBRAS_PUBLICAS">Obras Públicas</option>
+          <option value="ATENCAO_PRIMARIA">Atenção Primária</option>
+        </select>
+      </div>
+
       {/* Referrals List */}
       <div className="space-y-3">
-        {referrals.map(ref => (
+        {filteredReferrals.map(ref => (
           <div key={ref.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs space-y-2 text-xs">
             <div className="flex justify-between items-center">
               <span className="font-extrabold uppercase text-[10px] px-2 py-0.5 rounded bg-indigo-50 text-indigo-800 border border-indigo-200">

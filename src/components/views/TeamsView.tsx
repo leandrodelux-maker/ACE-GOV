@@ -10,11 +10,23 @@ import {
   CheckCircle,
   Briefcase,
   Layers,
+  Search,
 } from 'lucide-react';
 import { db } from '../../services/storage';
 
 export const TeamsView: React.FC = () => {
   const loadData = db.calculateAgentsOperationalLoad();
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterLoad, setFilterLoad] = useState('ALL');
+
+  const filteredData = loadData.filter(item => {
+    const matchesSearch =
+      item.agentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.teamName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.agentId.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesLoad = filterLoad === 'ALL' || item.loadCategory === filterLoad;
+    return matchesSearch && matchesLoad;
+  });
 
   return (
     <div className="space-y-6">
@@ -31,8 +43,32 @@ export const TeamsView: React.FC = () => {
         </div>
 
         <span className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-blue-50 text-blue-800 border border-blue-200">
-          6 Equipes • {loadData.length} ACEs Monitorados
+          6 Equipes • {filteredData.length} ACEs
         </span>
+      </div>
+
+      {/* Search & Filter Bar */}
+      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-2 bg-slate-50 px-3 py-2 rounded-lg border border-slate-200 flex-1 min-w-[240px] text-xs">
+          <Search className="w-4 h-4 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Buscar por agente, equipe ou matrícula..."
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+            className="w-full bg-transparent outline-none text-slate-800 placeholder-slate-400"
+          />
+        </div>
+        <select
+          value={filterLoad}
+          onChange={e => setFilterLoad(e.target.value)}
+          className="bg-slate-50 px-3 py-2 rounded-lg border border-slate-200 font-medium text-slate-700 text-xs outline-none cursor-pointer"
+        >
+          <option value="ALL">Todas as Cargas</option>
+          <option value="EQUILIBRADA">Equilibrada</option>
+          <option value="MODERADA">Moderada</option>
+          <option value="SOBRECARREGADA">Sobrecarregada</option>
+        </select>
       </div>
 
       {/* Agents Operational Load Table */}
@@ -60,7 +96,7 @@ export const TeamsView: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {loadData.map(item => {
+              {filteredData.map(item => {
                 const isOverloaded = item.loadCategory === 'SOBRECARREGADA';
                 const isBalanced = item.loadCategory === 'EQUILIBRADA';
 
