@@ -12,6 +12,7 @@ import {
   ChevronDown,
   Download,
   AlertTriangle,
+  Plus,
 } from 'lucide-react';
 import { User, UserRole } from '../types';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
@@ -27,6 +28,7 @@ interface HeaderProps {
   onOpenAlerts: () => void;
   onOpenTvMode: () => void;
   municipalityName: string;
+  onQuickAdd: () => void;
 }
 
 const ROLES_LIST: { role: UserRole; label: string; badgeColor: string }[] = [
@@ -52,6 +54,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenAlerts,
   onOpenTvMode,
   municipalityName,
+  onQuickAdd,
 }) => {
   const isOnline = useOnlineStatus();
   const { isInstallable, isInstalled, install, isIOS } = usePWAInstall();
@@ -95,6 +98,16 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Right: Actions, Sync, Notifications & Role Switcher */}
         <div className="flex items-center gap-2 sm:gap-3">
+          {/* Quick Add Button */}
+          <button
+            onClick={onQuickAdd}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-sm transition"
+            title="Cadastro Rápido de Novas Entradas"
+          >
+            <Plus className="w-4 h-4" />
+            <span className="hidden sm:inline">Novo Cadastro</span>
+          </button>
+
           {/* PWA Install Button */}
           {!isInstalled && (
             <>

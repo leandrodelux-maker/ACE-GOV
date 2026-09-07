@@ -34,6 +34,7 @@ import { ReferralsView } from './components/views/ReferralsView';
 import { AuditLogsView } from './components/views/AuditLogsView';
 import { AdministrationView } from './components/views/AdministrationView';
 import { SystemHealthView } from './components/views/SystemHealthView';
+import { QuickAddModal } from './components/QuickAddModal';
 
 export default function App() {
   const [currentView, setCurrentView] = useState<ViewModule>('dashboard');
@@ -41,6 +42,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<User>(db.getCurrentUser());
   const [pendingSyncCount, setPendingSyncCount] = useState<number>(0);
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
 
   useEffect(() => {
     db.initFromApi().then(() => {
@@ -164,6 +166,7 @@ export default function App() {
         onOpenAlerts={() => setCurrentView('alerts')}
         onOpenTvMode={() => setCurrentView('tv_mode')}
         municipalityName={municipality.name}
+        onQuickAdd={() => setQuickAddOpen(true)}
       />
 
       {/* Body Layout: Sidebar + Main Content */}
@@ -188,6 +191,9 @@ export default function App() {
           </div>
         </main>
       </div>
+
+      {/* Quick Add Modal */}
+      <QuickAddModal isOpen={quickAddOpen} onClose={() => setQuickAddOpen(false)} />
     </div>
   );
 }
