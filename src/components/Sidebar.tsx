@@ -30,11 +30,49 @@ import {
   Settings,
   HeartPulse,
   X,
+  KeyRound,
+  UserCheck,
+  Shield,
+  PieChart,
+  Boxes,
+  TrendingUp,
+  Upload,
+  ShieldCheck,
+  AlertTriangle,
+  FlaskConical,
+  QrCode,
+  ClipboardList,
+  Server,
+  GraduationCap,
+  MessageSquare,
+  Globe,
+  Radio,
+  Target,
+  BarChart2,
 } from 'lucide-react';
 import { UserRole } from '../types';
+import { can } from '../services/rbac';
 
 export type ViewModule =
   | 'dashboard'
+  | 'daily_briefing'
+  | 'command_center'
+  | 'historical_analysis'
+  | 'management_targets'
+  | 'liraa'
+  | 'entomology_lab'
+  | 'supervisor_mobile'
+  | 'work_orders'
+  | 'documents'
+  | 'labels'
+  | 'integrations'
+  | 'stock'
+  | 'vector_control'
+  | 'productivity'
+  | 'data_import'
+  | 'data_quality'
+  | 'system_settings'
+  | 'system_errors'
   | 'territory'
   | 'properties'
   | 'visits'
@@ -48,6 +86,7 @@ export type ViewModule =
   | 'epidemiology'
   | 'complaints'
   | 'teams'
+  | 'trainings'
   | 'supplies'
   | 'equipments'
   | 'map'
@@ -61,7 +100,13 @@ export type ViewModule =
   | 'transparency'
   | 'referrals'
   | 'audit'
+  | 'communication'
+  | 'multi_disease'
+  | 'public_portal'
   | 'admin'
+  | 'admin_users'
+  | 'admin_roles'
+  | 'admin_audit'
   | 'system_health';
 
 interface SidebarProps {
@@ -81,6 +126,7 @@ interface NavSection {
     icon: React.ElementType;
     badge?: string;
     highlight?: boolean;
+    requiredPermission?: string;
     allowedRoles?: UserRole[];
   }[];
 }
@@ -103,63 +149,105 @@ export const Sidebar: React.FC<SidebarProps> = ({
           icon: Smartphone,
           badge: pendingSyncCount > 0 ? `${pendingSyncCount} pend.` : 'Mobile',
           highlight: true,
+          requiredPermission: 'visits.create',
         },
-        { id: 'routes', label: 'Minha Rota Otimizada', icon: Navigation },
-        { id: 'visits', label: 'Visitas Domiciliares', icon: CheckSquare },
-        { id: 'planning', label: 'Planejamento de Campo', icon: Calendar },
+        {
+          id: 'supervisor_mobile',
+          label: 'Supervisor Mobile',
+          icon: Users,
+          badge: 'Campo',
+          allowedRoles: ['FIELD_SUPERVISOR', 'ENDEMIAS_COORDINATOR', 'MUNICIPAL_ADMIN', 'SUPER_ADMIN'],
+        },
+        { id: 'vector_control', label: 'Controle Vetorial', icon: Crosshair, requiredPermission: 'visits.view' },
+        { id: 'routes', label: 'Minha Rota Otimizada', icon: Navigation, requiredPermission: 'field_planning.view' },
+        { id: 'visits', label: 'Visitas Domiciliares', icon: CheckSquare, requiredPermission: 'visits.view' },
+        { id: 'planning', label: 'Planejamento de Campo', icon: Calendar, requiredPermission: 'field_planning.view' },
       ],
     },
     {
       title: 'VIGILÂNCIA & INTELIGÊNCIA',
       items: [
-        { id: 'dashboard', label: 'Sala de Situação', icon: LayoutDashboard },
-        { id: 'executive', label: 'Painel do Secretário', icon: Crown },
-        { id: 'tv_mode', label: 'Central TV / Telão', icon: Monitor },
-        { id: 'map', label: 'Mapa Municipal', icon: Map },
-        { id: 'risk_engine', label: 'Motor de Risco (0-100)', icon: ShieldAlert },
-        { id: 'ai_assistant', label: 'Assistente IA Endemias', icon: Sparkles },
+        { id: 'daily_briefing', label: 'Briefing Diário', icon: FileText, highlight: true, badge: 'Matinal', requiredPermission: 'reports.view' },
+        { id: 'command_center', label: 'Centro de Comando', icon: Radio, highlight: true, badge: 'Cockpit', requiredPermission: 'dashboard.view' },
+        { id: 'dashboard', label: 'Sala de Situação', icon: LayoutDashboard, requiredPermission: 'dashboard.view' },
+        { id: 'historical_analysis', label: 'Análise Histórica', icon: BarChart2, requiredPermission: 'dashboard.view' },
+        { id: 'entomology_lab', label: 'Laboratório Entomológico', icon: FlaskConical, requiredPermission: 'dashboard.view' },
+        { id: 'liraa', label: 'LIRAa / LIA', icon: PieChart, requiredPermission: 'dashboard.view' },
+        { id: 'executive', label: 'Painel do Secretário', icon: Crown, requiredPermission: 'reports.view' },
+        { id: 'tv_mode', label: 'Central TV / Telão', icon: Monitor, requiredPermission: 'dashboard.view' },
+        { id: 'map', label: 'Mapa Municipal', icon: Map, requiredPermission: 'maps.view' },
+        { id: 'risk_engine', label: 'Motor de Risco (0-100)', icon: ShieldAlert, requiredPermission: 'risk_engine.view' },
+        { id: 'ai_assistant', label: 'Assistente IA Endemias', icon: Sparkles, requiredPermission: 'ai_assistant.use' },
       ],
     },
     {
       title: 'TERRITÓRIO & CONTROLE',
       items: [
-        { id: 'territory', label: 'Território Municipal', icon: MapPin },
-        { id: 'properties', label: 'Cadastro de Imóveis', icon: Home },
-        { id: 'foci_recurrence', label: 'Focos e Reincidências', icon: Flame },
-        { id: 'ovitraps', label: 'Ovitrampas (Ovos)', icon: Layers },
-        { id: 'strategic_points', label: 'Pontos Estratégicos (PE)', icon: Crosshair },
-        { id: 'special_properties', label: 'Imóveis Especiais (IE)', icon: Building2 },
+        { id: 'territory', label: 'Território Municipal', icon: MapPin, requiredPermission: 'territory.view' },
+        { id: 'properties', label: 'Cadastro de Imóveis', icon: Home, requiredPermission: 'properties.view' },
+        { id: 'foci_recurrence', label: 'Focos e Reincidências', icon: Flame, requiredPermission: 'outbreaks.view' },
+        { id: 'ovitraps', label: 'Ovitrampas (Ovos)', icon: Layers, requiredPermission: 'ovitraps.view' },
+        { id: 'strategic_points', label: 'Pontos Estratégicos (PE)', icon: Crosshair, requiredPermission: 'strategic_points.view' },
+        { id: 'special_properties', label: 'Imóveis Especiais (IE)', icon: Building2, requiredPermission: 'special_properties.view' },
       ],
     },
     {
       title: 'EPIDEMIOLOGIA & CIDADÃO',
       items: [
-        { id: 'epidemiology', label: 'Bloqueios Epidêmicos', icon: Activity },
-        { id: 'complaints', label: 'Portal de Denúncias', icon: AlertCircle },
-        { id: 'referrals', label: 'Encaminhamentos', icon: Send },
-        { id: 'transparency', label: 'Endemias em Números', icon: Eye },
+        { id: 'epidemiology', label: 'Bloqueios Epidêmicos', icon: Activity, requiredPermission: 'epidemiology.view' },
+        { id: 'complaints', label: 'Portal de Denúncias', icon: AlertCircle, requiredPermission: 'complaints.view' },
+        { id: 'public_portal', label: 'Portal Cidadão (Público)', icon: Globe, requiredPermission: 'reports.view' },
+        { id: 'referrals', label: 'Encaminhamentos', icon: Send, requiredPermission: 'complaints.view' },
+        { id: 'transparency', label: 'Endemias em Números', icon: Eye, requiredPermission: 'reports.view' },
       ],
     },
     {
-      title: 'GESTÃO, LOGÍSTICA & RELATÓRIOS',
+      title: 'GESTÃO OPERACIONAL & LOGÍSTICA',
       items: [
-        { id: 'teams', label: 'Equipes & Carga ACE', icon: Users },
-        { id: 'supplies', label: 'Insumos & Larvicidas', icon: Package },
-        { id: 'equipments', label: 'Equipamentos & UBV', icon: Wrench },
-        { id: 'cycles', label: 'Ciclos (LIRAa / LIA)', icon: Clock },
-        { id: 'reports', label: 'Central de Relatórios', icon: FileText },
-        { id: 'alerts', label: 'Central de Alertas', icon: Bell },
+        { id: 'management_targets', label: 'Metas e Indicadores', icon: Target, requiredPermission: 'reports.view' },
+        { id: 'work_orders', label: 'Ordens de Serviço (OS)', icon: ClipboardList, requiredPermission: 'visits.view' },
+        { id: 'trainings', label: 'Capacitações & Cursos', icon: GraduationCap, requiredPermission: 'teams.view' },
+        { id: 'documents', label: 'Central de Documentos', icon: FileText, requiredPermission: 'reports.view' },
+        { id: 'productivity', label: 'Produtividade ACE', icon: TrendingUp, requiredPermission: 'teams.view' },
+        { id: 'stock', label: 'Estoque e Insumos', icon: Boxes, requiredPermission: 'teams.view' },
+        { id: 'teams', label: 'Equipes & Carga ACE', icon: Users, requiredPermission: 'teams.view' },
+        { id: 'supplies', label: 'Insumos & Larvicidas', icon: Package, requiredPermission: 'teams.view' },
+        { id: 'equipments', label: 'Equipamentos & UBV', icon: Wrench, requiredPermission: 'teams.view' },
+        { id: 'cycles', label: 'Ciclos (LIRAa / LIA)', icon: Clock, requiredPermission: 'cycles.view' },
+        { id: 'reports', label: 'Central de Relatórios', icon: FileText, requiredPermission: 'reports.view' },
+        { id: 'alerts', label: 'Central de Alertas', icon: Bell, requiredPermission: 'dashboard.view' },
       ],
     },
     {
-      title: 'SISTEMA & AUDITORIA',
+      title: 'ADMINISTRAÇÃO',
       items: [
-        { id: 'audit', label: 'Auditoria do Sistema', icon: FileSearch },
-        { id: 'admin', label: 'Administração & RBAC', icon: Settings },
-        { id: 'system_health', label: 'Saúde do Sistema', icon: HeartPulse },
+        { id: 'admin_users', label: 'Usuários', icon: UserCheck, requiredPermission: 'users.view' },
+        { id: 'admin_roles', label: 'Perfis e Permissões', icon: KeyRound, requiredPermission: 'roles.view' },
+        { id: 'communication', label: 'Comunicação Operacional', icon: MessageSquare, requiredPermission: 'settings.manage' },
+        { id: 'multi_disease', label: 'Módulos de Endemias', icon: Layers, requiredPermission: 'settings.manage' },
+        { id: 'labels', label: 'Gerador de Etiquetas (QR)', icon: QrCode, requiredPermission: 'settings.view' },
+        { id: 'integrations', label: 'Central de Integrações', icon: Server, requiredPermission: 'settings.manage' },
+        { id: 'system_settings', label: 'Central de Configurações', icon: Settings, requiredPermission: 'settings.manage' },
+        { id: 'data_import', label: 'Importação de Dados', icon: Upload, requiredPermission: 'settings.manage' },
+        { id: 'data_quality', label: 'Qualidade dos Dados', icon: ShieldCheck, requiredPermission: 'settings.view' },
+        { id: 'admin_audit', label: 'Auditoria', icon: FileSearch, requiredPermission: 'audit.view' },
+        { id: 'system_health', label: 'Saúde do Sistema', icon: HeartPulse, requiredPermission: 'settings.view' },
+        { id: 'system_errors', label: 'Logs de Erros', icon: AlertTriangle, allowedRoles: ['SUPER_ADMIN'] },
       ],
     },
   ];
+
+  // Filtragem estrita de segurança visual via can(userRole, permission) e allowedRoles
+  const filteredSections = sections
+    .map((section) => ({
+      ...section,
+      items: section.items.filter((item) => {
+        if (item.allowedRoles && !item.allowedRoles.includes(userRole)) return false;
+        if (!item.requiredPermission) return true;
+        return can(userRole, item.requiredPermission);
+      }),
+    }))
+    .filter((section) => section.items.length > 0);
 
   return (
     <>
@@ -190,7 +278,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* Scrollable Navigation List */}
         <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-6 text-xs">
-          {sections.map(section => (
+          {filteredSections.map(section => (
             <div key={section.title}>
               <p className="px-3 mb-2 text-[10px] font-bold tracking-wider text-slate-400 uppercase">
                 {section.title}

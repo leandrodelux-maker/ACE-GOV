@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Package,
   Plus,
@@ -11,9 +11,46 @@ import {
 } from 'lucide-react';
 import { db } from '../../services/storage';
 import { SupplyItem } from '../../types';
+import { supabase } from '../../services/supabaseClient';
 
 export const SuppliesView: React.FC = () => {
   const [supplies, setSupplies] = useState<SupplyItem[]>(db.getSupplies());
+
+  useEffect(() => {
+    async function loadSupabaseSupplies() {
+      try {
+        const { data, error } = await supabase
+          .from('supplies')
+          .select('*')
+          .order('name');
+
+        if (!error && data && data.length > 0) {
+          const mapped: SupplyItem[] = data.map(s => ({
+            id: s.id,
+            municipalityId: s.municipality_id,
+            name: s.name,
+            category: s.category as any,
+            currentStock: Number(s.quantity),
+            minimumStock: Number(s.minimum_stock),
+            unit: s.unit,
+            isLowStock: Number(s.quantity) <= Number(s.minimum_stock),
+            batches: s.batch_number ? [{
+              id: `bat-${s.id}`,
+              batchNumber: s.batch_number,
+              quantity: Number(s.quantity),
+              expirationDate: s.expiration_date || '2027-12-31',
+              supplier: 'Ministério da Saúde / SES',
+              isNearExpiration: false,
+            }] : [],
+          }));
+          setSupplies(mapped);
+        }
+      } catch (err) {
+        console.warn('Fallback para insumos locais:', err);
+      }
+    }
+    loadSupabaseSupplies();
+  }, []);
 
   const lowStockCount = supplies.filter(s => s.isLowStock || s.currentStock <= s.minimumStock).length;
 

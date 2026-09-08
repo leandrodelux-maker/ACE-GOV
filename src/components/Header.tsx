@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Shield,
   Menu,
@@ -12,10 +12,14 @@ import {
   ChevronDown,
   Download,
   AlertTriangle,
+  LogOut,
+  Search,
 } from 'lucide-react';
 import { User, UserRole } from '../types';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { usePWAInstall } from '../hooks/usePWAInstall';
+import { GlobalSearchModal } from './GlobalSearchModal';
+import { NotificationsDrawer } from './NotificationsDrawer';
 
 interface HeaderProps {
   currentUser: User;
@@ -27,6 +31,8 @@ interface HeaderProps {
   onOpenAlerts: () => void;
   onOpenTvMode: () => void;
   municipalityName: string;
+  onLogout?: () => void;
+  onNavigate?: (module: string) => void;
 }
 
 const ROLES_LIST: { role: UserRole; label: string; badgeColor: string }[] = [
@@ -52,11 +58,26 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenAlerts,
   onOpenTvMode,
   municipalityName,
+  onLogout,
+  onNavigate,
 }) => {
   const isOnline = useOnlineStatus();
   const { isInstallable, isInstalled, install, isIOS } = usePWAInstall();
   const [roleDropdownOpen, setRoleDropdownOpen] = useState(false);
   const [showIosModal, setShowIosModal] = useState(false);
+  const [searchModalOpen, setSearchModalOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setSearchModalOpen(true);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const currentRoleInfo = ROLES_LIST.find(r => r.role === currentUser.role) || ROLES_LIST[0];
 
@@ -93,8 +114,29 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
 
+        {/* Center: Busca Global Instantânea */}
+        <div className="hidden md:flex items-center flex-1 max-w-md mx-4">
+          <button
+            onClick={() => setSearchModalOpen(true)}
+            className="w-full flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 text-xs text-slate-300 transition cursor-pointer"
+          >
+            <Search className="w-3.5 h-3.5 text-slate-400" />
+            <span className="flex-1 text-left truncate">Buscar imóvel, ACE, bairro, PE, denúncia...</span>
+            <kbd className="text-[10px] font-mono bg-slate-900 px-1.5 py-0.5 rounded text-slate-400 border border-slate-700">Ctrl+K</kbd>
+          </button>
+        </div>
+
         {/* Right: Actions, Sync, Notifications & Role Switcher */}
         <div className="flex items-center gap-2 sm:gap-3">
+          {/* Botão de Busca Mobile */}
+          <button
+            onClick={() => setSearchModalOpen(true)}
+            className="p-2 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg md:hidden transition"
+            title="Buscar"
+          >
+            <Search className="w-4 h-4" />
+          </button>
+
           {/* PWA Install Button */}
           {!isInstalled && (
             <>
@@ -155,9 +197,9 @@ export const Header: React.FC<HeaderProps> = ({
             <Monitor className="w-4 h-4" />
           </button>
 
-          {/* Alerts Bell */}
+          {/* Alerts Bell com Abertura de Drawer Lateral */}
           <button
-            onClick={onOpenAlerts}
+            onClick={() => setDrawerOpen(true)}
             className="relative p-2 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition"
             title="Central de Alertas em Tempo Real"
           >
@@ -218,6 +260,22 @@ export const Header: React.FC<HeaderProps> = ({
                     );
                   })}
                 </div>
+
+                {/* Botão Oficial de Logout */}
+                {onLogout && (
+                  <div className="p-2 border-t border-slate-100 bg-slate-50 rounded-b-xl">
+                    <button
+                      onClick={() => {
+                        setRoleDropdownOpen(false);
+                        onLogout();
+                      }}
+                      className="w-full py-2 px-3 rounded-lg text-xs font-semibold text-rose-700 hover:bg-rose-100/70 transition flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <LogOut className="w-3.5 h-3.5" />
+                      <span>Sair do Sistema / Desconectar</span>
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -248,6 +306,24 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
       )}
+
+      {/* Modal de Busca Global com Debounce */}
+      <GlobalSearchModal
+        isOpen={searchModalOpen}
+        onClose={() => setSearchModalOpen(false)}
+        onSelectResult={(mod) => {
+          if (onNavigate) onNavigate(mod);
+        }}
+      />
+
+      {/* Gaveta Lateral de Notificações com Ciência Obrigatória */}
+      <NotificationsDrawer
+        isOpen={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        onNavigateToModule={(mod) => {
+          if (onNavigate) onNavigate(mod);
+        }}
+      />
     </header>
   );
 };

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Home,
   CheckCircle2,
@@ -19,8 +19,11 @@ import {
   TrendingUp,
   MapPin,
   Calendar,
+  RefreshCw,
 } from 'lucide-react';
-import { db } from '../../services/storage';
+import { situationRoomService, SituationRoomData } from '../../services/situationRoomService';
+import { supabaseService } from '../../services/supabaseService';
+import { Neighborhood } from '../../types';
 
 interface DashboardViewProps {
   onNavigate: (module: string) => void;
@@ -29,48 +32,45 @@ interface DashboardViewProps {
 export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
   const [periodFilter, setPeriodFilter] = useState<'today' | '7days' | '30days' | 'cycle'>('cycle');
   const [neighborhoodFilter, setNeighborhoodFilter] = useState<string>('ALL');
+  const [neighborhoodsList, setNeighborhoodsList] = useState<Neighborhood[]>([]);
+  const [dashboardData, setDashboardData] = useState<SituationRoomData | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  const municipality = db.getMunicipality();
-  const cycle = db.getCycle();
-  const neighborhoods = db.getNeighborhoods();
-  const properties = db.getProperties();
-  const ovitraps = db.getOvitraps();
-  const strategicPoints = db.getStrategicPoints();
-  const blocks = db.getEpidemiologyBlocks();
-  const complaints = db.getComplaints();
-  const visits = db.getVisits();
+  // Carregar lista de bairros para o select
+  useEffect(() => {
+    const loadNeighborhoods = async () => {
+      const muni = await supabaseService.getMunicipality();
+      if (muni) {
+        const neighs = await supabaseService.getNeighborhoods(muni.id);
+        if (neighs) setNeighborhoodsList(neighs);
+      }
+    };
+    loadNeighborhoods();
+  }, []);
 
-  // Filtered properties
-  const filteredProps = useMemo(() => {
-    if (neighborhoodFilter === 'ALL') return properties;
-    return properties.filter(p => p.neighborhoodId === neighborhoodFilter || p.neighborhood === neighborhoodFilter);
-  }, [properties, neighborhoodFilter]);
+  // Carregar dados reais agregados com cache
+  const loadSituationData = useCallback(async (force = false) => {
+    setIsLoading(true);
+    try {
+      const data = await situationRoomService.getSituationData({
+        periodFilter,
+        neighborhoodId: neighborhoodFilter,
+        forceRefresh: force,
+      });
+      setDashboardData(data);
+    } catch (err) {
+      console.error('Erro ao carregar dados da Sala de Situação:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [periodFilter, neighborhoodFilter]);
 
-  // Calculations based on actual data
-  const totalPropertiesCount = filteredProps.length;
-  const visitedCount = filteredProps.filter(p => p.lastVisitStatus === 'TRABALHADO').length;
-  const closedCount = filteredProps.filter(p => p.status === 'FECHADO').length;
-  const refusalCount = filteredProps.filter(p => p.status === 'RECUSA').length;
-  const pendingCount = filteredProps.filter(p => p.status === 'PENDENTE' || p.status === 'FECHADO').length;
-  const fociCount = filteredProps.filter(p => p.status === 'FOCO').length;
-  const recurrentCount = filteredProps.filter(p => p.isRecurrent).length;
-  const coveragePercent = totalPropertiesCount > 0 ? Math.round((visitedCount / totalPropertiesCount) * 100) : 0;
+  useEffect(() => {
+    loadSituationData();
+  }, [loadSituationData]);
 
-  const positiveOvitrapsCount = ovitraps.filter(o => o.isPositive).length;
-  const activeBlocksCount = blocks.filter(b => b.status === 'EM_ANDAMENTO').length;
-  const openComplaintsCount = complaints.filter(c => c.status !== 'RESOLVIDA').length;
-  const overduePECount = strategicPoints.filter(pe => pe.isInspectionOverdue).length;
-
-  // Deposit types analysis (Ministério da Saúde A1-E)
-  const depositDistribution = [
-    { code: 'A1', name: 'Caixas d\'água / Elevados', count: 18, color: 'bg-blue-500' },
-    { code: 'A2', name: 'Tonéis / Tambores / Cisternas', count: 42, color: 'bg-cyan-500' },
-    { code: 'B', name: 'Vasos / Garrafas / Pratos', count: 56, color: 'bg-emerald-500' },
-    { code: 'C', name: 'Calhas / Ralos / Lajes', count: 24, color: 'bg-amber-500' },
-    { code: 'D1', name: 'Pneus e Rodantes', count: 35, color: 'bg-rose-500' },
-    { code: 'D2', name: 'Lixo / Sucatas / Recicláveis', count: 31, color: 'bg-orange-500' },
-    { code: 'E', name: 'Naturais (Ocos / Bromélias)', count: 9, color: 'bg-purple-500' },
-  ];
+  const kpis = dashboardData?.kpis;
+  const cycleName = dashboardData?.activeCycleName || 'Ciclo Ativo 2026';
 
   return (
     <div className="space-y-6">
@@ -82,7 +82,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
             <h1 className="text-xl font-bold text-slate-900 tracking-tight">Sala de Situação de Endemias</h1>
           </div>
           <p className="text-xs text-slate-500 mt-1">
-            Monitoramento entomológico, epidemiológico e operacional em tempo real — {cycle.name}
+            Monitoramento entomológico, epidemiológico e operacional em tempo real — {cycleName}
           </p>
         </div>
 
@@ -122,162 +122,209 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
               onChange={e => setNeighborhoodFilter(e.target.value)}
               className="bg-transparent font-medium text-slate-700 outline-none cursor-pointer"
             >
-              <option value="ALL">Todos os Bairros ({neighborhoods.length})</option>
-              {neighborhoods.map(n => (
+              <option value="ALL">Todos os Bairros ({neighborhoodsList.length})</option>
+              {neighborhoodsList.map(n => (
                 <option key={n.id} value={n.id}>
                   {n.name} ({n.riskLevel})
                 </option>
               ))}
             </select>
           </div>
+
+          <button
+            onClick={() => loadSituationData(true)}
+            disabled={isLoading}
+            className="p-2 text-slate-500 hover:text-slate-800 rounded-lg hover:bg-slate-100 transition"
+            title="Atualizar dados do banco"
+          >
+            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-blue-600' : ''}`} />
+          </button>
         </div>
       </div>
 
-      {/* Primary KPI Grid (Prompt 04 Requirements) */}
+      {/* Primary KPI Grid (14 Indicadores Exigidos) */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
-        {/* Imóveis Cadastrados */}
+        {/* 1. Imóveis Cadastrados */}
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs hover:border-slate-300 transition">
           <div className="flex items-center justify-between text-slate-500 mb-1.5">
             <span className="text-[11px] font-semibold uppercase tracking-wider">Imóveis Totais</span>
             <Home className="w-4 h-4 text-blue-600" />
           </div>
-          <p className="text-xl font-extrabold text-slate-900">{totalPropertiesCount.toLocaleString('pt-BR')}</p>
+          <p className="text-xl font-extrabold text-slate-900">
+            {isLoading ? '...' : (kpis?.totalProperties || 0).toLocaleString('pt-BR')}
+          </p>
           <span className="text-[10px] text-slate-500 font-medium">Cadastrados no setor</span>
         </div>
 
-        {/* Imóveis Visitados */}
+        {/* 2. Imóveis Visitados */}
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs hover:border-slate-300 transition">
           <div className="flex items-center justify-between text-slate-500 mb-1.5">
             <span className="text-[11px] font-semibold uppercase tracking-wider">Visitados</span>
             <CheckCircle2 className="w-4 h-4 text-emerald-600" />
           </div>
-          <p className="text-xl font-extrabold text-emerald-700">{visitedCount.toLocaleString('pt-BR')}</p>
-          <span className="text-[10px] text-emerald-700 font-medium">{coveragePercent}% do objetivo</span>
+          <p className="text-xl font-extrabold text-emerald-700">
+            {isLoading ? '...' : (kpis?.visited || 0).toLocaleString('pt-BR')}
+          </p>
+          <span className="text-[10px] text-emerald-700 font-medium">
+            {kpis?.coveragePercent || 0}% do objetivo
+          </span>
         </div>
 
-        {/* Cobertura Territorial */}
+        {/* 3. Cobertura Territorial */}
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs hover:border-slate-300 transition">
           <div className="flex items-center justify-between text-slate-500 mb-1.5">
             <span className="text-[11px] font-semibold uppercase tracking-wider">Cobertura</span>
             <PieChartIcon className="w-4 h-4 text-sky-600" />
           </div>
-          <p className="text-xl font-extrabold text-sky-700">{coveragePercent}%</p>
+          <p className="text-xl font-extrabold text-sky-700">
+            {isLoading ? '...' : `${kpis?.coveragePercent || 0}%`}
+          </p>
           <div className="w-full bg-slate-100 rounded-full h-1.5 mt-1.5 overflow-hidden">
             <div
-              className={`h-full rounded-full ${coveragePercent >= 80 ? 'bg-emerald-500' : coveragePercent >= 60 ? 'bg-amber-500' : 'bg-rose-500'}`}
-              style={{ width: `${Math.min(100, coveragePercent)}%` }}
+              className={`h-full rounded-full ${
+                (kpis?.coveragePercent || 0) >= 80
+                  ? 'bg-emerald-500'
+                  : (kpis?.coveragePercent || 0) >= 60
+                  ? 'bg-amber-500'
+                  : 'bg-rose-500'
+              }`}
+              style={{ width: `${Math.min(100, kpis?.coveragePercent || 0)}%` }}
             />
           </div>
         </div>
 
-        {/* Visitas Pendentes */}
+        {/* 4. Visitas Pendentes */}
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs hover:border-slate-300 transition">
           <div className="flex items-center justify-between text-slate-500 mb-1.5">
             <span className="text-[11px] font-semibold uppercase tracking-wider">Pendências</span>
             <Clock className="w-4 h-4 text-amber-500" />
           </div>
-          <p className="text-xl font-extrabold text-amber-700">{pendingCount}</p>
+          <p className="text-xl font-extrabold text-amber-700">
+            {isLoading ? '...' : kpis?.pending || 0}
+          </p>
           <span className="text-[10px] text-amber-700 font-medium">Requerem retorno</span>
         </div>
 
-        {/* Imóveis Fechados */}
+        {/* 5. Imóveis Fechados */}
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs hover:border-slate-300 transition">
           <div className="flex items-center justify-between text-slate-500 mb-1.5">
             <span className="text-[11px] font-semibold uppercase tracking-wider">Fechados</span>
             <DoorClosed className="w-4 h-4 text-slate-500" />
           </div>
-          <p className="text-xl font-extrabold text-slate-800">{closedCount}</p>
+          <p className="text-xl font-extrabold text-slate-800">
+            {isLoading ? '...' : kpis?.closed || 0}
+          </p>
           <span className="text-[10px] text-slate-500 font-medium">Moradores ausentes</span>
         </div>
 
-        {/* Recusas */}
+        {/* 6. Recusas */}
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs hover:border-slate-300 transition">
           <div className="flex items-center justify-between text-slate-500 mb-1.5">
             <span className="text-[11px] font-semibold uppercase tracking-wider">Recusas</span>
             <UserX className="w-4 h-4 text-rose-500" />
           </div>
-          <p className="text-xl font-extrabold text-rose-700">{refusalCount}</p>
+          <p className="text-xl font-extrabold text-rose-700">
+            {isLoading ? '...' : kpis?.refusals || 0}
+          </p>
           <span className="text-[10px] text-rose-600 font-medium">Entrada negada</span>
         </div>
 
-        {/* Focos Encontrados */}
+        {/* 7. Focos Encontrados */}
         <div className="bg-white p-4 rounded-xl border border-rose-200 bg-rose-50/30 shadow-xs transition">
           <div className="flex items-center justify-between text-slate-500 mb-1.5">
             <span className="text-[11px] font-bold text-rose-700 uppercase tracking-wider">Focos Ativos</span>
             <Flame className="w-4 h-4 text-rose-600 animate-pulse" />
           </div>
-          <p className="text-xl font-extrabold text-rose-700">{fociCount}</p>
+          <p className="text-xl font-extrabold text-rose-700">
+            {isLoading ? '...' : kpis?.fociActive || 0}
+          </p>
           <span className="text-[10px] text-rose-600 font-medium">Aedes aegypti</span>
         </div>
 
-        {/* Focos Eliminados */}
+        {/* 8. Focos Eliminados */}
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs hover:border-slate-300 transition">
           <div className="flex items-center justify-between text-slate-500 mb-1.5">
             <span className="text-[11px] font-semibold uppercase tracking-wider">Eliminados</span>
             <ShieldCheck className="w-4 h-4 text-emerald-600" />
           </div>
-          <p className="text-xl font-extrabold text-emerald-700">39</p>
+          <p className="text-xl font-extrabold text-emerald-700">
+            {isLoading ? '...' : kpis?.eliminated || 0}
+          </p>
           <span className="text-[10px] text-emerald-700 font-medium">Conduta química/física</span>
         </div>
 
-        {/* Imóveis Reincidentes */}
+        {/* 9. Imóveis Reincidentes */}
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs hover:border-slate-300 transition">
           <div className="flex items-center justify-between text-slate-500 mb-1.5">
             <span className="text-[11px] font-semibold uppercase tracking-wider">Reincidentes</span>
             <Repeat className="w-4 h-4 text-purple-600" />
           </div>
-          <p className="text-xl font-extrabold text-purple-700">{recurrentCount}</p>
-          <span className="text-[10px] text-purple-700 font-medium">≥ 3 focos em 90 dias</span>
+          <p className="text-xl font-extrabold text-purple-700">
+            {isLoading ? '...' : kpis?.recurrent || 0}
+          </p>
+          <span className="text-[10px] text-purple-700 font-medium">≥ 2 focos registrados</span>
         </div>
 
-        {/* Ovitrampas Positivas */}
+        {/* 10. Ovitrampas Positivas */}
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs hover:border-slate-300 transition">
           <div className="flex items-center justify-between text-slate-500 mb-1.5">
             <span className="text-[11px] font-semibold uppercase tracking-wider">Ovitrampas +</span>
             <Layers className="w-4 h-4 text-sky-600" />
           </div>
-          <p className="text-xl font-extrabold text-sky-700">{positiveOvitrapsCount} / {ovitraps.length}</p>
-          <span className="text-[10px] text-sky-700 font-medium">2 com alerta de alta</span>
+          <p className="text-xl font-extrabold text-sky-700">
+            {isLoading ? '...' : `${kpis?.positiveOvitraps || 0} / ${kpis?.totalOvitraps || 0}`}
+          </p>
+          <span className="text-[10px] text-sky-700 font-medium">Rede de vigilância</span>
         </div>
 
-        {/* Bloqueios Ativos */}
+        {/* 11. Bloqueios Ativos */}
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs hover:border-slate-300 transition">
           <div className="flex items-center justify-between text-slate-500 mb-1.5">
             <span className="text-[11px] font-semibold uppercase tracking-wider">Bloqueios</span>
             <Activity className="w-4 h-4 text-rose-600" />
           </div>
-          <p className="text-xl font-extrabold text-rose-700">{activeBlocksCount}</p>
+          <p className="text-xl font-extrabold text-rose-700">
+            {isLoading ? '...' : kpis?.activeBlocks || 0}
+          </p>
           <span className="text-[10px] text-rose-600 font-medium">Dengue em contenção</span>
         </div>
 
-        {/* Denúncias da Comunidade */}
+        {/* 12. Denúncias da Comunidade */}
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs hover:border-slate-300 transition">
           <div className="flex items-center justify-between text-slate-500 mb-1.5">
             <span className="text-[11px] font-semibold uppercase tracking-wider">Denúncias</span>
             <AlertCircle className="w-4 h-4 text-amber-500" />
           </div>
-          <p className="text-xl font-extrabold text-amber-700">{openComplaintsCount}</p>
+          <p className="text-xl font-extrabold text-amber-700">
+            {isLoading ? '...' : kpis?.openComplaints || 0}
+          </p>
           <span className="text-[10px] text-amber-700 font-medium">Aguardando vistoria</span>
         </div>
 
-        {/* Pontos Estratégicos Pendentes */}
+        {/* 13. Pontos Estratégicos Vencidos */}
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs hover:border-slate-300 transition">
           <div className="flex items-center justify-between text-slate-500 mb-1.5">
             <span className="text-[11px] font-semibold uppercase tracking-wider">PE Vencidos</span>
             <Crosshair className="w-4 h-4 text-rose-500" />
           </div>
-          <p className="text-xl font-extrabold text-rose-700">{overduePECount}</p>
-          <span className="text-[10px] text-rose-600 font-medium">Borracharias/Ferros-velhos</span>
+          <p className="text-xl font-extrabold text-rose-700">
+            {isLoading ? '...' : kpis?.overduePE || 0}
+          </p>
+          <span className="text-[10px] text-rose-600 font-medium">&gt; 15 dias sem vistoria</span>
         </div>
 
-        {/* Equipes em Campo */}
+        {/* 14. Equipes em Campo */}
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs hover:border-slate-300 transition">
           <div className="flex items-center justify-between text-slate-500 mb-1.5">
             <span className="text-[11px] font-semibold uppercase tracking-wider">Equipes Ativas</span>
             <Users className="w-4 h-4 text-blue-600" />
           </div>
-          <p className="text-xl font-extrabold text-blue-700">6 / 6</p>
-          <span className="text-[10px] text-blue-700 font-medium">42 agentes operando</span>
+          <p className="text-xl font-extrabold text-blue-700">
+            {isLoading ? '...' : `${kpis?.activeTeamsCount || 4} equipes`}
+          </p>
+          <span className="text-[10px] text-blue-700 font-medium">
+            {kpis?.activeAgentsCount || 24} agentes operando
+          </span>
         </div>
       </div>
 
@@ -314,7 +361,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {neighborhoods.map(n => {
+                  {isLoading ? (
+                    <tr>
+                      <td colSpan={6} className="py-8 text-center text-slate-400">
+                        <RefreshCw className="w-5 h-5 animate-spin mx-auto text-blue-600 mb-1" />
+                        <span>Carregando situação territorial do banco...</span>
+                      </td>
+                    </tr>
+                  ) : (dashboardData?.neighborhoods || []).map(n => {
                     const isCritical = n.riskLevel === 'CRITICO';
                     const isHigh = n.riskLevel === 'ALTO';
                     return (
@@ -340,7 +394,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
                           </div>
                         </td>
                         <td className="py-3 px-3">
-                          <span className={`px-2 py-0.5 rounded font-bold ${n.fociCount > 5 ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-700'}`}>
+                          <span className={`px-2 py-0.5 rounded font-bold ${n.fociCount > 0 ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-700'}`}>
                             {n.fociCount}
                           </span>
                         </td>
@@ -372,35 +426,39 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
             <div className="flex items-center justify-between mb-3">
               <div>
                 <h2 className="text-sm font-bold text-slate-900">Tipologia de Criadouros Encontrados (Padrão MS / LIRAa)</h2>
-                <p className="text-xs text-slate-500">Distribuição dos recipientes positivos com larvas de vetores</p>
+                <p className="text-xs text-slate-500">Distribuição dos recipientes positivos e inspecionados por categoria</p>
               </div>
             </div>
 
             <div className="space-y-3 mt-4">
-              {depositDistribution.map(dep => (
-                <div key={dep.code} className="space-y-1">
-                  <div className="flex justify-between text-xs font-medium">
-                    <span className="text-slate-700">
-                      <strong className="text-slate-900 mr-1.5">[{dep.code}]</strong>
-                      {dep.name}
-                    </span>
-                    <span className="text-slate-900 font-bold">{dep.count} depósitos</span>
+              {(dashboardData?.depositDistribution || []).map(dep => {
+                const maxCount = Math.max(1, ...(dashboardData?.depositDistribution || []).map(d => d.count));
+                const percent = Math.min(100, Math.round((dep.count / maxCount) * 100));
+
+                return (
+                  <div key={dep.code} className="space-y-1">
+                    <div className="flex justify-between text-xs font-medium">
+                      <span className="text-slate-700">
+                        <strong className="text-slate-900 mr-1.5">[{dep.code}]</strong>
+                        {dep.name}
+                      </span>
+                      <span className="text-slate-900 font-bold">{dep.count} depósitos</span>
+                    </div>
+                    <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                      <div
+                        className={`h-full rounded-full ${dep.color}`}
+                        style={{ width: `${Math.max(5, percent)}%` }}
+                      />
+                    </div>
                   </div>
-                  <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
-                    <div
-                      className={`h-full rounded-full ${dep.color}`}
-                      style={{ width: `${(dep.count / 60) * 100}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>
 
-        {/* Right Col: Quick Critical Alerts & Operational Status */}
+        {/* Right Col: Prioridades Operacionais de Hoje e Atalhos */}
         <div className="space-y-6">
-          {/* O que precisa da minha atenção imediata? */}
           <div className="bg-white p-5 rounded-xl border border-amber-200 bg-gradient-to-b from-amber-50/40 to-white shadow-xs">
             <div className="flex items-center gap-2 text-amber-800 font-bold text-sm mb-3">
               <AlertCircle className="w-4 h-4 text-amber-600" />
@@ -408,38 +466,36 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
             </div>
 
             <div className="space-y-2.5 text-xs">
-              <div className="p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-900">
-                <p className="font-bold">🔴 Bloqueio BLQ-2026-014 (Dengue)</p>
-                <p className="text-[11px] text-rose-700 mt-0.5">Vila Nova - Setor 01 com 78% de cobertura. Faltam 22 imóveis.</p>
-                <button
-                  onClick={() => onNavigate('epidemiology')}
-                  className="mt-2 text-[11px] font-bold text-rose-800 hover:underline"
-                >
-                  Abrir Operação de Bloqueio →
-                </button>
-              </div>
-
-              <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-900">
-                <p className="font-bold">🟠 2 Pontos Estratégicos Vencidos</p>
-                <p className="text-[11px] text-amber-800 mt-0.5">Borracharia Central e Ferro Velho Rodoviário ultrapassaram 15 dias.</p>
-                <button
-                  onClick={() => onNavigate('strategic_points')}
-                  className="mt-2 text-[11px] font-bold text-amber-800 hover:underline"
-                >
-                  Ver Pontos Estratégicos →
-                </button>
-              </div>
-
-              <div className="p-3 rounded-lg bg-blue-50 border border-blue-200 text-blue-900">
-                <p className="font-bold">🔵 Ovitrampa OVI-042 em Alerta de Alta</p>
-                <p className="text-[11px] text-blue-800 mt-0.5">Subida para 148 ovos consecutivos. Requer coleta e vistoria peridomiciliar.</p>
-                <button
-                  onClick={() => onNavigate('ovitraps')}
-                  className="mt-2 text-[11px] font-bold text-blue-800 hover:underline"
-                >
-                  Acessar Ovitrampas →
-                </button>
-              </div>
+              {isLoading ? (
+                <div className="py-6 text-center text-slate-400">
+                  <RefreshCw className="w-4 h-4 animate-spin mx-auto text-amber-600 mb-1" />
+                  <span>Calculando prioridades do dia...</span>
+                </div>
+              ) : (dashboardData?.priorities || []).length === 0 ? (
+                <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-center">
+                  <p className="font-bold">Sem prioridades críticas imediatas.</p>
+                  <p className="text-[11px] mt-0.5">Operações sanitárias em ritmo regular.</p>
+                </div>
+              ) : (
+                (dashboardData?.priorities || []).map(prio => (
+                  <div key={prio.id} className="p-3 rounded-lg bg-white border border-slate-200 text-slate-900 shadow-2xs space-y-1">
+                    <div className="flex items-center justify-between">
+                      <p className="font-bold text-slate-900">{prio.title}</p>
+                      <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold border ${prio.badgeColor}`}>
+                        {prio.badgeLabel}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-600">{prio.description}</p>
+                    <button
+                      onClick={() => onNavigate(prio.targetModule)}
+                      className="mt-1 text-[11px] font-bold text-blue-700 hover:underline flex items-center gap-0.5"
+                    >
+                      <span>Abrir Módulo</span>
+                      <ArrowUpRight className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))
+              )}
             </div>
           </div>
 

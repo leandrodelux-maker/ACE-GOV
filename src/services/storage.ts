@@ -19,6 +19,7 @@ import {
   Visit,
   UserRole,
   OperationalLoadAgent,
+  Team,
 } from '../types';
 
 import {
@@ -40,6 +41,7 @@ import {
   initialReferrals,
   initialAuditLogs,
 } from './seedData';
+import { supabaseService } from './supabaseService';
 
 const STORAGE_KEYS = {
   MUNICIPALITY: 'endemias_gov_municipality',
@@ -56,6 +58,7 @@ const STORAGE_KEYS = {
   EPIDEMIOLOGY_EVENTS: 'endemias_gov_epi_events',
   EPIDEMIOLOGY_BLOCKS: 'endemias_gov_epi_blocks',
   COMPLAINTS: 'endemias_gov_complaints',
+  TEAMS: 'endemias_gov_teams',
   SUPPLIES: 'endemias_gov_supplies',
   EQUIPMENTS: 'endemias_gov_equipments',
   TASKS: 'endemias_gov_tasks',
@@ -87,6 +90,9 @@ class EndemiasStorageService {
     if (!localStorage.getItem(STORAGE_KEYS.MUNICIPALITY)) {
       saveToStorage(STORAGE_KEYS.MUNICIPALITY, initialMunicipality);
     }
+    // Hidratação progressiva assíncrona a partir do banco de dados Supabase
+    this.hydrateFromSupabase();
+
     if (!localStorage.getItem(STORAGE_KEYS.USERS)) {
       saveToStorage(STORAGE_KEYS.USERS, initialUsers);
     }
@@ -144,6 +150,43 @@ class EndemiasStorageService {
     }
     if (!localStorage.getItem(STORAGE_KEYS.OFFLINE_QUEUE)) {
       saveToStorage(STORAGE_KEYS.OFFLINE_QUEUE, []);
+    }
+  }
+
+  // Hidratação progressiva assíncrona que puxa dados reais do Supabase/PostgreSQL
+  async hydrateFromSupabase(): Promise<void> {
+    try {
+      // 1. Município Real
+      const mun = await supabaseService.getMunicipality();
+      if (mun) {
+        saveToStorage(STORAGE_KEYS.MUNICIPALITY, mun);
+
+        // 2. Bairros Reais
+        const neighborhoods = await supabaseService.getNeighborhoods(mun.id);
+        if (neighborhoods && neighborhoods.length > 0) {
+          saveToStorage(STORAGE_KEYS.NEIGHBORHOODS, neighborhoods);
+        }
+
+        // 3. Ciclo Ativo Real
+        const cycle = await supabaseService.getActiveCycle(mun.id);
+        if (cycle) {
+          saveToStorage(STORAGE_KEYS.CYCLE, cycle);
+        }
+
+        // 4. Denúncias Reais
+        const complaints = await supabaseService.getComplaints(mun.id);
+        if (complaints && complaints.length > 0) {
+          saveToStorage(STORAGE_KEYS.COMPLAINTS, complaints);
+        }
+
+        // 5. Alertas Reais
+        const alerts = await supabaseService.getAlerts(mun.id);
+        if (alerts && alerts.length > 0) {
+          saveToStorage(STORAGE_KEYS.ALERTS, alerts);
+        }
+      }
+    } catch {
+      // Falha silenciosa para manter offline-first resiliente
     }
   }
 
@@ -210,6 +253,69 @@ class EndemiasStorageService {
       { id: 'zone-urbana', name: 'Zona Urbana', type: 'URBANA' },
       { id: 'zone-rural', name: 'Zona Rural', type: 'RURAL' },
     ];
+  }
+
+  // --- TEAMS ---
+  getTeams(): Team[] {
+    const defaultTeams: Team[] = [
+      {
+        id: 'equipe-01',
+        name: 'Equipe 01 - Centro / Vila Nova',
+        municipalityId: '00000000-0000-0000-0000-000000000001',
+        supervisorId: 'usr-002',
+        supervisorName: 'Roberto Silveira',
+        assignedZone: 'URBANA',
+        assignedNeighborhoods: ['Centro', 'Vila Nova'],
+        membersCount: 8,
+        status: 'EM_CAMPO',
+      },
+      {
+        id: 'equipe-02',
+        name: 'Equipe 02 - Arroio Grande',
+        municipalityId: '00000000-0000-0000-0000-000000000001',
+        supervisorId: 'usr-002',
+        supervisorName: 'Roberto Silveira',
+        assignedZone: 'URBANA',
+        assignedNeighborhoods: ['Arroio Grande'],
+        membersCount: 7,
+        status: 'EM_CAMPO',
+      },
+      {
+        id: 'equipe-03',
+        name: 'Equipe 03 - Avenida / Santo Inácio',
+        municipalityId: '00000000-0000-0000-0000-000000000001',
+        supervisorId: 'usr-002',
+        supervisorName: 'Roberto Silveira',
+        assignedZone: 'URBANA',
+        assignedNeighborhoods: ['Avenida'],
+        membersCount: 6,
+        status: 'BASE',
+      },
+      {
+        id: 'equipe-04',
+        name: 'Equipe 04 - Zona Rural / Linha Santa Cruz',
+        municipalityId: '00000000-0000-0000-0000-000000000001',
+        supervisorId: 'usr-002',
+        supervisorName: 'Roberto Silveira',
+        assignedZone: 'RURAL',
+        assignedNeighborhoods: ['Linha Santa Cruz'],
+        membersCount: 5,
+        status: 'DESLOCAMENTO',
+      },
+    ];
+    return getFromStorage<Team[]>(STORAGE_KEYS.TEAMS, defaultTeams);
+  }
+
+  addTeam(teamData: Omit<Team, 'id'>): Team {
+    const teams = this.getTeams();
+    const newTeam: Team = {
+      ...teamData,
+      id: `eq-${Date.now()}`,
+    };
+    teams.push(newTeam);
+    saveToStorage(STORAGE_KEYS.TEAMS, teams);
+    this.addAuditLog('CADASTRO', 'Equipes', `Cadastrada equipe ${newTeam.name}`);
+    return newTeam;
   }
 
   // --- CYCLE ---
@@ -308,6 +414,9 @@ class EndemiasStorageService {
 
     visits.unshift(newVisit);
     saveToStorage(STORAGE_KEYS.VISITS, visits);
+
+    // Persistência progressiva no Supabase em segundo plano
+    supabaseService.insertVisit(newVisit).catch(() => {});
 
     if (isOffline) {
       const queue = this.getOfflineQueue();
@@ -476,6 +585,10 @@ class EndemiasStorageService {
 
     complaints.unshift(newComplaint);
     saveToStorage(STORAGE_KEYS.COMPLAINTS, complaints);
+
+    // Persistência progressiva no Supabase em segundo plano
+    supabaseService.insertComplaint(newComplaint).catch(() => {});
+
     this.addAuditLog('CADASTRO', 'Portal do Cidadão', `Denúncia protocolada ${protocol} em ${newComplaint.address}`);
     return newComplaint;
   }

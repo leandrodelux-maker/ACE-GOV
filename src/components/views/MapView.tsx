@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Layers,
   MapPin,
@@ -12,9 +12,15 @@ import {
   Navigation,
   Info,
   Maximize2,
+  RefreshCw,
+  Building2,
+  AlertTriangle,
+  Repeat,
+  CheckCircle2,
 } from 'lucide-react';
-import { db } from '../../services/storage';
-import { Property, Ovitrap, StrategicPoint, CitizenComplaint, EpidemiologicalBlock } from '../../types';
+import { supabase } from '../../services/supabaseClient';
+import { supabaseService } from '../../services/supabaseService';
+import { Neighborhood } from '../../types';
 
 export const MapView: React.FC = () => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -23,33 +29,134 @@ export const MapView: React.FC = () => {
 
   // Layer toggles
   const [showProperties, setShowProperties] = useState(true);
+  const [showVisits, setShowVisits] = useState(false);
+  const [showPendencies, setShowPendencies] = useState(true);
   const [showFoci, setShowFoci] = useState(true);
+  const [showRecurrences, setShowRecurrences] = useState(true);
   const [showOvitraps, setShowOvitraps] = useState(true);
   const [showStrategicPoints, setShowStrategicPoints] = useState(true);
+  const [showSpecialProperties, setShowSpecialProperties] = useState(true);
   const [showComplaints, setShowComplaints] = useState(true);
   const [showBlocks, setShowBlocks] = useState(true);
+  const [showTerritoryRisk, setShowTerritoryRisk] = useState(true);
+  const [showLiraa, setShowLiraa] = useState(true);
+
+  // Filtros
+  const [selectedNeighborhood, setSelectedNeighborhood] = useState<string>('ALL');
+  const [selectedRiskLevel, setSelectedRiskLevel] = useState<string>('ALL');
+  const [neighborhoodsList, setNeighborhoodsList] = useState<Neighborhood[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+
+  // Dados reais carregados do Supabase
+  const [mapData, setMapData] = useState<{
+    properties: any[];
+    visits: any[];
+    pendencies: any[];
+    ovitraps: any[];
+    strategicPoints: any[];
+    specialProperties: any[];
+    complaints: any[];
+    blocks: any[];
+    liraaSamples: any[];
+  }>({
+    properties: [],
+    visits: [],
+    pendencies: [],
+    ovitraps: [],
+    strategicPoints: [],
+    specialProperties: [],
+    complaints: [],
+    blocks: [],
+    liraaSamples: [],
+  });
 
   // Selected item modal / info drawer
   const [selectedItem, setSelectedItem] = useState<{
-    type: 'PROPERTY' | 'OVITRAP' | 'PE' | 'COMPLAINT' | 'BLOCK';
+    type: 'PROPERTY' | 'VISIT' | 'OVITRAP' | 'PE' | 'IE' | 'COMPLAINT' | 'BLOCK' | 'RISK';
     data: any;
   } | null>(null);
 
-  const municipality = db.getMunicipality();
-  const properties = db.getProperties();
-  const ovitraps = db.getOvitraps();
-  const strategicPoints = db.getStrategicPoints();
-  const complaints = db.getComplaints();
-  const blocks = db.getEpidemiologyBlocks();
+  // Carregar lista de bairros
+  useEffect(() => {
+    const loadNeighs = async () => {
+      const muni = await supabaseService.getMunicipality();
+      if (muni) {
+        const list = await supabaseService.getNeighborhoods(muni.id);
+        if (list) setNeighborhoodsList(list);
+      }
+    };
+    loadNeighs();
+  }, []);
 
-  // Initialize Leaflet map
+  // Carregar dados reais do Supabase
+  const loadMapData = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const muni = await supabaseService.getMunicipality();
+      const muniId = muni?.id || '00000000-0000-0000-0000-000000000001';
+
+      let propQuery = supabase
+        .from('properties')
+        .select('*, neighborhoods(name)')
+        .eq('municipality_id', muniId)
+        .is('deleted_at', null)
+        .limit(200);
+
+      if (selectedNeighborhood !== 'ALL') {
+        propQuery = propQuery.eq('neighborhood_id', selectedNeighborhood);
+      }
+
+      const [
+        propsRes,
+        visitsRes,
+        pendingRes,
+        ovitrapsRes,
+        peRes,
+        ieRes,
+        complaintsRes,
+        blocksRes,
+        liraaRes,
+      ] = await Promise.all([
+        propQuery,
+        supabase.from('visits').select('*, properties(street, number, neighborhood_id)').eq('municipality_id', muniId).limit(100),
+        supabase.from('pending_visits').select('*, properties(*)').eq('status', 'PENDENTE').limit(100),
+        supabase.from('ovitraps').select('*, neighborhoods(name)').eq('municipality_id', muniId),
+        supabase.from('strategic_points').select('*, neighborhoods(name)').eq('municipality_id', muniId),
+        supabase.from('special_properties').select('*, neighborhoods(name)').eq('municipality_id', muniId),
+        supabase.from('complaints').select('*').eq('municipality_id', muniId).neq('status', 'RESOLVIDA'),
+        supabase.from('epidemiological_blocks').select('*').eq('municipality_id', muniId),
+        supabase.from('liraa_samples').select('*, properties(street, number, latitude, longitude)').limit(150),
+      ]);
+
+      setMapData({
+        properties: propsRes.data || [],
+        visits: visitsRes.data || [],
+        pendencies: pendingRes.data || [],
+        ovitraps: ovitrapsRes.data || [],
+        strategicPoints: peRes.data || [],
+        specialProperties: ieRes.data || [],
+        complaints: complaintsRes.data || [],
+        blocks: blocksRes.data || [],
+        liraaSamples: liraaRes.data || [],
+      });
+    } catch (err) {
+      console.error('Erro ao carregar dados do mapa:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [selectedNeighborhood]);
+
+  useEffect(() => {
+    loadMapData();
+  }, [loadMapData]);
+
+  // Inicializar Leaflet map
   useEffect(() => {
     if (!mapContainerRef.current) return;
     if (mapInstanceRef.current) return;
 
-    // Check if L is available on window or dynamic import
     import('leaflet').then(L => {
-      // Base map center at Santa Cruz do Sul (-29.7180, -52.4280)
+      // Centro geográfico padrão (-29.7180, -52.4280)
       const map = L.map(mapContainerRef.current!, {
         center: [-29.7180, -52.4280],
         zoom: 14,
@@ -57,7 +164,7 @@ export const MapView: React.FC = () => {
       });
 
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors | Endemias GOV',
+        attribution: '&copy; OpenStreetMap contributors | Endemias GOV SUS',
         maxZoom: 19,
       }).addTo(map);
 
@@ -76,44 +183,79 @@ export const MapView: React.FC = () => {
     };
   }, []);
 
-  // Update map markers when filters change
+  // Re-renderizar layers quando filtros ou dados mudarem
   useEffect(() => {
     if (!mapInstanceRef.current || !markersLayerRef.current) return;
     import('leaflet').then(L => {
       renderLayers(L, mapInstanceRef.current, markersLayerRef.current);
     });
-  }, [showProperties, showFoci, showOvitraps, showStrategicPoints, showComplaints, showBlocks]);
+  }, [
+    mapData,
+    showProperties,
+    showVisits,
+    showPendencies,
+    showFoci,
+    showRecurrences,
+    showOvitraps,
+    showStrategicPoints,
+    showSpecialProperties,
+    showComplaints,
+    showBlocks,
+    showTerritoryRisk,
+    selectedRiskLevel,
+  ]);
 
   const renderLayers = (L: any, map: any, layerGroup: any) => {
     layerGroup.clearLayers();
 
-    // 1. Blocks circles (Raio de Bloqueio 150m - 300m)
+    // 1. Círculos de Risco Territorial por Bairro
+    if (showTerritoryRisk) {
+      neighborhoodsList.forEach(n => {
+        if (selectedRiskLevel !== 'ALL' && n.riskLevel !== selectedRiskLevel) return;
+        const color = n.riskLevel === 'CRITICO' ? '#ef4444' : n.riskLevel === 'ALTO' ? '#f97316' : '#10b981';
+        const circle = L.circle([n.latitude || -29.718, n.longitude || -52.428], {
+          radius: 500,
+          color: color,
+          fillColor: color,
+          fillOpacity: 0.12,
+          weight: 1.5,
+        });
+        circle.bindTooltip(`<b>Bairro ${n.name}</b><br/>Nível de Risco: ${n.riskLevel} (${n.riskScore}/100)`);
+        circle.on('click', () => setSelectedItem({ type: 'RISK', data: n }));
+        circle.addTo(layerGroup);
+      });
+    }
+
+    // 2. Raios de Bloqueio Epidemiológico (150m a 300m)
     if (showBlocks) {
-      blocks.forEach(blk => {
-        const circle = L.circle([-29.7125, -52.4290], {
-          radius: blk.radiusMeters || 150,
+      mapData.blocks.forEach(blk => {
+        const circle = L.circle([blk.latitude || -29.7125, blk.longitude || -52.4290], {
+          radius: blk.radius_meters || 150,
           color: '#ef4444',
           fillColor: '#f87171',
           fillOpacity: 0.25,
           weight: 2,
           dashArray: '5, 5',
         });
-        circle.bindTooltip(`Bloqueio: ${blk.code} (${blk.disease}) - Raio ${blk.radiusMeters}m`);
+        circle.bindTooltip(`Bloqueio: ${blk.code || 'BLQ'} (${blk.disease || 'Dengue'}) - Raio ${blk.radius_meters || 150}m`);
         circle.on('click', () => setSelectedItem({ type: 'BLOCK', data: blk }));
         circle.addTo(layerGroup);
       });
     }
 
-    // 2. Properties & Foci
+    // 3. Imóveis, Focos e Reincidências
     if (showProperties) {
-      properties.forEach(prop => {
+      mapData.properties.forEach(prop => {
         const isFoci = prop.status === 'FOCO';
-        const isRecurrent = prop.isRecurrent;
-        if (isFoci && !showFoci) return;
+        const isRecurrent = (prop.recurrence_count || 0) >= 2;
+        const isClosed = prop.status === 'FECHADO';
 
-        const color = isFoci ? '#ef4444' : isRecurrent ? '#a855f7' : prop.status === 'FECHADO' ? '#f59e0b' : '#3b82f6';
-        const marker = L.circleMarker([prop.latitude, prop.longitude], {
-          radius: isFoci ? 9 : 6,
+        if (isFoci && !showFoci) return;
+        if (isRecurrent && !showRecurrences) return;
+
+        const color = isFoci ? '#ef4444' : isRecurrent ? '#9333ea' : isClosed ? '#f59e0b' : '#3b82f6';
+        const marker = L.circleMarker([prop.latitude || -29.718, prop.longitude || -52.428], {
+          radius: isFoci ? 8 : isRecurrent ? 7 : 5,
           fillColor: color,
           color: '#ffffff',
           weight: 1.5,
@@ -121,16 +263,17 @@ export const MapView: React.FC = () => {
           fillOpacity: 0.85,
         });
 
-        marker.bindTooltip(`<b>${prop.code}</b>: ${prop.address}, ${prop.number}<br/>Status: ${prop.status}`);
+        marker.bindTooltip(`<b>${prop.property_code}</b>: ${prop.street}, ${prop.number}<br/>Situação: ${prop.status}`);
         marker.on('click', () => setSelectedItem({ type: 'PROPERTY', data: prop }));
         marker.addTo(layerGroup);
       });
     }
 
-    // 3. Ovitraps
+    // 4. Ovitrampas
     if (showOvitraps) {
-      ovitraps.forEach(ovi => {
-        const iconHtml = `<div style="background-color: ${ovi.growthAlert ? '#dc2626' : '#0284c7'}; width: 22px; height: 22px; border-radius: 50%; border: 2px solid white; display: flex; align-items: center; justify-content: center; color: white; font-size: 10px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">🥚</div>`;
+      mapData.ovitraps.forEach(ovi => {
+        const hasEggs = (ovi.eggs_count || 0) > 0 || ovi.positive;
+        const iconHtml = `<div style="background-color: ${hasEggs ? '#dc2626' : '#0284c7'}; width: 22px; height: 22px; border-radius: 50%; border: 2px solid white; display: flex; align-items: center; justify-content: center; color: white; font-size: 10px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">🥚</div>`;
         const customIcon = L.divIcon({
           className: 'custom-ovitrap-icon',
           html: iconHtml,
@@ -138,17 +281,17 @@ export const MapView: React.FC = () => {
           iconAnchor: [11, 11],
         });
 
-        const marker = L.marker([ovi.latitude, ovi.longitude], { icon: customIcon });
-        marker.bindTooltip(`<b>Ovitrampa ${ovi.code}</b><br/>Última leitura: ${ovi.lastEggCount ?? 0} ovos`);
+        const marker = L.marker([ovi.latitude || -29.718, ovi.longitude || -52.428], { icon: customIcon });
+        marker.bindTooltip(`<b>Ovitrampa ${ovi.code}</b><br/>Ovos: ${ovi.eggs_count || 0}`);
         marker.on('click', () => setSelectedItem({ type: 'OVITRAP', data: ovi }));
         marker.addTo(layerGroup);
       });
     }
 
-    // 4. Strategic Points (PE)
+    // 5. Pontos Estratégicos (PE)
     if (showStrategicPoints) {
-      strategicPoints.forEach(pe => {
-        const iconHtml = `<div style="background-color: ${pe.isInspectionOverdue ? '#e11d48' : '#d97706'}; width: 24px; height: 24px; border-radius: 6px; border: 2px solid white; display: flex; align-items: center; justify-content: center; color: white; font-size: 12px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">⚠️</div>`;
+      mapData.strategicPoints.forEach(pe => {
+        const iconHtml = `<div style="background-color: #d97706; width: 24px; height: 24px; border-radius: 6px; border: 2px solid white; display: flex; align-items: center; justify-content: center; color: white; font-size: 12px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">⚠️</div>`;
         const customIcon = L.divIcon({
           className: 'custom-pe-icon',
           html: iconHtml,
@@ -156,16 +299,34 @@ export const MapView: React.FC = () => {
           iconAnchor: [12, 12],
         });
 
-        const marker = L.marker([pe.latitude, pe.longitude], { icon: customIcon });
-        marker.bindTooltip(`<b>PE: ${pe.name}</b><br/>Tipo: ${pe.type} (${pe.isInspectionOverdue ? 'VENCIDA' : 'Em dia'})`);
+        const marker = L.marker([pe.latitude || -29.718, pe.longitude || -52.428], { icon: customIcon });
+        marker.bindTooltip(`<b>PE: ${pe.name}</b><br/>Tipo: ${pe.type}`);
         marker.on('click', () => setSelectedItem({ type: 'PE', data: pe }));
         marker.addTo(layerGroup);
       });
     }
 
-    // 5. Complaints
+    // 6. Imóveis Especiais (IE)
+    if (showSpecialProperties) {
+      mapData.specialProperties.forEach(ie => {
+        const iconHtml = `<div style="background-color: #4f46e5; width: 22px; height: 22px; border-radius: 6px; border: 2px solid white; display: flex; align-items: center; justify-content: center; color: white; font-size: 11px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">🏢</div>`;
+        const customIcon = L.divIcon({
+          className: 'custom-ie-icon',
+          html: iconHtml,
+          iconSize: [22, 22],
+          iconAnchor: [11, 11],
+        });
+
+        const marker = L.marker([ie.latitude || -29.718, ie.longitude || -52.428], { icon: customIcon });
+        marker.bindTooltip(`<b>IE: ${ie.name}</b><br/>Tipo: ${ie.type}`);
+        marker.on('click', () => setSelectedItem({ type: 'IE', data: ie }));
+        marker.addTo(layerGroup);
+      });
+    }
+
+    // 7. Denúncias da Comunidade
     if (showComplaints) {
-      complaints.forEach(comp => {
+      mapData.complaints.forEach(comp => {
         if (!comp.latitude || !comp.longitude) return;
         const iconHtml = `<div style="background-color: #f97316; width: 20px; height: 20px; border-radius: 50%; border: 2px solid white; display: flex; align-items: center; justify-content: center; color: white; font-size: 10px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">📢</div>`;
         const customIcon = L.divIcon({
@@ -176,9 +337,33 @@ export const MapView: React.FC = () => {
         });
 
         const marker = L.marker([comp.latitude, comp.longitude], { icon: customIcon });
-        marker.bindTooltip(`<b>Denúncia: ${comp.protocol}</b><br/>${comp.type}`);
+        marker.bindTooltip(`<b>Denúncia: ${comp.protocol}</b>`);
         marker.on('click', () => setSelectedItem({ type: 'COMPLAINT', data: comp }));
         marker.addTo(layerGroup);
+      });
+    }
+
+    // 8. Amostras e Estratos do LIRAa / LIA
+    if (showLiraa) {
+      mapData.liraaSamples.forEach(sample => {
+        const prop = sample.properties;
+        const lat = prop?.latitude || -29.715 + (Math.random() - 0.5) * 0.01;
+        const lng = prop?.longitude || -52.427 + (Math.random() - 0.5) * 0.01;
+
+        const isPositive = sample.positive || sample.larvae_found;
+        const color = isPositive ? '#dc2626' : sample.status === 'visitado' ? '#16a34a' : '#d97706';
+
+        const circle = L.circleMarker([lat, lng], {
+          radius: isPositive ? 7 : 5,
+          color: '#ffffff',
+          weight: 2,
+          fillColor: color,
+          fillOpacity: 0.9,
+        });
+
+        circle.bindTooltip(`<b>Amostra LIRAa</b><br/>${prop?.street || 'Imóvel'}, ${prop?.number || 'S/N'}<br/>Status: ${sample.status.toUpperCase()}<br/>${isPositive ? '⚠️ FOCO POSITIVO' : 'Negativo'}`);
+        circle.on('click', () => setSelectedItem({ type: 'PROPERTY', data: prop }));
+        circle.addTo(layerGroup);
       });
     }
   };
@@ -190,75 +375,140 @@ export const MapView: React.FC = () => {
         <div>
           <h1 className="text-base font-bold text-slate-900 flex items-center gap-2">
             <Layers className="w-5 h-5 text-blue-600" />
-            <span>Mapa Municipal de Endemias</span>
+            <span>Mapa Municipal de Endemias & Vigilância Espacial</span>
           </h1>
           <p className="text-xs text-slate-500">
-            Camadas territoriais, focos, ovitrampas, pontos estratégicos e bloqueios georreferenciados
+            Camadas territoriais conectadas ao PostgreSQL, geolocalização e raio de bloqueio peridomiciliar
           </p>
         </div>
 
-        {/* Camadas Toggles */}
-        <div className="flex flex-wrap items-center gap-2 text-xs font-semibold">
-          <button
-            onClick={() => setShowProperties(!showProperties)}
-            className={`px-2.5 py-1.5 rounded-lg border transition flex items-center gap-1.5 ${
-              showProperties ? 'bg-blue-50 border-blue-300 text-blue-800' : 'bg-slate-50 text-slate-400 border-slate-200'
-            }`}
+        {/* Filtros de Território e Risco */}
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <select
+            value={selectedNeighborhood}
+            onChange={e => setSelectedNeighborhood(e.target.value)}
+            className="bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200 font-medium text-slate-700 outline-none cursor-pointer"
           >
-            <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
-            <span>Imóveis ({properties.length})</span>
-          </button>
+            <option value="ALL">Todos os Bairros</option>
+            {neighborhoodsList.map(n => (
+              <option key={n.id} value={n.id}>{n.name}</option>
+            ))}
+          </select>
+
+          <select
+            value={selectedRiskLevel}
+            onChange={e => setSelectedRiskLevel(e.target.value)}
+            className="bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200 font-medium text-slate-700 outline-none cursor-pointer"
+          >
+            <option value="ALL">Todos os Níveis de Risco</option>
+            <option value="CRITICO">Risco Crítico</option>
+            <option value="ALTO">Risco Alto</option>
+            <option value="ATENCAO">Atenção</option>
+            <option value="BAIXO">Baixo Risco</option>
+          </select>
 
           <button
-            onClick={() => setShowFoci(!showFoci)}
-            className={`px-2.5 py-1.5 rounded-lg border transition flex items-center gap-1.5 ${
-              showFoci ? 'bg-rose-50 border-rose-300 text-rose-800' : 'bg-slate-50 text-slate-400 border-slate-200'
-            }`}
+            onClick={loadMapData}
+            disabled={isLoading}
+            className="p-1.5 text-slate-500 hover:text-slate-800 rounded-lg hover:bg-slate-100 transition"
+            title="Atualizar dados do mapa"
           >
-            <span className="w-2.5 h-2.5 rounded-full bg-rose-600" />
-            <span>Focos Ativos</span>
-          </button>
-
-          <button
-            onClick={() => setShowOvitraps(!showOvitraps)}
-            className={`px-2.5 py-1.5 rounded-lg border transition flex items-center gap-1.5 ${
-              showOvitraps ? 'bg-sky-50 border-sky-300 text-sky-800' : 'bg-slate-50 text-slate-400 border-slate-200'
-            }`}
-          >
-            <span className="w-2.5 h-2.5 rounded-full bg-sky-600" />
-            <span>Ovitrampas ({ovitraps.length})</span>
-          </button>
-
-          <button
-            onClick={() => setShowStrategicPoints(!showStrategicPoints)}
-            className={`px-2.5 py-1.5 rounded-lg border transition flex items-center gap-1.5 ${
-              showStrategicPoints ? 'bg-amber-50 border-amber-300 text-amber-800' : 'bg-slate-50 text-slate-400 border-slate-200'
-            }`}
-          >
-            <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-            <span>Pontos Estratégicos ({strategicPoints.length})</span>
-          </button>
-
-          <button
-            onClick={() => setShowComplaints(!showComplaints)}
-            className={`px-2.5 py-1.5 rounded-lg border transition flex items-center gap-1.5 ${
-              showComplaints ? 'bg-orange-50 border-orange-300 text-orange-800' : 'bg-slate-50 text-slate-400 border-slate-200'
-            }`}
-          >
-            <span className="w-2.5 h-2.5 rounded-full bg-orange-500" />
-            <span>Denúncias ({complaints.length})</span>
-          </button>
-
-          <button
-            onClick={() => setShowBlocks(!showBlocks)}
-            className={`px-2.5 py-1.5 rounded-lg border transition flex items-center gap-1.5 ${
-              showBlocks ? 'bg-red-50 border-red-300 text-red-800' : 'bg-slate-50 text-slate-400 border-slate-200'
-            }`}
-          >
-            <span className="w-2.5 h-2.5 rounded-full bg-red-600" />
-            <span>Bloqueios ({blocks.length})</span>
+            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-blue-600' : ''}`} />
           </button>
         </div>
+      </div>
+
+      {/* Camadas Ativáveis */}
+      <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-wrap items-center gap-2 text-xs font-semibold">
+        <button
+          onClick={() => setShowProperties(!showProperties)}
+          className={`px-2.5 py-1.5 rounded-lg border transition flex items-center gap-1.5 ${
+            showProperties ? 'bg-blue-50 border-blue-300 text-blue-800' : 'bg-slate-50 text-slate-400 border-slate-200'
+          }`}
+        >
+          <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+          <span>Imóveis ({mapData.properties.length})</span>
+        </button>
+
+        <button
+          onClick={() => setShowFoci(!showFoci)}
+          className={`px-2.5 py-1.5 rounded-lg border transition flex items-center gap-1.5 ${
+            showFoci ? 'bg-rose-50 border-rose-300 text-rose-800' : 'bg-slate-50 text-slate-400 border-slate-200'
+          }`}
+        >
+          <span className="w-2.5 h-2.5 rounded-full bg-rose-600" />
+          <span>Focos Ativos</span>
+        </button>
+
+        <button
+          onClick={() => setShowRecurrences(!showRecurrences)}
+          className={`px-2.5 py-1.5 rounded-lg border transition flex items-center gap-1.5 ${
+            showRecurrences ? 'bg-purple-50 border-purple-300 text-purple-800' : 'bg-slate-50 text-slate-400 border-slate-200'
+          }`}
+        >
+          <span className="w-2.5 h-2.5 rounded-full bg-purple-600" />
+          <span>Reincidências</span>
+        </button>
+
+        <button
+          onClick={() => setShowOvitraps(!showOvitraps)}
+          className={`px-2.5 py-1.5 rounded-lg border transition flex items-center gap-1.5 ${
+            showOvitraps ? 'bg-sky-50 border-sky-300 text-sky-800' : 'bg-slate-50 text-slate-400 border-slate-200'
+          }`}
+        >
+          <span className="w-2.5 h-2.5 rounded-full bg-sky-600" />
+          <span>Ovitrampas ({mapData.ovitraps.length})</span>
+        </button>
+
+        <button
+          onClick={() => setShowStrategicPoints(!showStrategicPoints)}
+          className={`px-2.5 py-1.5 rounded-lg border transition flex items-center gap-1.5 ${
+            showStrategicPoints ? 'bg-amber-50 border-amber-300 text-amber-800' : 'bg-slate-50 text-slate-400 border-slate-200'
+          }`}
+        >
+          <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+          <span>PE Quinzenal ({mapData.strategicPoints.length})</span>
+        </button>
+
+        <button
+          onClick={() => setShowSpecialProperties(!showSpecialProperties)}
+          className={`px-2.5 py-1.5 rounded-lg border transition flex items-center gap-1.5 ${
+            showSpecialProperties ? 'bg-indigo-50 border-indigo-300 text-indigo-800' : 'bg-slate-50 text-slate-400 border-slate-200'
+          }`}
+        >
+          <span className="w-2.5 h-2.5 rounded-full bg-indigo-600" />
+          <span>Imóveis Especiais ({mapData.specialProperties.length})</span>
+        </button>
+
+        <button
+          onClick={() => setShowBlocks(!showBlocks)}
+          className={`px-2.5 py-1.5 rounded-lg border transition flex items-center gap-1.5 ${
+            showBlocks ? 'bg-red-50 border-red-300 text-red-800' : 'bg-slate-50 text-slate-400 border-slate-200'
+          }`}
+        >
+          <span className="w-2.5 h-2.5 rounded-full bg-red-600" />
+          <span>Bloqueios ({mapData.blocks.length})</span>
+        </button>
+
+        <button
+          onClick={() => setShowLiraa(!showLiraa)}
+          className={`px-2.5 py-1.5 rounded-lg border transition flex items-center gap-1.5 ${
+            showLiraa ? 'bg-amber-50 border-amber-300 text-amber-800' : 'bg-slate-50 text-slate-400 border-slate-200'
+          }`}
+        >
+          <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+          <span>LIRAa ({mapData.liraaSamples.length})</span>
+        </button>
+
+        <button
+          onClick={() => setShowTerritoryRisk(!showTerritoryRisk)}
+          className={`px-2.5 py-1.5 rounded-lg border transition flex items-center gap-1.5 ${
+            showTerritoryRisk ? 'bg-emerald-50 border-emerald-300 text-emerald-800' : 'bg-slate-50 text-slate-400 border-slate-200'
+          }`}
+        >
+          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+          <span>Risco Territorial</span>
+        </button>
       </div>
 
       {/* Map Container */}
@@ -273,8 +523,10 @@ export const MapView: React.FC = () => {
                 {selectedItem.type === 'PROPERTY' && 'Ficha Rápida do Imóvel'}
                 {selectedItem.type === 'OVITRAP' && 'Vigilância Entomológica - Ovitrampa'}
                 {selectedItem.type === 'PE' && 'Ponto Estratégico (PE)'}
+                {selectedItem.type === 'IE' && 'Imóvel Especial (IE)'}
                 {selectedItem.type === 'COMPLAINT' && 'Denúncia Cidadã'}
                 {selectedItem.type === 'BLOCK' && 'Operação de Bloqueio'}
+                {selectedItem.type === 'RISK' && 'Risco Territorial'}
               </span>
               <button
                 onClick={() => setSelectedItem(null)}
@@ -287,36 +539,28 @@ export const MapView: React.FC = () => {
             <div className="mt-2.5 space-y-1.5">
               {selectedItem.type === 'PROPERTY' && (
                 <>
-                  <p className="font-extrabold text-sm text-slate-900">{selectedItem.data.address}, {selectedItem.data.number}</p>
-                  <p className="text-slate-500">{selectedItem.data.neighborhood} • {selectedItem.data.block}</p>
+                  <p className="font-extrabold text-sm text-slate-900">
+                    {selectedItem.data.street}, {selectedItem.data.number}
+                  </p>
+                  <p className="text-slate-500">
+                    Código: <strong>{selectedItem.data.property_code}</strong>
+                  </p>
                   <div className="flex items-center gap-2 pt-1">
-                    <span className="px-2 py-0.5 rounded font-bold bg-slate-100 text-slate-700">
-                      Código: {selectedItem.data.code}
-                    </span>
                     <span className={`px-2 py-0.5 rounded font-bold ${
                       selectedItem.data.status === 'FOCO' ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-800'
                     }`}>
                       {selectedItem.data.status}
                     </span>
+                    <span className="text-[10px] text-slate-500">Tipo: {selectedItem.data.property_type}</span>
                   </div>
-                  {selectedItem.data.notes && (
-                    <p className="text-[11px] text-slate-600 bg-slate-50 p-2 rounded mt-2">
-                      {selectedItem.data.notes}
-                    </p>
-                  )}
                 </>
               )}
 
               {selectedItem.type === 'OVITRAP' && (
                 <>
                   <p className="font-extrabold text-sm text-slate-900">Ovitrampa {selectedItem.data.code}</p>
-                  <p className="text-slate-500">{selectedItem.data.address} ({selectedItem.data.neighborhood})</p>
-                  <p className="font-bold text-sky-700 pt-1">Última Leitura: {selectedItem.data.lastEggCount} ovos de Aedes</p>
-                  {selectedItem.data.growthAlert && (
-                    <p className="text-rose-700 font-bold bg-rose-50 p-1.5 rounded text-[10px]">
-                      ⚠️ Alerta: Crescimento consecutivo de ovos registrado!
-                    </p>
-                  )}
+                  <p className="text-slate-500">{selectedItem.data.address}</p>
+                  <p className="font-bold text-sky-700 pt-1">Última Leitura: {selectedItem.data.eggs_count || 0} ovos de Aedes</p>
                 </>
               )}
 
@@ -324,28 +568,32 @@ export const MapView: React.FC = () => {
                 <>
                   <p className="font-extrabold text-sm text-slate-900">{selectedItem.data.name}</p>
                   <p className="text-slate-500">{selectedItem.data.address}</p>
-                  <p className="text-[11px] text-slate-700 font-semibold pt-1">Tipo: {selectedItem.data.type} • Risco: {selectedItem.data.riskLevel}</p>
-                  <p className={`font-bold ${selectedItem.data.isInspectionOverdue ? 'text-rose-600' : 'text-emerald-700'}`}>
-                    {selectedItem.data.isInspectionOverdue ? 'Inspeção Quinzenal VENCIDA' : 'Inspeção em dia'}
-                  </p>
+                  <p className="text-[11px] text-slate-700 font-semibold pt-1">Tipo: {selectedItem.data.type}</p>
                 </>
               )}
 
-              {selectedItem.type === 'COMPLAINT' && (
+              {selectedItem.type === 'IE' && (
                 <>
-                  <p className="font-extrabold text-sm text-slate-900">{selectedItem.data.protocol}</p>
+                  <p className="font-extrabold text-sm text-slate-900">{selectedItem.data.name}</p>
                   <p className="text-slate-500">{selectedItem.data.address}</p>
-                  <p className="text-slate-700 font-semibold">{selectedItem.data.type}</p>
-                  <p className="text-[11px] text-slate-600 bg-slate-50 p-2 rounded">{selectedItem.data.description}</p>
+                  <p className="text-indigo-700 font-semibold">Tipo: {selectedItem.data.type}</p>
                 </>
               )}
 
               {selectedItem.type === 'BLOCK' && (
                 <>
-                  <p className="font-extrabold text-sm text-rose-700">{selectedItem.data.code} — {selectedItem.data.disease}</p>
-                  <p className="text-slate-500">Área: {selectedItem.data.targetNeighborhood} ({selectedItem.data.targetSector})</p>
-                  <p className="font-bold text-slate-800">Raio de bloqueio peridomiciliar: {selectedItem.data.radiusMeters}m</p>
-                  <p className="font-semibold text-emerald-700">Cobertura: {selectedItem.data.coveragePercentage}% ({selectedItem.data.propertiesVisited} / {selectedItem.data.propertiesForecast} imóveis)</p>
+                  <p className="font-extrabold text-sm text-rose-700">
+                    {selectedItem.data.code || 'BLQ'} — {selectedItem.data.disease || 'Dengue'}
+                  </p>
+                  <p className="text-slate-500">Raio de bloqueio peridomiciliar: {selectedItem.data.radius_meters || 150}m</p>
+                </>
+              )}
+
+              {selectedItem.type === 'RISK' && (
+                <>
+                  <p className="font-extrabold text-sm text-slate-900">Bairro {selectedItem.data.name}</p>
+                  <p className="font-bold text-amber-600">Risco: {selectedItem.data.riskLevel} ({selectedItem.data.riskScore}/100)</p>
+                  <p className="text-slate-500 text-[11px]">População: {selectedItem.data.estimatedPopulation?.toLocaleString('pt-BR')} hab.</p>
                 </>
               )}
             </div>

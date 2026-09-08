@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Layers,
   Plus,
@@ -9,25 +9,50 @@ import {
   MapPin,
   Calendar,
   X,
-  Camera,
+  RefreshCw,
+  Save,
 } from 'lucide-react';
-import { db } from '../../services/storage';
+import { supabase } from '../../services/supabaseClient';
+import { supabaseService } from '../../services/supabaseService';
 import { Ovitrap } from '../../types';
 
 export const OvitrapsView: React.FC = () => {
-  const [ovitraps, setOvitraps] = useState<Ovitrap[]>(db.getOvitraps());
+  const [ovitraps, setOvitraps] = useState<Ovitrap[]>([]);
+  const [metrics, setMetrics] = useState({
+    ipo: 0,
+    ido: 0,
+    totalTraps: 0,
+    positiveTraps: 0,
+    totalEggs: 0,
+  });
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+
   const [selectedTrap, setSelectedTrap] = useState<Ovitrap | null>(null);
   const [eggCountInput, setEggCountInput] = useState(0);
   const [paddleReplaced, setPaddleReplaced] = useState(true);
   const [readingNotes, setReadingNotes] = useState('');
   const [showReadingModal, setShowReadingModal] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
-  // Indicators
-  const totalTraps = ovitraps.length;
-  const positiveTraps = ovitraps.filter(o => o.isPositive).length;
-  const positivityRate = totalTraps > 0 ? Math.round((positiveTraps / totalTraps) * 100) : 0;
-  const totalEggs = ovitraps.reduce((acc, o) => acc + (o.lastEggCount || 0), 0);
-  const idoAverage = positiveTraps > 0 ? Math.round(totalEggs / positiveTraps) : 0;
+  const loadOvitraps = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const muni = await supabaseService.getMunicipality();
+      const muniId = muni?.id || '00000000-0000-0000-0000-000000000001';
+
+      const res = await supabaseService.getOvitraps(muniId);
+      setOvitraps(res.ovitraps);
+      setMetrics(res.metrics);
+    } catch (err) {
+      console.error('Erro ao carregar ovitrampas:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadOvitraps();
+  }, [loadOvitraps]);
 
   const handleOpenReading = (trap: Ovitrap) => {
     setSelectedTrap(trap);
@@ -37,30 +62,30 @@ export const OvitrapsView: React.FC = () => {
     setShowReadingModal(true);
   };
 
-  const handleSaveReading = (e: React.FormEvent) => {
+  const handleSaveReading = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedTrap) return;
 
-    const updated = ovitraps.map(o => {
-      if (o.id === selectedTrap.id) {
-        const isPos = eggCountInput > 0;
-        const newHistory = [...(o.eggHistory || []), eggCountInput];
-        const growthAlert = eggCountInput > (o.lastEggCount || 0) * 1.3;
-        return {
-          ...o,
-          lastEggCount: eggCountInput,
-          isPositive: isPos,
-          eggHistory: newHistory,
-          growthAlert,
-          lastCollectionDate: new Date().toISOString().split('T')[0],
-        };
-      }
-      return o;
-    });
+    setIsSaving(true);
+    try {
+      const isPos = eggCountInput > 0;
+      await supabase
+        .from('ovitraps')
+        .update({
+          eggs_count: eggCountInput,
+          positive: isPos,
+          last_reading_at: new Date().toISOString(),
+          status: isPos ? 'POSITIVA' : 'ATIVA',
+        })
+        .eq('id', selectedTrap.id);
 
-    setOvitraps(updated);
-    localStorage.setItem('endemias_ovitraps', JSON.stringify(updated));
-    setShowReadingModal(false);
+      setShowReadingModal(false);
+      await loadOvitraps();
+    } catch (err: any) {
+      alert(`Falha ao registrar leitura: ${err.message || 'Erro no banco'}`);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -76,100 +101,116 @@ export const OvitrapsView: React.FC = () => {
             Monitoramento precoce da densidade vetorial e dispersão de fêmeas de Aedes aegypti
           </p>
         </div>
+
+        <button
+          onClick={loadOvitraps}
+          disabled={isLoading}
+          className="p-2 text-slate-500 hover:text-slate-800 rounded-lg hover:bg-slate-100 transition"
+          title="Atualizar leituras"
+        >
+          <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-sky-600' : ''}`} />
+        </button>
       </div>
 
       {/* Entomological KPI Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
           <span className="text-[11px] font-semibold uppercase text-slate-500">Armadilhas Ativas</span>
-          <p className="text-2xl font-extrabold text-slate-900 mt-1">{totalTraps}</p>
+          <p className="text-2xl font-extrabold text-slate-900 mt-1">{metrics.totalTraps}</p>
           <span className="text-[10px] text-slate-500">Pontos sentinela</span>
         </div>
 
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
           <span className="text-[11px] font-semibold uppercase text-slate-500">Positividade (IPO)</span>
-          <p className="text-2xl font-extrabold text-sky-700 mt-1">{positivityRate}%</p>
-          <span className="text-[10px] text-slate-500">{positiveTraps} com ovos</span>
+          <p className="text-2xl font-extrabold text-sky-700 mt-1">{metrics.ipo}%</p>
+          <span className="text-[10px] text-slate-500">{metrics.positiveTraps} com ovos</span>
         </div>
 
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
           <span className="text-[11px] font-semibold uppercase text-slate-500">Índice Densidade Ovos (IDO)</span>
-          <p className="text-2xl font-extrabold text-amber-700 mt-1">{idoAverage}</p>
+          <p className="text-2xl font-extrabold text-amber-700 mt-1">{metrics.ido}</p>
           <span className="text-[10px] text-slate-500">Ovos / armadilha positiva</span>
         </div>
 
         <div className="bg-white p-4 rounded-xl border border-rose-200 bg-rose-50/20 shadow-xs">
-          <span className="text-[11px] font-semibold uppercase text-rose-700">Alertas de Alta</span>
+          <span className="text-[11px] font-semibold uppercase text-rose-700">Total de Ovos Coletados</span>
           <p className="text-2xl font-extrabold text-rose-700 mt-1">
-            {ovitraps.filter(o => o.growthAlert).length}
+            {metrics.totalEggs.toLocaleString('pt-BR')}
           </p>
-          <span className="text-[10px] text-rose-600">Subida consecutiva</span>
+          <span className="text-[10px] text-rose-600">No ciclo atual</span>
         </div>
       </div>
 
       {/* Ovitraps List */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {ovitraps.map(trap => (
-          <div
-            key={trap.id}
-            className={`bg-white rounded-xl border p-5 shadow-xs space-y-3 transition ${
-              trap.growthAlert ? 'border-rose-300' : 'border-slate-200'
-            }`}
-          >
-            <div className="flex items-start justify-between">
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="font-mono font-bold text-xs bg-sky-50 text-sky-800 px-2 py-0.5 rounded border border-sky-200">
-                    {trap.code}
-                  </span>
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
-                    trap.isPositive ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-800'
-                  }`}>
-                    {trap.isPositive ? 'POSITIVA' : 'NEGATIVA'}
-                  </span>
+      {isLoading ? (
+        <div className="py-16 text-center text-slate-400 bg-white rounded-xl border border-slate-200">
+          <RefreshCw className="w-6 h-6 animate-spin mx-auto text-sky-600 mb-2" />
+          <p className="text-xs">Carregando rede de ovitrampas do banco...</p>
+        </div>
+      ) : ovitraps.length === 0 ? (
+        <div className="p-8 bg-white rounded-xl border border-slate-200 text-center text-slate-500 text-xs">
+          Nenhuma ovitrampa cadastrada no município.
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {ovitraps.map(trap => (
+            <div
+              key={trap.id}
+              className={`bg-white rounded-xl border p-5 shadow-xs space-y-3 transition ${
+                trap.isPositive ? 'border-rose-300' : 'border-slate-200'
+              }`}
+            >
+              <div className="flex items-start justify-between">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono font-bold text-xs bg-sky-50 text-sky-800 px-2 py-0.5 rounded border border-sky-200">
+                      {trap.code}
+                    </span>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                      trap.isPositive ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-800'
+                    }`}>
+                      {trap.isPositive ? 'POSITIVA' : 'NEGATIVA'}
+                    </span>
+                  </div>
+                  <h3 className="text-sm font-bold text-slate-900 mt-1.5">{trap.address}</h3>
+                  <p className="text-xs text-slate-500">{trap.neighborhood} • {trap.sector || 'Setor Geral'}</p>
                 </div>
-                <h3 className="text-sm font-bold text-slate-900 mt-1.5">{trap.address}</h3>
-                <p className="text-xs text-slate-500">{trap.neighborhood} • {trap.microarea}</p>
+
+                <div className="p-2 bg-slate-50 rounded-lg text-slate-600" title="Código QR da Armadilha">
+                  <QrCode className="w-5 h-5" />
+                </div>
               </div>
 
-              <div className="p-2 bg-slate-50 rounded-lg text-slate-600" title="Código QR da Armadilha">
-                <QrCode className="w-5 h-5" />
+              {/* Reading and Eggs stats */}
+              <div className="bg-slate-50 p-3 rounded-lg flex items-center justify-between text-xs">
+                <div>
+                  <span className="text-[10px] text-slate-500 uppercase font-semibold">Última Leitura</span>
+                  <p className="text-lg font-black text-slate-900">{trap.lastEggCount || 0} ovos</p>
+                </div>
+                <div className="text-right">
+                  <span className="text-[10px] text-slate-500 uppercase font-semibold">Instalação</span>
+                  <p className="text-xs font-mono font-bold text-blue-700">
+                    {new Date(trap.installationDate).toLocaleDateString('pt-BR')}
+                  </p>
+                </div>
+              </div>
+
+              {/* Action button */}
+              <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
+                <span className="text-[10px] text-slate-400">
+                  Leitura: {trap.lastCollectionDate ? new Date(trap.lastCollectionDate).toLocaleDateString('pt-BR') : 'Sem leitura'}
+                </span>
+                <button
+                  onClick={() => handleOpenReading(trap)}
+                  className="px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-700 text-white font-semibold text-xs transition"
+                >
+                  Registrar Leitura
+                </button>
               </div>
             </div>
-
-            {/* Reading and Eggs stats */}
-            <div className="bg-slate-50 p-3 rounded-lg flex items-center justify-between text-xs">
-              <div>
-                <span className="text-[10px] text-slate-500 uppercase font-semibold">Última Leitura</span>
-                <p className="text-lg font-black text-slate-900">{trap.lastEggCount} ovos</p>
-              </div>
-              <div className="text-right">
-                <span className="text-[10px] text-slate-500 uppercase font-semibold">Palheta</span>
-                <p className="text-xs font-mono font-bold text-blue-700">{trap.paddleCode}</p>
-              </div>
-            </div>
-
-            {/* Alert info */}
-            {trap.growthAlert && (
-              <div className="bg-rose-50 border border-rose-200 p-2.5 rounded-lg text-xs font-bold text-rose-800 flex items-center gap-1.5">
-                <AlertTriangle className="w-4 h-4 text-rose-600 flex-shrink-0" />
-                <span>Alerta Entomológico: Infestação em aceleração</span>
-              </div>
-            )}
-
-            {/* Action button */}
-            <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
-              <span className="text-[10px] text-slate-400">Coleta: {trap.lastCollectionDate}</span>
-              <button
-                onClick={() => handleOpenReading(trap)}
-                className="px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-700 text-white font-semibold text-xs transition"
-              >
-                Registrar Leitura
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       {/* Quick Reading Modal */}
       {showReadingModal && selectedTrap && (
@@ -218,7 +259,7 @@ export const OvitrapsView: React.FC = () => {
                 <textarea
                   value={readingNotes}
                   onChange={e => setReadingNotes(e.target.value)}
-                  placeholder="Ex: Presença de água limpa, fêmeas adultas avistadas na vegetação ao redor."
+                  placeholder="Ex: Palheta recolhida para contagem em estereomicroscópio."
                   className="w-full p-2 rounded-lg border border-slate-300"
                   rows={2}
                 />
@@ -234,9 +275,10 @@ export const OvitrapsView: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-700 text-white font-bold"
+                  disabled={isSaving}
+                  className="px-4 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-700 disabled:opacity-50 text-white font-bold"
                 >
-                  Salvar Leitura
+                  {isSaving ? 'Salvando...' : 'Salvar Leitura'}
                 </button>
               </div>
             </form>

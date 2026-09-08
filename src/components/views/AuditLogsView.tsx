@@ -1,17 +1,54 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Shield, Clock, Search, Filter, Lock, User } from 'lucide-react';
 import { db } from '../../services/storage';
 import { AuditLog } from '../../types';
+import { supabase } from '../../services/supabaseClient';
 
 export const AuditLogsView: React.FC = () => {
   const [logs, setLogs] = useState<AuditLog[]>(db.getAuditLogs());
   const [searchTerm, setSearchTerm] = useState('');
 
+  useEffect(() => {
+    async function loadSupabaseAuditLogs() {
+      try {
+        const { data, error } = await supabase
+          .from('audit_logs')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(100);
+
+        if (!error && data && data.length > 0) {
+          const mapped: AuditLog[] = data.map((log: any) => ({
+            id: log.id,
+            municipalityId: log.municipality_id,
+            userId: log.user_id || 'usr-adm-01',
+            userName: 'Administrador / Sistema',
+            userRole: 'ENDEMIAS_COORDINATOR',
+            action: log.action || 'OPERACAO',
+            operation: log.action || 'SISTEMA',
+            module: log.module || 'SEGURANCA',
+            entity: log.entity || 'Registro',
+            recordIdentifier: log.new_data ? JSON.stringify(log.new_data) : log.entity_id || '—',
+            details: log.new_data ? JSON.stringify(log.new_data) : '—',
+            timestamp: new Date(log.created_at).toLocaleString('pt-BR'),
+            ipAddress: log.ip_address || '127.0.0.1 (Local)',
+            device: 'Navegador Web / Desktop',
+          }));
+          setLogs(mapped);
+        }
+      } catch (err) {
+        console.warn('Fallback para logs de auditoria locais:', err);
+      }
+    }
+    loadSupabaseAuditLogs();
+  }, []);
+
   const filtered = logs.filter(
     l =>
-      l.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      l.action.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      l.entity.toLowerCase().includes(searchTerm.toLowerCase())
+      (l.userName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      ((l as any).operation || (l as any).action || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      ((l as any).module || (l as any).entity || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      ((l as any).recordIdentifier || (l as any).details || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -64,11 +101,11 @@ export const AuditLogsView: React.FC = () => {
                   </td>
                   <td className="py-3 px-4">
                     <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-800">
-                      {log.action}
+                      {(log as any).operation || (log as any).action || 'REGISTRO'}
                     </span>
                   </td>
-                  <td className="py-3 px-4 text-slate-700 font-semibold">{log.entity}</td>
-                  <td className="py-3 px-4 font-sans text-slate-600 max-w-xs truncate">{log.details}</td>
+                  <td className="py-3 px-4 text-slate-700 font-semibold">{(log as any).module || (log as any).entity || 'Sistema'}</td>
+                  <td className="py-3 px-4 font-sans text-slate-600 max-w-xs truncate">{(log as any).recordIdentifier || (log as any).details || '—'}</td>
                   <td className="py-3 px-4 text-slate-400 text-[10px]">{log.ipAddress}</td>
                 </tr>
               ))}
