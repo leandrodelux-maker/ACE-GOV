@@ -239,11 +239,11 @@ export const GeographicReconnaissanceView: React.FC = () => {
             </span>
             <span className="text-xs text-slate-400">• Base Cartográfica Territorial</span>
           </div>
-          <h1 className="text-2xl font-bold text-white tracking-tight mt-1 flex items-center gap-2">
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight mt-1 flex items-center gap-2">
             <Map className="w-7 h-7 text-emerald-400" />
             Reconhecimento Geográfico — RG
           </h1>
-          <p className="text-sm text-slate-400">
+          <p className="text-sm text-slate-500">
             Base territorial viva de imóveis, setores, microáreas e designação de ACE para planejamento de ciclos.
           </p>
         </div>
@@ -251,7 +251,7 @@ export const GeographicReconnaissanceView: React.FC = () => {
         <div className="flex items-center gap-3">
           <button
             onClick={loadData}
-            className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-sm font-medium border border-slate-700 flex items-center gap-2 transition"
+            className="px-3 py-2 bg-white hover:bg-slate-50 text-slate-700 rounded-lg text-sm font-medium border border-slate-200 flex items-center gap-2 transition shadow-xs"
             title="Recarregar dados"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-emerald-400' : ''}`} />
@@ -269,28 +269,28 @@ export const GeographicReconnaissanceView: React.FC = () => {
 
       {/* Cards de Indicadores Reais */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        <div className="bg-slate-800/80 border border-slate-700/80 rounded-xl p-4 shadow-sm">
+        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">Imóveis Cadastrados</span>
+            <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">Imóveis Cadastrados</span>
             <Building2 className="w-5 h-5 text-emerald-400" />
           </div>
           <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-white">{indicators.totalProperties.toLocaleString('pt-BR')}</span>
+            <span className="text-2xl font-bold text-slate-900">{indicators.totalProperties.toLocaleString('pt-BR')}</span>
             <span className="text-xs text-emerald-400 font-medium">RG Oficial</span>
           </div>
           <p className="text-xs text-slate-500 mt-1">Censo territorial ativo</p>
         </div>
 
-        <div className="bg-slate-800/80 border border-slate-700/80 rounded-xl p-4 shadow-sm">
+        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">Georreferenciados</span>
+            <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">Georreferenciados</span>
             <Navigation className="w-5 h-5 text-cyan-400" />
           </div>
           <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-white">{indicators.georeferencedProperties.toLocaleString('pt-BR')}</span>
+            <span className="text-2xl font-bold text-slate-900">{indicators.georeferencedProperties.toLocaleString('pt-BR')}</span>
             <span className="text-xs text-cyan-400 font-semibold">{indicators.georeferencedPercentage}%</span>
           </div>
-          <div className="w-full bg-slate-700/50 h-1.5 rounded-full mt-2 overflow-hidden">
+          <div className="w-full bg-slate-100 h-1.5 rounded-full mt-2 overflow-hidden">
             <div
               className="bg-cyan-400 h-full rounded-full transition-all"
               style={{ width: `${Math.min(100, indicators.georeferencedPercentage)}%` }}
@@ -298,9 +298,9 @@ export const GeographicReconnaissanceView: React.FC = () => {
           </div>
         </div>
 
-        <div className="bg-slate-800/80 border border-slate-700/80 rounded-xl p-4 shadow-sm">
+        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">Sem Setor</span>
+            <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">Sem Setor</span>
             <Layers className="w-5 h-5 text-amber-400" />
           </div>
           <div className="mt-2 flex items-baseline gap-2">
@@ -310,9 +310,9 @@ export const GeographicReconnaissanceView: React.FC = () => {
           <p className="text-xs text-slate-500 mt-1">Necessitam vinculação</p>
         </div>
 
-        <div className="bg-slate-800/80 border border-slate-700/80 rounded-xl p-4 shadow-sm">
+        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">Sem ACE</span>
+            <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">Sem ACE</span>
             <UserX className="w-5 h-5 text-rose-400" />
           </div>
           <div className="mt-2 flex items-baseline gap-2">
@@ -322,9 +322,9 @@ export const GeographicReconnaissanceView: React.FC = () => {
           <p className="text-xs text-slate-500 mt-1">Sem titular designado</p>
         </div>
 
-        <div className="bg-slate-800/80 border border-slate-700/80 rounded-xl p-4 shadow-sm">
+        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">Desatualizados (&gt;60d)</span>
+            <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">Desatualizados (&gt;60d)</span>
             <AlertTriangle className="w-5 h-5 text-orange-400" />
           </div>
           <div className="mt-2 flex items-baseline gap-2">
@@ -336,15 +336,15 @@ export const GeographicReconnaissanceView: React.FC = () => {
       </div>
 
       {/* Abas e Filtros */}
-      <div className="bg-slate-800/70 border border-slate-700 rounded-xl p-4">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-700/70 pb-4">
+      <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-200 pb-4">
           <div className="flex items-center gap-2">
             <button
               onClick={() => setActiveTab('imoveis')}
               className={`px-4 py-2 text-sm font-medium rounded-lg transition flex items-center gap-2 ${
                 activeTab === 'imoveis'
                   ? 'bg-emerald-600 text-white shadow-md'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
               }`}
             >
               <Home className="w-4 h-4" />
@@ -355,7 +355,7 @@ export const GeographicReconnaissanceView: React.FC = () => {
               className={`px-4 py-2 text-sm font-medium rounded-lg transition flex items-center gap-2 ${
                 activeTab === 'anomalias'
                   ? 'bg-amber-600 text-white shadow-md'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
               }`}
             >
               <AlertTriangle className="w-4 h-4" />
@@ -372,12 +372,12 @@ export const GeographicReconnaissanceView: React.FC = () => {
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Buscar por código, rua ou morador..."
-                  className="w-full pl-9 pr-3 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-emerald-500"
+                  className="w-full pl-9 pr-3 py-1.5 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
                 />
               </div>
               <button
                 type="submit"
-                className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm font-medium transition"
+                className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium border border-slate-200 transition"
               >
                 Filtrar
               </button>
@@ -388,11 +388,11 @@ export const GeographicReconnaissanceView: React.FC = () => {
         {activeTab === 'imoveis' && (
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 mt-4">
             <div>
-              <label className="text-xs text-slate-400 font-medium mb-1 block">Tipo de Imóvel</label>
+              <label className="text-xs text-slate-500 font-medium mb-1 block">Tipo de Imóvel</label>
               <select
                 value={filterType}
                 onChange={(e) => setFilterType(e.target.value)}
-                className="w-full px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white focus:outline-none focus:border-emerald-500"
+                className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
               >
                 <option value="todos">Todos os Tipos</option>
                 <option value="residencia">Residência</option>
@@ -408,11 +408,11 @@ export const GeographicReconnaissanceView: React.FC = () => {
             </div>
 
             <div>
-              <label className="text-xs text-slate-400 font-medium mb-1 block">Situação Cadastral</label>
+              <label className="text-xs text-slate-500 font-medium mb-1 block">Situação Cadastral</label>
               <select
                 value={filterSituation}
                 onChange={(e) => setFilterSituation(e.target.value)}
-                className="w-full px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white focus:outline-none focus:border-emerald-500"
+                className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
               >
                 <option value="todos">Todas as Situações</option>
                 <option value="ativo">Ativo</option>
@@ -427,9 +427,9 @@ export const GeographicReconnaissanceView: React.FC = () => {
                 id="onlyNoCoords"
                 checked={filterOnlyNoCoords}
                 onChange={(e) => setFilterOnlyNoCoords(e.target.checked)}
-                className="rounded bg-slate-900 border-slate-700 text-emerald-500 focus:ring-emerald-500 h-4 w-4"
+                className="rounded bg-white border-slate-300 text-emerald-500 focus:ring-emerald-500 h-4 w-4"
               />
-              <label htmlFor="onlyNoCoords" className="text-xs text-slate-300 select-none cursor-pointer">
+              <label htmlFor="onlyNoCoords" className="text-xs text-slate-600 select-none cursor-pointer">
                 Apenas sem GPS/Coordenadas
               </label>
             </div>
@@ -439,11 +439,11 @@ export const GeographicReconnaissanceView: React.FC = () => {
 
       {/* Conteúdo da Aba 1: Tabela de Imóveis */}
       {activeTab === 'imoveis' && (
-        <div className="bg-slate-800/80 border border-slate-700 rounded-xl overflow-hidden shadow-sm">
+        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="border-b border-slate-700 bg-slate-900/60 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                <tr className="border-b border-slate-200 bg-slate-50 text-xs font-semibold text-slate-500 uppercase tracking-wider">
                   <th className="py-3 px-4">Código / Tipo</th>
                   <th className="py-3 px-4">Logradouro & Número</th>
                   <th className="py-3 px-4">Bairro / Setor / Quadra</th>
@@ -453,29 +453,29 @@ export const GeographicReconnaissanceView: React.FC = () => {
                   <th className="py-3 px-4 text-right">Ações Operacionais</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-700/50 text-sm">
+              <tbody className="divide-y divide-slate-100 text-sm">
                 {properties.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="py-8 text-center text-slate-400">
+                    <td colSpan={7} className="py-8 text-center text-slate-500">
                       Nenhum imóvel encontrado com os filtros selecionados.
                     </td>
                   </tr>
                 ) : (
                   properties.map((prop) => (
-                    <tr key={prop.id} className="hover:bg-slate-700/30 transition">
+                    <tr key={prop.id} className="hover:bg-slate-50 transition">
                       <td className="py-3 px-4">
                         <div className="font-mono text-xs font-semibold text-emerald-400">{prop.property_code}</div>
-                        <div className="text-xs text-slate-300 capitalize">{prop.property_type.replace('_', ' ')}</div>
+                        <div className="text-xs text-slate-600 capitalize">{prop.property_type.replace('_', ' ')}</div>
                       </td>
                       <td className="py-3 px-4">
-                        <div className="text-white font-medium">
+                        <div className="text-slate-900 font-medium">
                           {prop.street}, {prop.number}
                         </div>
                         {prop.complement && <div className="text-xs text-slate-400">{prop.complement}</div>}
                         {prop.reference && <div className="text-xs text-slate-500 italic">Ref: {prop.reference}</div>}
                       </td>
                       <td className="py-3 px-4">
-                        <div className="text-xs text-slate-200">
+                        <div className="text-xs text-slate-700">
                           {prop.neighborhood?.name || 'Bairro s/ vinc.'}
                         </div>
                         <div className="text-xs text-slate-400">
@@ -505,7 +505,7 @@ export const GeographicReconnaissanceView: React.FC = () => {
                           <button
                             onClick={() => handleGeolocateCurrent(prop)}
                             disabled={geoLocating === prop.id}
-                            className="text-xs px-2 py-1 bg-cyan-900/40 hover:bg-cyan-800/60 text-cyan-300 rounded border border-cyan-700/50 flex items-center gap-1 transition"
+                            className="text-xs px-2 py-1 bg-cyan-50 hover:bg-cyan-100 text-cyan-700 rounded border border-cyan-200 font-medium flex items-center gap-1 transition"
                             title="Capturar GPS do navegador agora"
                           >
                             <Navigation className={`w-3 h-3 ${geoLocating === prop.id ? 'animate-spin' : ''}`} />
@@ -534,7 +534,7 @@ export const GeographicReconnaissanceView: React.FC = () => {
                               setTargetSectorId(prop.sector_id || '');
                               setShowTransferSectorModal(true);
                             }}
-                            className="p-1.5 hover:bg-slate-700 text-slate-300 hover:text-emerald-400 rounded transition"
+                            className="p-1.5 hover:bg-slate-100 text-slate-400 hover:text-emerald-600 rounded transition"
                             title="Transferir de Setor"
                           >
                             <ArrowRightLeft className="w-4 h-4" />
@@ -546,7 +546,7 @@ export const GeographicReconnaissanceView: React.FC = () => {
                               setTargetAgentId(prop.assigned_agent_id || '');
                               setShowTransferAgentModal(true);
                             }}
-                            className="p-1.5 hover:bg-slate-700 text-slate-300 hover:text-cyan-400 rounded transition"
+                            className="p-1.5 hover:bg-slate-100 text-slate-400 hover:text-cyan-600 rounded transition"
                             title="Transferir de ACE"
                           >
                             <UserCheck className="w-4 h-4" />
@@ -554,7 +554,7 @@ export const GeographicReconnaissanceView: React.FC = () => {
 
                           <button
                             onClick={() => handleToggleSituation(prop)}
-                            className="p-1.5 hover:bg-slate-700 text-slate-300 hover:text-amber-400 rounded transition"
+                            className="p-1.5 hover:bg-slate-100 text-slate-400 hover:text-amber-600 rounded transition"
                             title={prop.situation === 'ativo' ? 'Inativar imóvel' : 'Reativar imóvel'}
                           >
                             <XCircle className="w-4 h-4" />
@@ -573,11 +573,11 @@ export const GeographicReconnaissanceView: React.FC = () => {
       {/* Conteúdo da Aba 2: Diagnóstico de Anomalias Cadastrais */}
       {activeTab === 'anomalias' && (
         <div className="space-y-4">
-          <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 flex items-start gap-3">
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3 shadow-xs">
             <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
             <div>
-              <h3 className="text-sm font-semibold text-amber-300">Auditoria Automática de Qualidade Cadastral do RG</h3>
-              <p className="text-xs text-amber-400/90 mt-1">
+              <h3 className="text-sm font-semibold text-amber-800">Auditoria Automática de Qualidade Cadastral do RG</h3>
+              <p className="text-xs text-amber-700 mt-1">
                 A ferramenta identifica inconsistências que impactam o cálculo de cobertura, as rotas dos ACE e a
                 amostragem probabilística do LIRAa.
               </p>
@@ -586,7 +586,7 @@ export const GeographicReconnaissanceView: React.FC = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {anomalies.map((anom, idx) => (
-              <div key={idx} className="bg-slate-800/80 border border-slate-700 rounded-xl p-4 shadow-sm">
+              <div key={idx} className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <span
@@ -598,15 +598,15 @@ export const GeographicReconnaissanceView: React.FC = () => {
                     >
                       {anom.severity.toUpperCase()}
                     </span>
-                    <h4 className="text-sm font-semibold text-white">{anom.title}</h4>
+                    <h4 className="text-sm font-semibold text-slate-900">{anom.title}</h4>
                   </div>
-                  <span className="text-lg font-bold text-white font-mono bg-slate-900 px-2.5 py-0.5 rounded-lg border border-slate-700">
+                  <span className="text-lg font-bold text-slate-900 font-mono bg-slate-100 px-2.5 py-0.5 rounded-lg border border-slate-200">
                     {anom.count}
                   </span>
                 </div>
                 <p className="text-xs text-slate-400 mt-2">{anom.description}</p>
 
-                <div className="mt-3 pt-3 border-t border-slate-700/60 flex items-center justify-between">
+                <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between">
                   <span className="text-xs text-slate-500">Ação recomendada de saneamento</span>
                   <button
                     onClick={() => {
@@ -632,13 +632,13 @@ export const GeographicReconnaissanceView: React.FC = () => {
       {/* Modal: Novo Imóvel no RG */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-800 border border-slate-700 rounded-xl max-w-2xl w-full p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-slate-700 pb-3">
-              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+          <div className="bg-white border border-slate-200 rounded-xl max-w-2xl w-full p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+              <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
                 <Building2 className="w-5 h-5 text-emerald-400" />
                 Cadastrar Imóvel no Reconhecimento Geográfico
               </h3>
-              <button onClick={() => setShowCreateModal(false)} className="text-slate-400 hover:text-white text-lg">
+              <button onClick={() => setShowCreateModal(false)} className="text-slate-400 hover:text-slate-700 text-lg">
                 ✕
               </button>
             </div>
@@ -646,11 +646,11 @@ export const GeographicReconnaissanceView: React.FC = () => {
             <form onSubmit={handleSaveProperty} className="mt-4 space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs text-slate-300 block mb-1">Tipo de Imóvel *</label>
+                  <label className="text-xs text-slate-600 block mb-1">Tipo de Imóvel *</label>
                   <select
                     value={formData.property_type}
                     onChange={(e) => setFormData({ ...formData, property_type: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-emerald-500"
+                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
                   >
                     <option value="residencia">Residência</option>
                     <option value="comercio">Comércio</option>
@@ -665,11 +665,11 @@ export const GeographicReconnaissanceView: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="text-xs text-slate-300 block mb-1">Situação Inicial *</label>
+                  <label className="text-xs text-slate-600 block mb-1">Situação Inicial *</label>
                   <select
                     value={formData.situation}
                     onChange={(e) => setFormData({ ...formData, situation: e.target.value as any })}
-                    className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-emerald-500"
+                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
                   >
                     <option value="ativo">Ativo</option>
                     <option value="inativo">Inativo</option>
@@ -680,87 +680,87 @@ export const GeographicReconnaissanceView: React.FC = () => {
 
               <div className="grid grid-cols-3 gap-3">
                 <div className="col-span-2">
-                  <label className="text-xs text-slate-300 block mb-1">Logradouro / Rua *</label>
+                  <label className="text-xs text-slate-600 block mb-1">Logradouro / Rua *</label>
                   <input
                     type="text"
                     required
                     value={formData.street}
                     onChange={(e) => setFormData({ ...formData, street: e.target.value })}
                     placeholder="Ex: Rua das Flores"
-                    className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-emerald-500"
+                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-slate-300 block mb-1">Número *</label>
+                  <label className="text-xs text-slate-600 block mb-1">Número *</label>
                   <input
                     type="text"
                     required
                     value={formData.number}
                     onChange={(e) => setFormData({ ...formData, number: e.target.value })}
                     placeholder="123"
-                    className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-emerald-500"
+                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs text-slate-300 block mb-1">Complemento</label>
+                  <label className="text-xs text-slate-600 block mb-1">Complemento</label>
                   <input
                     type="text"
                     value={formData.complement || ''}
                     onChange={(e) => setFormData({ ...formData, complement: e.target.value })}
                     placeholder="Apto 101 / Bloco B"
-                    className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-emerald-500"
+                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-slate-300 block mb-1">Ponto de Referência</label>
+                  <label className="text-xs text-slate-600 block mb-1">Ponto de Referência</label>
                   <input
                     type="text"
                     value={formData.reference || ''}
                     onChange={(e) => setFormData({ ...formData, reference: e.target.value })}
                     placeholder="Próximo à padaria"
-                    className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-emerald-500"
+                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs text-slate-300 block mb-1">Morador Principal</label>
+                  <label className="text-xs text-slate-600 block mb-1">Morador Principal</label>
                   <input
                     type="text"
                     value={formData.resident_name || ''}
                     onChange={(e) => setFormData({ ...formData, resident_name: e.target.value })}
                     placeholder="Nome do morador ou responsável"
-                    className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-emerald-500"
+                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-slate-300 block mb-1">Qtd Aprox. Moradores</label>
+                  <label className="text-xs text-slate-600 block mb-1">Qtd Aprox. Moradores</label>
                   <input
                     type="number"
                     min="0"
                     value={formData.residents_count || 1}
                     onChange={(e) => setFormData({ ...formData, residents_count: parseInt(e.target.value) || 0 })}
-                    className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-emerald-500"
+                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
                   />
                 </div>
               </div>
 
               {/* Vínculo Territorial */}
-              <div className="pt-2 border-t border-slate-700/60">
+              <div className="pt-2 border-t border-slate-100">
                 <span className="text-xs font-semibold text-emerald-400 uppercase tracking-wider block mb-2">
                   Estrutura Territorial
                 </span>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   <div>
-                    <label className="text-xs text-slate-400 block mb-1">Bairro</label>
+                    <label className="text-xs text-slate-500 block mb-1">Bairro</label>
                     <select
                       value={formData.neighborhood_id || ''}
                       onChange={(e) => setFormData({ ...formData, neighborhood_id: e.target.value })}
-                      className="w-full px-2 py-1.5 bg-slate-900 border border-slate-700 rounded text-xs text-white"
+                      className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
                     >
                       <option value="">Selecione...</option>
                       {territoryOptions.neighborhoods.map((n) => (
@@ -769,11 +769,11 @@ export const GeographicReconnaissanceView: React.FC = () => {
                     </select>
                   </div>
                   <div>
-                    <label className="text-xs text-slate-400 block mb-1">Setor</label>
+                    <label className="text-xs text-slate-500 block mb-1">Setor</label>
                     <select
                       value={formData.sector_id || ''}
                       onChange={(e) => setFormData({ ...formData, sector_id: e.target.value })}
-                      className="w-full px-2 py-1.5 bg-slate-900 border border-slate-700 rounded text-xs text-white"
+                      className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
                     >
                       <option value="">Selecione...</option>
                       {territoryOptions.sectors.map((s) => (
@@ -782,11 +782,11 @@ export const GeographicReconnaissanceView: React.FC = () => {
                     </select>
                   </div>
                   <div>
-                    <label className="text-xs text-slate-400 block mb-1">Microárea</label>
+                    <label className="text-xs text-slate-500 block mb-1">Microárea</label>
                     <select
                       value={formData.microarea_id || ''}
                       onChange={(e) => setFormData({ ...formData, microarea_id: e.target.value })}
-                      className="w-full px-2 py-1.5 bg-slate-900 border border-slate-700 rounded text-xs text-white"
+                      className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
                     >
                       <option value="">Selecione...</option>
                       {territoryOptions.microareas.map((m) => (
@@ -795,11 +795,11 @@ export const GeographicReconnaissanceView: React.FC = () => {
                     </select>
                   </div>
                   <div>
-                    <label className="text-xs text-slate-400 block mb-1">Quadra</label>
+                    <label className="text-xs text-slate-500 block mb-1">Quadra</label>
                     <select
                       value={formData.block_id || ''}
                       onChange={(e) => setFormData({ ...formData, block_id: e.target.value })}
-                      className="w-full px-2 py-1.5 bg-slate-900 border border-slate-700 rounded text-xs text-white"
+                      className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
                     >
                       <option value="">Selecione...</option>
                       {territoryOptions.blocks.map((b) => (
@@ -811,11 +811,11 @@ export const GeographicReconnaissanceView: React.FC = () => {
               </div>
 
               <div>
-                <label className="text-xs text-slate-300 block mb-1">ACE Responsável (Titular)</label>
+                <label className="text-xs text-slate-600 block mb-1">ACE Responsável (Titular)</label>
                 <select
                   value={formData.assigned_agent_id || ''}
                   onChange={(e) => setFormData({ ...formData, assigned_agent_id: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-emerald-500"
+                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
                 >
                   <option value="">Nenhum ACE vinculado no momento</option>
                   {territoryOptions.agents.map((ag) => (
@@ -824,11 +824,11 @@ export const GeographicReconnaissanceView: React.FC = () => {
                 </select>
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-700">
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200">
                 <button
                   type="button"
                   onClick={() => setShowCreateModal(false)}
-                  className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm"
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium transition"
                 >
                   Cancelar
                 </button>
@@ -847,21 +847,21 @@ export const GeographicReconnaissanceView: React.FC = () => {
       {/* Modal: Transferir de Setor */}
       {showTransferSectorModal && selectedProperty && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-800 border border-slate-700 rounded-xl max-w-md w-full p-6 shadow-2xl">
-            <h3 className="text-lg font-bold text-white flex items-center gap-2">
+          <div className="bg-white border border-slate-200 rounded-xl max-w-md w-full p-6 shadow-2xl">
+            <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
               <ArrowRightLeft className="w-5 h-5 text-emerald-400" />
               Transferir Imóvel de Setor
             </h3>
             <p className="text-xs text-slate-400 mt-1">
-              Imóvel: <span className="text-white font-semibold">{selectedProperty.property_code}</span> - {selectedProperty.street}, {selectedProperty.number}
+              Imóvel: <span className="text-slate-900 font-semibold">{selectedProperty.property_code}</span> - {selectedProperty.street}, {selectedProperty.number}
             </p>
 
             <div className="mt-4">
-              <label className="text-xs text-slate-300 block mb-1">Novo Setor Censitário *</label>
+              <label className="text-xs text-slate-600 block mb-1">Novo Setor Censitário *</label>
               <select
                 value={targetSectorId}
                 onChange={(e) => setTargetSectorId(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-emerald-500"
+                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
               >
                 <option value="">Selecione o setor de destino...</option>
                 {territoryOptions.sectors.map((s) => (
@@ -870,10 +870,10 @@ export const GeographicReconnaissanceView: React.FC = () => {
               </select>
             </div>
 
-            <div className="flex items-center justify-end gap-3 mt-6 pt-3 border-t border-slate-700">
+            <div className="flex items-center justify-end gap-3 mt-6 pt-3 border-t border-slate-200">
               <button
                 onClick={() => setShowTransferSectorModal(false)}
-                className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm"
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium transition"
               >
                 Cancelar
               </button>
@@ -891,21 +891,21 @@ export const GeographicReconnaissanceView: React.FC = () => {
       {/* Modal: Transferir de ACE */}
       {showTransferAgentModal && selectedProperty && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-800 border border-slate-700 rounded-xl max-w-md w-full p-6 shadow-2xl">
-            <h3 className="text-lg font-bold text-white flex items-center gap-2">
+          <div className="bg-white border border-slate-200 rounded-xl max-w-md w-full p-6 shadow-2xl">
+            <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
               <UserCheck className="w-5 h-5 text-cyan-400" />
               Designar / Transferir ACE Titular
             </h3>
             <p className="text-xs text-slate-400 mt-1">
-              Imóvel: <span className="text-white font-semibold">{selectedProperty.property_code}</span> - {selectedProperty.street}, {selectedProperty.number}
+              Imóvel: <span className="text-slate-900 font-semibold">{selectedProperty.property_code}</span> - {selectedProperty.street}, {selectedProperty.number}
             </p>
 
             <div className="mt-4">
-              <label className="text-xs text-slate-300 block mb-1">Novo ACE Responsável</label>
+              <label className="text-xs text-slate-600 block mb-1">Novo ACE Responsável</label>
               <select
                 value={targetAgentId}
                 onChange={(e) => setTargetAgentId(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-cyan-500"
+                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500"
               >
                 <option value="">Sem ACE designado</option>
                 {territoryOptions.agents.map((ag) => (
@@ -914,10 +914,10 @@ export const GeographicReconnaissanceView: React.FC = () => {
               </select>
             </div>
 
-            <div className="flex items-center justify-end gap-3 mt-6 pt-3 border-t border-slate-700">
+            <div className="flex items-center justify-end gap-3 mt-6 pt-3 border-t border-slate-200">
               <button
                 onClick={() => setShowTransferAgentModal(false)}
-                className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm"
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium transition"
               >
                 Cancelar
               </button>

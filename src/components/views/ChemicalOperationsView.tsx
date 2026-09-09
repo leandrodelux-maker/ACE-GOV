@@ -172,11 +172,11 @@ export const ChemicalOperationsView: React.FC = () => {
             </span>
             <span className="text-xs text-slate-400">• Operações Químicas & UBV</span>
           </div>
-          <h1 className="text-2xl font-bold text-white tracking-tight mt-1 flex items-center gap-2">
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight mt-1 flex items-center gap-2">
             <Flame className="w-7 h-7 text-cyan-400" />
             Controle Químico e UBV
           </h1>
-          <p className="text-sm text-slate-400">
+          <p className="text-sm text-slate-500">
             Planejamento de rotas UBV, tratamento perifocal, controle estrito de lotes e baixa automática de estoque.
           </p>
         </div>
@@ -184,7 +184,7 @@ export const ChemicalOperationsView: React.FC = () => {
         <div className="flex items-center gap-3">
           <button
             onClick={loadData}
-            className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-sm font-medium border border-slate-700 flex items-center gap-2 transition"
+            className="px-3 py-2 bg-white hover:bg-slate-50 text-slate-700 rounded-lg text-sm font-medium border border-slate-200 flex items-center gap-2 transition shadow-xs"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-cyan-400' : ''}`} />
             <span>Atualizar</span>
@@ -200,11 +200,11 @@ export const ChemicalOperationsView: React.FC = () => {
       </div>
 
       {/* Tabela de Operações */}
-      <div className="bg-slate-800/80 border border-slate-700 rounded-xl overflow-hidden shadow-sm">
+      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="border-b border-slate-700 bg-slate-900/60 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+              <tr className="border-b border-slate-200 bg-slate-50 text-xs font-semibold text-slate-500 uppercase tracking-wider">
                 <th className="py-3 px-4">Operação / Tipo</th>
                 <th className="py-3 px-4">Doença / Data</th>
                 <th className="py-3 px-4">Equipamento & Condições</th>
@@ -214,18 +214,18 @@ export const ChemicalOperationsView: React.FC = () => {
                 <th className="py-3 px-4 text-right">Ações</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-700/50 text-sm">
+            <tbody className="divide-y divide-slate-100 text-sm">
               {operations.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-8 text-center text-slate-400">
+                  <td colSpan={7} className="py-8 text-center text-slate-500">
                     Nenhuma operação química registrada até o momento.
                   </td>
                 </tr>
               ) : (
                 operations.map((op) => (
-                  <tr key={op.id} className="hover:bg-slate-700/30 transition">
+                  <tr key={op.id} className="hover:bg-slate-50 transition">
                     <td className="py-3 px-4">
-                      <div className="font-semibold text-white text-xs capitalize">
+                      <div className="font-semibold text-slate-900 text-xs capitalize">
                         {op.type.replace('_', ' ')}
                       </div>
                       <div className="text-[11px] text-slate-400 font-mono">ID: {op.id.substring(0, 8)}</div>
@@ -239,7 +239,7 @@ export const ChemicalOperationsView: React.FC = () => {
                       </div>
                     </td>
                     <td className="py-3 px-4">
-                      <div className="text-xs text-slate-200 capitalize font-medium flex items-center gap-1">
+                      <div className="text-xs text-slate-700 capitalize font-medium flex items-center gap-1">
                         <Truck className="w-3.5 h-3.5 text-cyan-400" />
                         {op.equipment_type?.replace('_', ' ') || 'UBV Costal'}
                       </div>
@@ -250,7 +250,7 @@ export const ChemicalOperationsView: React.FC = () => {
                       )}
                     </td>
                     <td className="py-3 px-4">
-                      <div className="text-xs text-slate-200 font-medium">
+                      <div className="text-xs text-slate-700 font-medium">
                         {op.batch?.product?.name || 'Inseticida'}
                       </div>
                       <div className="text-[11px] text-cyan-400 font-mono">
@@ -303,7 +303,7 @@ export const ChemicalOperationsView: React.FC = () => {
                               setSelectedOp(op);
                               setShowCancelModal(true);
                             }}
-                            className="p-1 hover:bg-slate-700 text-slate-400 hover:text-rose-400 rounded transition"
+                            className="p-1 hover:bg-slate-100 text-slate-400 hover:text-rose-500 rounded transition"
                             title="Interromper / Cancelar Operação"
                           >
                             <XCircle className="w-4 h-4" />
@@ -322,13 +322,13 @@ export const ChemicalOperationsView: React.FC = () => {
       {/* Modal: Nova Operação Química */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-800 border border-slate-700 rounded-xl max-w-2xl w-full p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-slate-700 pb-3">
-              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+          <div className="bg-white border border-slate-200 rounded-xl max-w-2xl w-full p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+              <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
                 <Flame className="w-5 h-5 text-cyan-400" />
                 Registrar Operação Química / UBV
               </h3>
-              <button onClick={() => setShowCreateModal(false)} className="text-slate-400 hover:text-white text-lg">
+              <button onClick={() => setShowCreateModal(false)} className="text-slate-400 hover:text-slate-700 text-lg">
                 ✕
               </button>
             </div>
@@ -336,11 +336,11 @@ export const ChemicalOperationsView: React.FC = () => {
             <form onSubmit={handleCreateSubmit} className="mt-4 space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs text-slate-300 block mb-1">Tipo de Operação *</label>
+                  <label className="text-xs text-slate-600 block mb-1">Tipo de Operação *</label>
                   <select
                     value={formData.type}
                     onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-cyan-500"
+                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500"
                   >
                     <option value="ubv_costal">UBV Costal (Nebulização manual)</option>
                     <option value="ubv_veicular">UBV Veicular / Pesado (Fumacê)</option>
@@ -351,11 +351,11 @@ export const ChemicalOperationsView: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="text-xs text-slate-300 block mb-1">Doença Relacionada *</label>
+                  <label className="text-xs text-slate-600 block mb-1">Doença Relacionada *</label>
                   <select
                     value={formData.disease}
                     onChange={(e) => setFormData({ ...formData, disease: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-cyan-500"
+                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500"
                   >
                     <option value="Dengue">Dengue</option>
                     <option value="Zika">Zika</option>
@@ -367,8 +367,8 @@ export const ChemicalOperationsView: React.FC = () => {
               </div>
 
               {/* Vínculo de Lote Obrigatório (Estoque FEFO) */}
-              <div className="p-3 bg-cyan-950/30 border border-cyan-800/40 rounded-lg">
-                <label className="text-xs font-semibold text-cyan-300 block mb-1 flex items-center gap-1.5">
+              <div className="p-3 bg-cyan-50 border border-cyan-200 rounded-lg">
+                <label className="text-xs font-semibold text-cyan-800 block mb-1 flex items-center gap-1.5">
                   <Package className="w-4 h-4" />
                   Lote do Produto Químico no Estoque (Obrigatório) *
                 </label>
@@ -376,7 +376,7 @@ export const ChemicalOperationsView: React.FC = () => {
                   required
                   value={formData.batch_id}
                   onChange={(e) => setFormData({ ...formData, batch_id: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-900 border border-cyan-700/60 rounded-lg text-sm text-white focus:outline-none focus:border-cyan-400"
+                  className="w-full px-3 py-2 bg-white border border-cyan-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500"
                 >
                   <option value="">Selecione o lote com saldo no estoque...</option>
                   {availableBatches.map((b) => (
@@ -385,109 +385,109 @@ export const ChemicalOperationsView: React.FC = () => {
                     </option>
                   ))}
                 </select>
-                <p className="text-[11px] text-cyan-400/80 mt-1">
+                <p className="text-[11px] text-cyan-700 mt-1">
                   Não é permitida operação química sem vínculo a lote ativo. Baixa de estoque é automática.
                 </p>
               </div>
 
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="text-xs text-slate-300 block mb-1">Data da Aplicação *</label>
+                  <label className="text-xs text-slate-600 block mb-1">Data da Aplicação *</label>
                   <input
                     type="date"
                     required
                     value={formData.start_date}
                     onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-cyan-500"
+                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500"
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-slate-300 block mb-1">Hora Inicial *</label>
+                  <label className="text-xs text-slate-600 block mb-1">Hora Inicial *</label>
                   <input
                     type="time"
                     required
                     value={formData.start_time}
                     onChange={(e) => setFormData({ ...formData, start_time: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-cyan-500"
+                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500"
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-slate-300 block mb-1">Hora Final *</label>
+                  <label className="text-xs text-slate-600 block mb-1">Hora Final *</label>
                   <input
                     type="time"
                     required
                     value={formData.end_time}
                     onChange={(e) => setFormData({ ...formData, end_time: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-cyan-500"
+                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500"
                   />
                 </div>
               </div>
 
               {/* Rota UBV e Consumo */}
-              <div className="pt-2 border-t border-slate-700/60">
+              <div className="pt-2 border-t border-slate-200">
                 <span className="text-xs font-semibold text-cyan-400 uppercase tracking-wider block mb-2">
                   Métricas Operacionais da Rota UBV
                 </span>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   <div>
-                    <label className="text-xs text-slate-300 block mb-1">Consumo (Litros) *</label>
+                    <label className="text-xs text-slate-600 block mb-1">Consumo (Litros) *</label>
                     <input
                       type="number"
                       step="0.01"
                       required
                       value={formData.product_consumed_liters}
                       onChange={(e) => setFormData({ ...formData, product_consumed_liters: parseFloat(e.target.value) || 0 })}
-                      className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-cyan-500"
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500"
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-slate-300 block mb-1">Distância (km)</label>
+                    <label className="text-xs text-slate-600 block mb-1">Distância (km)</label>
                     <input
                       type="number"
                       step="0.1"
                       value={formData.route_distance_km}
                       onChange={(e) => setFormData({ ...formData, route_distance_km: parseFloat(e.target.value) || 0 })}
-                      className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-cyan-500"
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500"
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-slate-300 block mb-1">Área (Hectares)</label>
+                    <label className="text-xs text-slate-600 block mb-1">Área (Hectares)</label>
                     <input
                       type="number"
                       step="0.1"
                       value={formData.worked_area_hectares}
                       onChange={(e) => setFormData({ ...formData, worked_area_hectares: parseFloat(e.target.value) || 0 })}
-                      className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-cyan-500"
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500"
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-slate-300 block mb-1">Imóveis Alvo</label>
+                    <label className="text-xs text-slate-600 block mb-1">Imóveis Alvo</label>
                     <input
                       type="number"
                       value={formData.target_properties_count}
                       onChange={(e) => setFormData({ ...formData, target_properties_count: parseInt(e.target.value) || 0 })}
-                      className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-cyan-500"
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500"
                     />
                   </div>
                 </div>
               </div>
 
               <div>
-                <label className="text-xs text-slate-300 block mb-1">Condições Climáticas e Operacionais</label>
+                <label className="text-xs text-slate-600 block mb-1">Condições Climáticas e Operacionais</label>
                 <input
                   type="text"
                   value={formData.operational_conditions}
                   onChange={(e) => setFormData({ ...formData, operational_conditions: e.target.value })}
                   placeholder="Vento, temperatura, umidade, velocidade da viatura..."
-                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-cyan-500"
+                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-700">
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200">
                 <button
                   type="button"
                   onClick={() => setShowCreateModal(false)}
-                  className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm"
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium transition"
                 >
                   Cancelar
                 </button>
@@ -506,8 +506,8 @@ export const ChemicalOperationsView: React.FC = () => {
       {/* Modal: Concluir Operação */}
       {showCompleteModal && selectedOp && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-800 border border-slate-700 rounded-xl max-w-md w-full p-6 shadow-2xl">
-            <h3 className="text-lg font-bold text-white flex items-center gap-2">
+          <div className="bg-white border border-slate-200 rounded-xl max-w-md w-full p-6 shadow-2xl">
+            <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
               <CheckCircle2 className="w-5 h-5 text-emerald-400" />
               Finalizar Operação Química
             </h3>
@@ -518,62 +518,62 @@ export const ChemicalOperationsView: React.FC = () => {
             <form onSubmit={handleCompleteSubmit} className="mt-4 space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs text-slate-300 block mb-1">Imóveis Trabalhados</label>
+                  <label className="text-xs text-slate-600 block mb-1">Imóveis Trabalhados</label>
                   <input
                     type="number"
                     value={completionData.worked_properties_count}
                     onChange={(e) => setCompletionData({ ...completionData, worked_properties_count: parseInt(e.target.value) || 0 })}
-                    className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white"
+                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500"
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-slate-300 block mb-1">Imóveis Fechados</label>
+                  <label className="text-xs text-slate-600 block mb-1">Imóveis Fechados</label>
                   <input
                     type="number"
                     value={completionData.closed_properties_count}
                     onChange={(e) => setCompletionData({ ...completionData, closed_properties_count: parseInt(e.target.value) || 0 })}
-                    className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white"
+                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs text-slate-300 block mb-1">Recusas</label>
+                  <label className="text-xs text-slate-600 block mb-1">Recusas</label>
                   <input
                     type="number"
                     value={completionData.refusal_properties_count}
                     onChange={(e) => setCompletionData({ ...completionData, refusal_properties_count: parseInt(e.target.value) || 0 })}
-                    className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white"
+                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500"
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-slate-300 block mb-1">Focos Eliminados</label>
+                  <label className="text-xs text-slate-600 block mb-1">Focos Eliminados</label>
                   <input
                     type="number"
                     value={completionData.focus_found_count}
                     onChange={(e) => setCompletionData({ ...completionData, focus_found_count: parseInt(e.target.value) || 0 })}
-                    className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white"
+                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="text-xs text-slate-300 block mb-1">Observações Técnicas / Relatório</label>
+                <label className="text-xs text-slate-600 block mb-1">Observações Técnicas / Relatório</label>
                 <textarea
                   rows={2}
                   value={completionData.notes}
                   onChange={(e) => setCompletionData({ ...completionData, notes: e.target.value })}
                   placeholder="Relato de intercorrências ou observações operacionais..."
-                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white"
+                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-700">
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-200">
                 <button
                   type="button"
                   onClick={() => setShowCompleteModal(false)}
-                  className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm"
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium transition"
                 >
                   Cancelar
                 </button>
@@ -592,8 +592,8 @@ export const ChemicalOperationsView: React.FC = () => {
       {/* Modal: Cancelar / Interromper Operação */}
       {showCancelModal && selectedOp && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-800 border border-slate-700 rounded-xl max-w-md w-full p-6 shadow-2xl">
-            <h3 className="text-lg font-bold text-white flex items-center gap-2">
+          <div className="bg-white border border-slate-200 rounded-xl max-w-md w-full p-6 shadow-2xl">
+            <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
               <AlertTriangle className="w-5 h-5 text-rose-400" />
               Interromper / Cancelar Operação
             </h3>
@@ -603,11 +603,11 @@ export const ChemicalOperationsView: React.FC = () => {
 
             <form onSubmit={handleCancelSubmit} className="mt-4 space-y-4">
               <div>
-                <label className="text-xs text-slate-300 block mb-1">Motivo do Cancelamento *</label>
+                <label className="text-xs text-slate-600 block mb-1">Motivo do Cancelamento *</label>
                 <select
                   value={cancelData.cancellation_reason}
                   onChange={(e) => setCancelData({ ...cancelData, cancellation_reason: e.target.value as any })}
-                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-rose-500"
+                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
                 >
                   <option value="chuva">Chuva / Precipitação pluvial</option>
                   <option value="vento">Vento excessivo (&gt; 10 km/h) ou inversão térmica</option>
@@ -619,21 +619,21 @@ export const ChemicalOperationsView: React.FC = () => {
               </div>
 
               <div>
-                <label className="text-xs text-slate-300 block mb-1">Justificativa Detalhada</label>
+                <label className="text-xs text-slate-600 block mb-1">Justificativa Detalhada</label>
                 <textarea
                   rows={3}
                   value={cancelData.notes}
                   onChange={(e) => setCancelData({ ...cancelData, notes: e.target.value })}
                   placeholder="Descreva as circunstâncias que impediram a execução da rota..."
-                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-rose-500"
+                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-700">
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-200">
                 <button
                   type="button"
                   onClick={() => setShowCancelModal(false)}
-                  className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm"
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium transition"
                 >
                   Voltar
                 </button>

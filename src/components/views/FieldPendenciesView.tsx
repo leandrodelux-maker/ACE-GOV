@@ -139,11 +139,11 @@ export const FieldPendenciesView: React.FC = () => {
             </span>
             <span className="text-xs text-slate-400">• Gestão de Cobertura e Desfechos</span>
           </div>
-          <h1 className="text-2xl font-bold text-white tracking-tight mt-1 flex items-center gap-2">
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight mt-1 flex items-center gap-2">
             <Clock className="w-7 h-7 text-rose-400" />
             Pendências de Campo & Recuperação de Fechados
           </h1>
-          <p className="text-sm text-slate-400">
+          <p className="text-sm text-slate-500">
             Monitoramento de imóveis fechados, recusas, agendamento de retornos e recuperação automática por novas visitas.
           </p>
         </div>
@@ -151,7 +151,7 @@ export const FieldPendenciesView: React.FC = () => {
         <div className="flex items-center gap-3">
           <button
             onClick={loadData}
-            className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-sm font-medium border border-slate-700 flex items-center gap-2 transition"
+            className="px-3 py-2 bg-white hover:bg-slate-50 text-slate-700 rounded-lg text-sm font-medium border border-slate-200 flex items-center gap-2 transition shadow-xs"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-rose-400' : ''}`} />
             <span>Atualizar</span>
@@ -168,14 +168,14 @@ export const FieldPendenciesView: React.FC = () => {
 
       {/* Alerta de Pendências Críticas */}
       {indicators.criticalPendingCount > 0 && (
-        <div className="bg-rose-500/10 border border-rose-500/30 rounded-xl p-4 flex items-center justify-between">
+        <div className="bg-rose-50 border border-rose-200 rounded-xl p-4 flex items-center justify-between shadow-xs">
           <div className="flex items-center gap-3">
             <ShieldAlert className="w-6 h-6 text-rose-400 shrink-0" />
             <div>
-              <h3 className="text-sm font-semibold text-rose-200">
+              <h3 className="text-sm font-semibold text-rose-800">
                 Atenção: {indicators.criticalPendingCount} imóveis com excesso de tentativas sem sucesso (≥ 3 visitas)
               </h3>
-              <p className="text-xs text-rose-300/80">
+              <p className="text-xs text-rose-600">
                 Recomenda-se designar uma Equipe Especial de Recuperação ou agendamento em horário diferenciado (noturno/sábado).
               </p>
             </div>
@@ -191,21 +191,21 @@ export const FieldPendenciesView: React.FC = () => {
 
       {/* Cards de Indicadores Reais */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        <div className="bg-slate-800/80 border border-slate-700/80 rounded-xl p-4 shadow-sm">
+        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">Fechados no Ciclo</span>
+            <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">Fechados no Ciclo</span>
             <Home className="w-5 h-5 text-amber-400" />
           </div>
           <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-white">{indicators.totalCycleClosed}</span>
+            <span className="text-2xl font-bold text-slate-900">{indicators.totalCycleClosed}</span>
             <span className="text-xs text-amber-400 font-medium">imóveis</span>
           </div>
           <p className="text-xs text-slate-500 mt-1">Ausência de morador</p>
         </div>
 
-        <div className="bg-slate-800/80 border border-slate-700/80 rounded-xl p-4 shadow-sm">
+        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">Recusas</span>
+            <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">Recusas</span>
             <XCircle className="w-5 h-5 text-rose-400" />
           </div>
           <div className="mt-2 flex items-baseline gap-2">
@@ -215,9 +215,9 @@ export const FieldPendenciesView: React.FC = () => {
           <p className="text-xs text-slate-500 mt-1">Entrada impedida</p>
         </div>
 
-        <div className="bg-slate-800/80 border border-slate-700/80 rounded-xl p-4 shadow-sm">
+        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">Recuperados</span>
+            <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">Recuperados</span>
             <CheckCircle2 className="w-5 h-5 text-emerald-400" />
           </div>
           <div className="mt-2 flex items-baseline gap-2">
@@ -227,9 +227,9 @@ export const FieldPendenciesView: React.FC = () => {
           <p className="text-xs text-slate-500 mt-1">Baixa automática por visita</p>
         </div>
 
-        <div className="bg-slate-800/80 border border-slate-700/80 rounded-xl p-4 shadow-sm">
+        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">Ainda Pendentes</span>
+            <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">Ainda Pendentes</span>
             <Clock className="w-5 h-5 text-orange-400" />
           </div>
           <div className="mt-2 flex items-baseline gap-2">
@@ -239,15 +239,15 @@ export const FieldPendenciesView: React.FC = () => {
           <p className="text-xs text-slate-500 mt-1">Aguardando retorno</p>
         </div>
 
-        <div className="bg-slate-800/80 border border-slate-700/80 rounded-xl p-4 shadow-sm">
+        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">Taxa de Recuperação</span>
+            <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">Taxa de Recuperação</span>
             <TrendingUp className="w-5 h-5 text-cyan-400" />
           </div>
           <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-white">{indicators.recoveryRate}%</span>
+            <span className="text-2xl font-bold text-slate-900">{indicators.recoveryRate}%</span>
           </div>
-          <div className="w-full bg-slate-700/50 h-1.5 rounded-full mt-2 overflow-hidden">
+          <div className="w-full bg-slate-100 h-1.5 rounded-full mt-2 overflow-hidden">
             <div
               className="bg-cyan-400 h-full rounded-full transition-all"
               style={{ width: `${Math.min(100, indicators.recoveryRate)}%` }}
@@ -257,7 +257,7 @@ export const FieldPendenciesView: React.FC = () => {
       </div>
 
       {/* Tabs e Busca */}
-      <div className="bg-slate-800/70 border border-slate-700 rounded-xl p-4">
+      <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="flex flex-wrap items-center gap-2">
             {[
@@ -275,7 +275,7 @@ export const FieldPendenciesView: React.FC = () => {
                 className={`px-3 py-1.5 text-xs font-medium rounded-lg transition ${
                   activeTab === tab.id
                     ? 'bg-rose-600 text-white shadow-sm'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                 }`}
               >
                 {tab.label}
@@ -290,18 +290,18 @@ export const FieldPendenciesView: React.FC = () => {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Buscar código, rua ou ACE..."
-              className="w-full pl-9 pr-3 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white focus:outline-none focus:border-rose-500"
+              className="w-full pl-9 pr-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
             />
           </div>
         </div>
       </div>
 
       {/* Tabela de Pendências */}
-      <div className="bg-slate-800/80 border border-slate-700 rounded-xl overflow-hidden shadow-sm">
+      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="border-b border-slate-700 bg-slate-900/60 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+              <tr className="border-b border-slate-200 bg-slate-50 text-xs font-semibold text-slate-500 uppercase tracking-wider">
                 <th className="py-3 px-4">Imóvel / Endereço</th>
                 <th className="py-3 px-4">Motivo da Pendência</th>
                 <th className="py-3 px-4">Tentativas</th>
@@ -312,24 +312,24 @@ export const FieldPendenciesView: React.FC = () => {
                 <th className="py-3 px-4 text-right">Ações</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-700/50 text-sm">
+            <tbody className="divide-y divide-slate-100 text-sm">
               {filteredList.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-8 text-center text-slate-400">
+                  <td colSpan={8} className="py-8 text-center text-slate-500">
                     Nenhuma pendência encontrada para esta categoria.
                   </td>
                 </tr>
               ) : (
                 filteredList.map((item) => (
-                  <tr key={item.id} className="hover:bg-slate-700/30 transition">
+                  <tr key={item.id} className="hover:bg-slate-50 transition">
                     <td className="py-3 px-4">
                       <div className="font-mono text-xs font-semibold text-emerald-400">
                         {item.property?.property_code}
                       </div>
-                      <div className="text-white font-medium text-xs">
+                      <div className="text-slate-900 font-medium text-xs">
                         {item.property?.street}, {item.property?.number}
                       </div>
-                      <div className="text-slate-400 text-xs">
+                      <div className="text-slate-500 text-xs">
                         {item.property?.neighborhood?.name} • {item.property?.sector?.code ? `Setor ${item.property.sector.code}` : ''}
                       </div>
                     </td>
@@ -362,10 +362,10 @@ export const FieldPendenciesView: React.FC = () => {
                         {item.attempt_count || 1}ª vez
                       </span>
                     </td>
-                    <td className="py-3 px-4 text-xs text-slate-300">
+                    <td className="py-3 px-4 text-xs text-slate-600">
                       {item.first_attempt_date ? new Date(item.first_attempt_date).toLocaleDateString('pt-BR') : '—'}
                     </td>
-                    <td className="py-3 px-4 text-xs text-slate-300">
+                    <td className="py-3 px-4 text-xs text-slate-600">
                       {item.last_attempt_date ? new Date(item.last_attempt_date).toLocaleDateString('pt-BR') : '—'}
                     </td>
                     <td className="py-3 px-4 text-xs">
@@ -378,7 +378,7 @@ export const FieldPendenciesView: React.FC = () => {
                         <span className="text-slate-500 italic">Não agendado</span>
                       )}
                     </td>
-                    <td className="py-3 px-4 text-xs text-slate-200">
+                    <td className="py-3 px-4 text-xs text-slate-700">
                       {item.responsible_agent?.name || item.assigned_agent?.name || 'Não atribuído'}
                     </td>
                     <td className="py-3 px-4 text-right">
@@ -389,7 +389,7 @@ export const FieldPendenciesView: React.FC = () => {
                             setNewReturnDate(item.next_return_date || '');
                             setShowScheduleModal(true);
                           }}
-                          className="p-1.5 hover:bg-slate-700 text-slate-300 hover:text-cyan-400 rounded transition"
+                          className="p-1.5 hover:bg-slate-100 text-slate-400 hover:text-cyan-600 rounded transition"
                           title="Agendar Retorno"
                         >
                           <Calendar className="w-4 h-4" />
@@ -400,7 +400,7 @@ export const FieldPendenciesView: React.FC = () => {
                             setReassignAgentId(item.responsible_agent_id || '');
                             setShowReassignModal(true);
                           }}
-                          className="p-1.5 hover:bg-slate-700 text-slate-300 hover:text-emerald-400 rounded transition"
+                          className="p-1.5 hover:bg-slate-100 text-slate-400 hover:text-emerald-600 rounded transition"
                           title="Reatribuir ACE / Equipe Especial"
                         >
                           <UserCheck className="w-4 h-4" />
@@ -418,22 +418,22 @@ export const FieldPendenciesView: React.FC = () => {
       {/* Modal: Reatribuir Pendência */}
       {showReassignModal && selectedPendency && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-800 border border-slate-700 rounded-xl max-w-md w-full p-6 shadow-2xl">
-            <h3 className="text-lg font-bold text-white flex items-center gap-2">
+          <div className="bg-white border border-slate-200 rounded-xl max-w-md w-full p-6 shadow-2xl">
+            <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
               <UserCheck className="w-5 h-5 text-emerald-400" />
               Reatribuir Pendência de Campo
             </h3>
-            <p className="text-xs text-slate-400 mt-1">
+            <p className="text-xs text-slate-500 mt-1">
               Imóvel {selectedPendency.property?.property_code} • {selectedPendency.property?.street}, {selectedPendency.property?.number}
             </p>
 
             <form onSubmit={handleReassignSubmit} className="mt-4 space-y-4">
               <div>
-                <label className="text-xs text-slate-300 block mb-1">Destinar para:</label>
+                <label className="text-xs text-slate-600 block mb-1">Destinar para:</label>
                 <select
                   value={reassignAgentId}
                   onChange={(e) => setReassignAgentId(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-emerald-500"
+                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
                 >
                   <option value="">Manter mesmo ACE original</option>
                   <option value="equipe_especial">Equipe Especial de Recuperação de Fechados</option>
@@ -441,31 +441,31 @@ export const FieldPendenciesView: React.FC = () => {
               </div>
 
               <div>
-                <label className="text-xs text-slate-300 block mb-1">Data do Retorno Agendado</label>
+                <label className="text-xs text-slate-600 block mb-1">Data do Retorno Agendado</label>
                 <input
                   type="date"
                   value={newReturnDate}
                   onChange={(e) => setNewReturnDate(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-emerald-500"
+                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
                 />
               </div>
 
               <div>
-                <label className="text-xs text-slate-300 block mb-1">Instruções para a recuperação</label>
+                <label className="text-xs text-slate-600 block mb-1">Instruções para a recuperação</label>
                 <textarea
                   rows={3}
                   value={actionNotes}
                   onChange={(e) => setActionNotes(e.target.value)}
                   placeholder="Ex: Tentar visita após as 17h ou no sábado pela manhã..."
-                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-emerald-500"
+                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-700">
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-200">
                 <button
                   type="button"
                   onClick={() => setShowReassignModal(false)}
-                  className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm"
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium transition"
                 >
                   Cancelar
                 </button>
@@ -484,43 +484,43 @@ export const FieldPendenciesView: React.FC = () => {
       {/* Modal: Agendar Retorno */}
       {showScheduleModal && selectedPendency && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-800 border border-slate-700 rounded-xl max-w-md w-full p-6 shadow-2xl">
-            <h3 className="text-lg font-bold text-white flex items-center gap-2">
+          <div className="bg-white border border-slate-200 rounded-xl max-w-md w-full p-6 shadow-2xl">
+            <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
               <Calendar className="w-5 h-5 text-cyan-400" />
               Agendar Nova Tentativa de Retorno
             </h3>
-            <p className="text-xs text-slate-400 mt-1">
+            <p className="text-xs text-slate-500 mt-1">
               Imóvel {selectedPendency.property?.property_code} • Motivo: <span className="capitalize">{selectedPendency.reason}</span>
             </p>
 
             <form onSubmit={handleScheduleSubmit} className="mt-4 space-y-4">
               <div>
-                <label className="text-xs text-slate-300 block mb-1">Data Prevista de Retorno *</label>
+                <label className="text-xs text-slate-600 block mb-1">Data Prevista de Retorno *</label>
                 <input
                   type="date"
                   required
                   value={newReturnDate}
                   onChange={(e) => setNewReturnDate(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-cyan-500"
+                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500"
                 />
               </div>
 
               <div>
-                <label className="text-xs text-slate-300 block mb-1">Observações do Agendamento</label>
+                <label className="text-xs text-slate-600 block mb-1">Observações do Agendamento</label>
                 <textarea
                   rows={3}
                   value={actionNotes}
                   onChange={(e) => setActionNotes(e.target.value)}
                   placeholder="Informações do vizinho, melhor horário, etc..."
-                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-cyan-500"
+                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-700">
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-200">
                 <button
                   type="button"
                   onClick={() => setShowScheduleModal(false)}
-                  className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm"
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium transition"
                 >
                   Cancelar
                 </button>
@@ -539,20 +539,20 @@ export const FieldPendenciesView: React.FC = () => {
       {/* Modal: Roteiro de Recuperação de Fechados */}
       {showRouteModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-800 border border-slate-700 rounded-xl max-w-3xl w-full p-6 shadow-2xl max-h-[85vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-slate-700 pb-3">
+          <div className="bg-white border border-slate-200 rounded-xl max-w-3xl w-full p-6 shadow-2xl max-h-[85vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
               <div>
-                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
                   <RotateCcw className="w-5 h-5 text-rose-400" />
                   Roteiro Prioritário de Recuperação de Fechados
                 </h3>
-                <p className="text-xs text-slate-400 mt-1">
+                <p className="text-xs text-slate-500 mt-1">
                   Lista ordenada por criticidade de tentativas e proximidade de agendamento ({recoveryRoute.length} imóveis).
                 </p>
               </div>
               <button
                 onClick={() => window.print()}
-                className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-xs font-medium flex items-center gap-1.5"
+                className="px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 rounded-lg text-xs font-medium border border-slate-200 shadow-xs flex items-center gap-1.5"
               >
                 <Printer className="w-4 h-4" />
                 <span>Imprimir Ficha</span>
@@ -561,18 +561,18 @@ export const FieldPendenciesView: React.FC = () => {
 
             <div className="mt-4 space-y-2">
               {recoveryRoute.map((item, idx) => (
-                <div key={item.id} className="p-3 bg-slate-900 border border-slate-700 rounded-lg flex items-center justify-between">
+                <div key={item.id} className="p-3 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-between">
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-bold text-emerald-400 font-mono">#{idx + 1} {item.property?.property_code}</span>
-                      <span className="text-xs px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-semibold capitalize">
+                      <span className="text-xs px-2 py-0.5 rounded bg-slate-200 text-slate-700 font-semibold capitalize">
                         {item.reason}
                       </span>
                       <span className="text-xs text-rose-400 font-semibold font-mono">
                         {item.attempt_count}ª tentativa
                       </span>
                     </div>
-                    <div className="text-sm font-medium text-white mt-1">
+                    <div className="text-sm font-medium text-slate-900 mt-1">
                       {item.property?.street}, {item.property?.number}
                     </div>
                     <div className="text-xs text-slate-400">
@@ -595,7 +595,7 @@ export const FieldPendenciesView: React.FC = () => {
             <div className="mt-6 flex justify-end">
               <button
                 onClick={() => setShowRouteModal(false)}
-                className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm"
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium transition"
               >
                 Fechar
               </button>
