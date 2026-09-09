@@ -21,6 +21,8 @@ import {
   WifiOff,
 } from 'lucide-react';
 import { db } from '../../services/storage';
+import { supabaseService } from '../../services/supabaseService';
+import { supabase } from '../../services/supabaseClient';
 import { Property } from '../../types';
 
 interface RoutesViewProps {
@@ -62,7 +64,7 @@ export const RoutesView: React.FC<RoutesViewProps> = ({ onNavigate }) => {
     loadOrInitializeRoute();
   }, []);
 
-  const loadOrInitializeRoute = () => {
+  const loadOrInitializeRoute = async () => {
     // Tentar carregar rota em andamento do cache local
     const saved = localStorage.getItem(STORAGE_ROUTE_KEY);
     if (saved) {
@@ -78,8 +80,21 @@ export const RoutesView: React.FC<RoutesViewProps> = ({ onNavigate }) => {
       }
     }
 
-    // Inicialização da rota inteligente
-    const rawProperties = db.getProperties();
+    // Inicialização da rota inteligente: tentar buscar imóveis do Supabase
+    let rawProperties: Property[] = [];
+    try {
+      const res = await supabaseService.getPropertiesPaginated({ page: 1, pageSize: 40 });
+      if (res.properties && res.properties.length > 0) {
+        rawProperties = res.properties;
+      }
+    } catch {
+      // Fallback
+    }
+
+    if (rawProperties.length === 0) {
+      rawProperties = db.getProperties();
+    }
+
     const sorted: RouteItem[] = rawProperties.map((prop, idx) => {
       const isFoci = prop.status === 'FOCO';
       const isRecurrent = prop.isRecurrent;
@@ -94,7 +109,7 @@ export const RoutesView: React.FC<RoutesViewProps> = ({ onNavigate }) => {
         priorityLevel = 'URGENTE';
         visitReason = 'Interrupção imediata de criadouro e tratamento larvicida';
       } else if (isRecurrent) {
-        priorityLabel = `Reincidente (${prop.fociHistoryCount}x)`;
+        priorityLabel = `Reincidente (${prop.fociHistoryCount || 1}x)`;
         priorityLevel = 'ALTA';
         visitReason = 'Imóvel histórico com repetição contínua de criadouros';
       } else if (isClosed) {
@@ -122,12 +137,27 @@ export const RoutesView: React.FC<RoutesViewProps> = ({ onNavigate }) => {
 
   const saveRouteToCache = (newList: RouteItem[]) => {
     setRouteList(newList);
-    localStorage.setItem(STORAGE_ROUTE_KEY, JSON.stringify(newList));
+    try {
+      localStorage.setItem(STORAGE_ROUTE_KEY, JSON.stringify(newList));
+    } catch {
+      // ignore
+    }
   };
 
   const handleStartRoute = () => {
     setIsRouteActive(true);
     saveRouteToCache(routeList);
+    // Registrar início no audit_logs
+    try {
+      supabase.from('audit_logs').insert({
+        action: 'ROUTE_STARTED',
+        entity_type: 'field_routes',
+        entity_id: `route-${Date.now()}`,
+        details: { total_properties: routeList.length, date: new Date().toISOString() },
+      }).then();
+    } catch {
+      // ignore
+    }
   };
 
   const handleReorganizeRoute = () => {

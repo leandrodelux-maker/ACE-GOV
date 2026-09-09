@@ -369,6 +369,7 @@ export interface CitizenComplaint {
   photoUrl?: string;
   citizenName?: string;
   citizenPhone?: string;
+  priority?: 'BAIXA' | 'MEDIA' | 'ALTA' | 'URGENTE';
   status: 'RECEBIDA' | 'TRIAGEM' | 'ATRIBUIDA' | 'VISTORIA_REALIZADA' | 'RESOLVIDA';
   assignedAgentId?: string;
   assignedAgentName?: string;

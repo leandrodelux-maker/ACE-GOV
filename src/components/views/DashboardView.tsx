@@ -142,39 +142,51 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
         </div>
       </div>
 
-      {/* Primary KPI Grid (14 Indicadores Exigidos) */}
+      {/* Primary KPI Grid (14 Indicadores Exigidos com Navegação Integrada) */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
         {/* 1. Imóveis Cadastrados */}
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs hover:border-slate-300 transition">
+        <div
+          onClick={() => onNavigate('territory')}
+          className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs hover:border-blue-400 hover:shadow-sm transition cursor-pointer group"
+          title="Ver cadastro de imóveis no território"
+        >
           <div className="flex items-center justify-between text-slate-500 mb-1.5">
-            <span className="text-[11px] font-semibold uppercase tracking-wider">Imóveis Totais</span>
-            <Home className="w-4 h-4 text-blue-600" />
+            <span className="text-[11px] font-semibold uppercase tracking-wider group-hover:text-blue-700">Imóveis Totais</span>
+            <Home className="w-4 h-4 text-blue-600 group-hover:scale-110 transition" />
           </div>
           <p className="text-xl font-extrabold text-slate-900">
             {isLoading ? '...' : (kpis?.totalProperties || 0).toLocaleString('pt-BR')}
           </p>
-          <span className="text-[10px] text-slate-500 font-medium">Cadastrados no setor</span>
+          <span className="text-[10px] text-slate-500 font-medium">Cadastrados no setor &rarr;</span>
         </div>
 
         {/* 2. Imóveis Visitados */}
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs hover:border-slate-300 transition">
+        <div
+          onClick={() => onNavigate('visits')}
+          className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs hover:border-emerald-400 hover:shadow-sm transition cursor-pointer group"
+          title="Ver registro de visitas realizadas"
+        >
           <div className="flex items-center justify-between text-slate-500 mb-1.5">
-            <span className="text-[11px] font-semibold uppercase tracking-wider">Visitados</span>
-            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+            <span className="text-[11px] font-semibold uppercase tracking-wider group-hover:text-emerald-700">Visitados</span>
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 group-hover:scale-110 transition" />
           </div>
           <p className="text-xl font-extrabold text-emerald-700">
             {isLoading ? '...' : (kpis?.visited || 0).toLocaleString('pt-BR')}
           </p>
           <span className="text-[10px] text-emerald-700 font-medium">
-            {kpis?.coveragePercent || 0}% do objetivo
+            {kpis?.coveragePercent || 0}% do objetivo &rarr;
           </span>
         </div>
 
         {/* 3. Cobertura Territorial */}
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs hover:border-slate-300 transition">
+        <div
+          onClick={() => onNavigate('map')}
+          className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs hover:border-sky-400 hover:shadow-sm transition cursor-pointer group"
+          title="Ver mapa georreferenciado de cobertura"
+        >
           <div className="flex items-center justify-between text-slate-500 mb-1.5">
-            <span className="text-[11px] font-semibold uppercase tracking-wider">Cobertura</span>
-            <PieChartIcon className="w-4 h-4 text-sky-600" />
+            <span className="text-[11px] font-semibold uppercase tracking-wider group-hover:text-sky-700">Cobertura</span>
+            <PieChartIcon className="w-4 h-4 text-sky-600 group-hover:scale-110 transition" />
           </div>
           <p className="text-xl font-extrabold text-sky-700">
             {isLoading ? '...' : `${kpis?.coveragePercent || 0}%`}
@@ -194,75 +206,99 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
         </div>
 
         {/* 4. Visitas Pendentes */}
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs hover:border-slate-300 transition">
+        <div
+          onClick={() => onNavigate('field_pendencies')}
+          className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs hover:border-amber-400 hover:shadow-sm transition cursor-pointer group"
+          title="Gerenciar pendências de retorno"
+        >
           <div className="flex items-center justify-between text-slate-500 mb-1.5">
-            <span className="text-[11px] font-semibold uppercase tracking-wider">Pendências</span>
-            <Clock className="w-4 h-4 text-amber-500" />
+            <span className="text-[11px] font-semibold uppercase tracking-wider group-hover:text-amber-700">Pendências</span>
+            <Clock className="w-4 h-4 text-amber-500 group-hover:scale-110 transition" />
           </div>
           <p className="text-xl font-extrabold text-amber-700">
             {isLoading ? '...' : kpis?.pending || 0}
           </p>
-          <span className="text-[10px] text-amber-700 font-medium">Requerem retorno</span>
+          <span className="text-[10px] text-amber-700 font-medium">Requerem retorno &rarr;</span>
         </div>
 
         {/* 5. Imóveis Fechados */}
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs hover:border-slate-300 transition">
+        <div
+          onClick={() => onNavigate('field_pendencies')}
+          className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs hover:border-slate-400 hover:shadow-sm transition cursor-pointer group"
+          title="Ver imóveis fechados para resgate"
+        >
           <div className="flex items-center justify-between text-slate-500 mb-1.5">
             <span className="text-[11px] font-semibold uppercase tracking-wider">Fechados</span>
-            <DoorClosed className="w-4 h-4 text-slate-500" />
+            <DoorClosed className="w-4 h-4 text-slate-500 group-hover:scale-110 transition" />
           </div>
           <p className="text-xl font-extrabold text-slate-800">
             {isLoading ? '...' : kpis?.closed || 0}
           </p>
-          <span className="text-[10px] text-slate-500 font-medium">Moradores ausentes</span>
+          <span className="text-[10px] text-slate-500 font-medium">Moradores ausentes &rarr;</span>
         </div>
 
         {/* 6. Recusas */}
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs hover:border-slate-300 transition">
+        <div
+          onClick={() => onNavigate('legal_sanitary')}
+          className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs hover:border-rose-400 hover:shadow-sm transition cursor-pointer group"
+          title="Acessar gestão jurídica e notificações de recusa"
+        >
           <div className="flex items-center justify-between text-slate-500 mb-1.5">
-            <span className="text-[11px] font-semibold uppercase tracking-wider">Recusas</span>
-            <UserX className="w-4 h-4 text-rose-500" />
+            <span className="text-[11px] font-semibold uppercase tracking-wider group-hover:text-rose-700">Recusas</span>
+            <UserX className="w-4 h-4 text-rose-500 group-hover:scale-110 transition" />
           </div>
           <p className="text-xl font-extrabold text-rose-700">
             {isLoading ? '...' : kpis?.refusals || 0}
           </p>
-          <span className="text-[10px] text-rose-600 font-medium">Entrada negada</span>
+          <span className="text-[10px] text-rose-600 font-medium">Notificação compulsória &rarr;</span>
         </div>
 
         {/* 7. Focos Encontrados */}
-        <div className="bg-white p-4 rounded-xl border border-rose-200 bg-rose-50/30 shadow-xs transition">
+        <div
+          onClick={() => onNavigate('foci_recurrence')}
+          className="bg-white p-4 rounded-xl border border-rose-200 bg-rose-50/30 shadow-xs hover:border-rose-400 hover:shadow-sm transition cursor-pointer group"
+          title="Ver focos ativos e mapa de calor"
+        >
           <div className="flex items-center justify-between text-slate-500 mb-1.5">
             <span className="text-[11px] font-bold text-rose-700 uppercase tracking-wider">Focos Ativos</span>
-            <Flame className="w-4 h-4 text-rose-600 animate-pulse" />
+            <Flame className="w-4 h-4 text-rose-600 animate-pulse group-hover:scale-110 transition" />
           </div>
           <p className="text-xl font-extrabold text-rose-700">
             {isLoading ? '...' : kpis?.fociActive || 0}
           </p>
-          <span className="text-[10px] text-rose-600 font-medium">Aedes aegypti</span>
+          <span className="text-[10px] text-rose-600 font-medium">Aedes aegypti &rarr;</span>
         </div>
 
         {/* 8. Focos Eliminados */}
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs hover:border-slate-300 transition">
+        <div
+          onClick={() => onNavigate('foci_recurrence')}
+          className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs hover:border-emerald-400 hover:shadow-sm transition cursor-pointer group"
+          title="Ver focos tratados e eliminados"
+        >
           <div className="flex items-center justify-between text-slate-500 mb-1.5">
-            <span className="text-[11px] font-semibold uppercase tracking-wider">Eliminados</span>
-            <ShieldCheck className="w-4 h-4 text-emerald-600" />
+            <span className="text-[11px] font-semibold uppercase tracking-wider group-hover:text-emerald-700">Eliminados</span>
+            <ShieldCheck className="w-4 h-4 text-emerald-600 group-hover:scale-110 transition" />
           </div>
           <p className="text-xl font-extrabold text-emerald-700">
             {isLoading ? '...' : kpis?.eliminated || 0}
           </p>
-          <span className="text-[10px] text-emerald-700 font-medium">Conduta química/física</span>
+          <span className="text-[10px] text-emerald-700 font-medium">Conduta química/física &rarr;</span>
         </div>
 
         {/* 9. Imóveis Reincidentes */}
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs hover:border-slate-300 transition">
+        <div
+          onClick={() => onNavigate('foci_recurrence')}
+          className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs hover:border-purple-400 hover:shadow-sm transition cursor-pointer group"
+          title="Ver histórico de imóveis reincidentes"
+        >
           <div className="flex items-center justify-between text-slate-500 mb-1.5">
-            <span className="text-[11px] font-semibold uppercase tracking-wider">Reincidentes</span>
-            <Repeat className="w-4 h-4 text-purple-600" />
+            <span className="text-[11px] font-semibold uppercase tracking-wider group-hover:text-purple-700">Reincidentes</span>
+            <Repeat className="w-4 h-4 text-purple-600 group-hover:scale-110 transition" />
           </div>
           <p className="text-xl font-extrabold text-purple-700">
             {isLoading ? '...' : kpis?.recurrent || 0}
           </p>
-          <span className="text-[10px] text-purple-700 font-medium">≥ 2 focos registrados</span>
+          <span className="text-[10px] text-purple-700 font-medium">≥ 2 focos registrados &rarr;</span>
         </div>
 
         {/* 10. Ovitrampas Positivas */}
@@ -285,53 +321,67 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
         </div>
 
         {/* 11. Bloqueios Ativos */}
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs hover:border-slate-300 transition">
+        <div
+          onClick={() => onNavigate('blocks')}
+          className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs hover:border-rose-400 hover:shadow-sm transition cursor-pointer group"
+          title="Ver operações de bloqueio químico/viral"
+        >
           <div className="flex items-center justify-between text-slate-500 mb-1.5">
-            <span className="text-[11px] font-semibold uppercase tracking-wider">Bloqueios</span>
-            <Activity className="w-4 h-4 text-rose-600" />
+            <span className="text-[11px] font-semibold uppercase tracking-wider group-hover:text-rose-700">Bloqueios</span>
+            <Activity className="w-4 h-4 text-rose-600 group-hover:scale-110 transition" />
           </div>
           <p className="text-xl font-extrabold text-rose-700">
             {isLoading ? '...' : kpis?.activeBlocks || 0}
           </p>
-          <span className="text-[10px] text-rose-600 font-medium">Dengue em contenção</span>
+          <span className="text-[10px] text-rose-600 font-medium">Dengue em contenção &rarr;</span>
         </div>
 
         {/* 12. Denúncias da Comunidade */}
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs hover:border-slate-300 transition">
+        <div
+          onClick={() => onNavigate('citizen_portal')}
+          className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs hover:border-amber-400 hover:shadow-sm transition cursor-pointer group"
+          title="Ver denúncias da comunidade no portal"
+        >
           <div className="flex items-center justify-between text-slate-500 mb-1.5">
-            <span className="text-[11px] font-semibold uppercase tracking-wider">Denúncias</span>
-            <AlertCircle className="w-4 h-4 text-amber-500" />
+            <span className="text-[11px] font-semibold uppercase tracking-wider group-hover:text-amber-700">Denúncias</span>
+            <AlertCircle className="w-4 h-4 text-amber-500 group-hover:scale-110 transition" />
           </div>
           <p className="text-xl font-extrabold text-amber-700">
             {isLoading ? '...' : kpis?.openComplaints || 0}
           </p>
-          <span className="text-[10px] text-amber-700 font-medium">Aguardando vistoria</span>
+          <span className="text-[10px] text-amber-700 font-medium">Aguardando vistoria &rarr;</span>
         </div>
 
         {/* 13. Pontos Estratégicos Vencidos */}
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs hover:border-slate-300 transition">
+        <div
+          onClick={() => onNavigate('strategic_points')}
+          className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs hover:border-rose-400 hover:shadow-sm transition cursor-pointer group"
+          title="Ver Pontos Estratégicos (PE) com inspeção atrasada"
+        >
           <div className="flex items-center justify-between text-slate-500 mb-1.5">
-            <span className="text-[11px] font-semibold uppercase tracking-wider">PE Vencidos</span>
-            <Crosshair className="w-4 h-4 text-rose-500" />
+            <span className="text-[11px] font-semibold uppercase tracking-wider group-hover:text-rose-700">PE Vencidos</span>
+            <Crosshair className="w-4 h-4 text-rose-500 group-hover:scale-110 transition" />
           </div>
           <p className="text-xl font-extrabold text-rose-700">
             {isLoading ? '...' : kpis?.overduePE || 0}
           </p>
-          <span className="text-[10px] text-rose-600 font-medium">&gt; 15 dias sem vistoria</span>
+          <span className="text-[10px] text-rose-600 font-medium">&gt; 15 dias sem vistoria &rarr;</span>
         </div>
 
         {/* 14. Equipes em Campo */}
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs hover:border-slate-300 transition">
+        <div
+          onClick={() => onNavigate('teams')}
+          className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs hover:border-blue-400 hover:shadow-sm transition cursor-pointer group"
+          title="Ver equipes de campo e carga operacional"
+        >
           <div className="flex items-center justify-between text-slate-500 mb-1.5">
-            <span className="text-[11px] font-semibold uppercase tracking-wider">Equipes Ativas</span>
-            <Users className="w-4 h-4 text-blue-600" />
+            <span className="text-[11px] font-semibold uppercase tracking-wider group-hover:text-blue-700">Equipes Ativas</span>
+            <Users className="w-4 h-4 text-blue-600 group-hover:scale-110 transition" />
           </div>
           <p className="text-xl font-extrabold text-blue-700">
             {isLoading ? '...' : `${kpis?.activeTeamsCount || 4} equipes`}
           </p>
-          <span className="text-[10px] text-blue-700 font-medium">
-            {kpis?.activeAgentsCount || 24} agentes operando
-          </span>
+          <span className="text-[10px] text-blue-600 font-medium">Em operação de campo &rarr;</span>
         </div>
       </div>
 

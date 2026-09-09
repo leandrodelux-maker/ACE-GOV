@@ -228,6 +228,40 @@ export const supabaseService = {
   },
 
   /**
+   * Buscar Denúncia por Protocolo no Supabase
+   */
+  async getComplaintByProtocol(protocol: string): Promise<CitizenComplaint | null> {
+    try {
+      const cleanProtocol = protocol.trim().toUpperCase();
+      const { data, error } = await supabase
+        .from('complaints')
+        .select('*')
+        .ilike('protocol', cleanProtocol)
+        .maybeSingle();
+
+      if (error || !data) return null;
+
+      return {
+        id: data.id,
+        protocol: data.protocol,
+        municipalityId: data.municipality_id,
+        type: 'POSSIVEL_FOCO',
+        description: data.description,
+        address: data.street,
+        neighborhood: 'Centro',
+        latitude: data.latitude,
+        longitude: data.longitude,
+        citizenName: data.complainant_name,
+        citizenPhone: data.complainant_phone,
+        status: data.status || 'RECEBIDA',
+        createdAt: data.created_at,
+      };
+    } catch {
+      return null;
+    }
+  },
+
+  /**
    * Buscar Imóveis com Paginação Server-Side, Filtros e Ordenação
    */
   async getPropertiesPaginated(options: {

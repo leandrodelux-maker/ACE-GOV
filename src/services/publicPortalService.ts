@@ -81,19 +81,19 @@ export const publicPortalService = {
         .select('id, name, zone, risk_level, total_properties')
         .eq('municipality_id', municipalityId);
 
-      // 3. Obter contagem de visitas e focos
+      // 3. Obter contagem de visitas e focos da tabela oficial 'visits'
       const { data: visits } = await supabase
-        .from('property_visits')
-        .select('id, status, neighborhood_id, has_larvae')
+        .from('visits')
+        .select('id, status, neighborhood_id, larvae_found')
         .eq('municipality_id', municipalityId);
 
-      const visitedCount = visits ? visits.filter(v => v.status === 'realizada').length : 0;
-      const larvaeCount = visits ? visits.filter(v => v.has_larvae).length : 0;
+      const visitedCount = visits ? visits.filter(v => v.status === 'TRABALHADO' || v.status === 'realizada').length : 0;
+      const larvaeCount = visits ? visits.filter(v => v.larvae_found).length : 0;
 
       // Montar agregação por bairro
       const neighborhoods: PublicNeighborhoodStats[] = (neighborhoodsData || []).map(n => {
-        const bVisits = (visits || []).filter(v => v.neighborhood_id === n.id && v.status === 'realizada');
-        const bFoci = (visits || []).filter(v => v.neighborhood_id === n.id && v.has_larvae);
+        const bVisits = (visits || []).filter(v => v.neighborhood_id === n.id && (v.status === 'TRABALHADO' || v.status === 'realizada'));
+        const bFoci = (visits || []).filter(v => v.neighborhood_id === n.id && v.larvae_found);
         const total = n.total_properties || 100;
         const cov = Math.min(100, Math.round((bVisits.length / total) * 100));
 
@@ -190,16 +190,16 @@ export const publicPortalService = {
       tracking_token: trackingToken,
       problem_type: payload.problemType,
       description: payload.description,
-      neighborhood: payload.neighborhood,
-      approximate_address: payload.approximateAddress,
-      status: 'aguardando',
-      priority: 'media',
-      source: 'cidadao_web'
+      street: payload.approximateAddress,
+      number: 'S/N',
+      status: 'RECEBIDA',
+      priority: 'MEDIA',
+      anonymous: !!payload.isAnonymous
     };
 
     if (!payload.isAnonymous) {
-      if (payload.reporterName) insertData.citizen_name = payload.reporterName;
-      if (payload.reporterPhone) insertData.citizen_phone = payload.reporterPhone;
+      if (payload.reporterName) insertData.complainant_name = payload.reporterName;
+      if (payload.reporterPhone) insertData.complainant_phone = payload.reporterPhone;
     }
 
     if (payload.latitude && payload.longitude) {
@@ -230,7 +230,7 @@ export const publicPortalService = {
 
     const { data, error } = await supabase
       .from('complaints')
-      .select('protocol, status, problem_type, neighborhood, approximate_address, created_at, updated_at, inspection_date')
+      .select('protocol, status, problem_type, street, number, created_at, updated_at, inspected_at')
       .eq('protocol', cleanProto)
       .eq('tracking_token', cleanToken)
       .maybeSingle();
@@ -274,7 +274,7 @@ export const publicPortalService = {
       },
       {
         step: 'Programação de Vistoria ACE',
-        date: data.inspection_date ? new Date(data.inspection_date).toLocaleDateString('pt-BR') : 'Em fila de rota',
+        date: data.inspected_at ? new Date(data.inspected_at).toLocaleDateString('pt-BR') : 'Em fila de rota',
         completed: currentInfo.stage >= 3,
         current: currentInfo.stage === 3
       },
@@ -291,8 +291,8 @@ export const publicPortalService = {
       status: currentInfo.key,
       statusLabel: currentInfo.label,
       problemType: problemLabels[data.problem_type] || data.problem_type || 'Criadouro Potencial',
-      neighborhood: data.neighborhood || 'Não especificado',
-      approximateAddress: data.approximate_address || 'Endereço registrado',
+      neighborhood: data.street ? `Região de ${data.street}` : 'Município',
+      approximateAddress: `${data.street || ''} ${data.number || ''}`.trim() || 'Endereço registrado',
       createdAt: new Date(data.created_at).toLocaleString('pt-BR'),
       updatedAt: new Date(data.updated_at).toLocaleString('pt-BR'),
       publicNotes: currentInfo.stage >= 5 

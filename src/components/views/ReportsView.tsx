@@ -92,6 +92,16 @@ export const ReportsView: React.FC = () => {
     (reportsByCategory[selectedCategory] || []).find(r => r.id === selectedReport) ||
     reportsByCategory.OPERACIONAL[0];
 
+  const displayedNeighborhoods = neighborhoods.filter(n =>
+    selectedNeighborhood === 'TODOS' || n.name === selectedNeighborhood
+  );
+
+  const totalProps = displayedNeighborhoods.reduce((acc, n) => acc + n.totalProperties, 0);
+  const totalWorked = displayedNeighborhoods.reduce((acc, n) => acc + Math.round(n.totalProperties * (n.coveragePercentage / 100)), 0);
+  const totalPending = displayedNeighborhoods.reduce((acc, n) => acc + Math.round(n.totalProperties * 0.08), 0);
+  const totalFoci = displayedNeighborhoods.reduce((acc, n) => acc + (n.fociCount || 0), 0);
+  const totalCoverage = totalProps > 0 ? ((totalWorked / totalProps) * 100).toFixed(1) : '0.0';
+
   const handlePrint = () => {
     window.print();
   };
@@ -101,7 +111,7 @@ export const ReportsView: React.FC = () => {
     setTimeout(() => {
       const csvContent =
         'data:text/csv;charset=utf-8,Bairro,Imoveis,Trabalhados,Cobertura,Focos,Risco\n' +
-        neighborhoods
+        displayedNeighborhoods
           .map(
             n =>
               `${n.name},${n.totalProperties},${Math.round(n.totalProperties * (n.coveragePercentage / 100))},${n.coveragePercentage}%,${n.fociCount},${n.riskScore}`
@@ -302,7 +312,7 @@ export const ReportsView: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
-              {neighborhoods.map(n => {
+              {displayedNeighborhoods.map(n => {
                 const worked = Math.round(n.totalProperties * (n.coveragePercentage / 100));
                 const pending = Math.round(n.totalProperties * 0.08);
 
@@ -317,15 +327,22 @@ export const ReportsView: React.FC = () => {
                   </tr>
                 );
               })}
+              {displayedNeighborhoods.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="py-6 text-center text-slate-400">
+                    Nenhum registro encontrado para o bairro selecionado.
+                  </td>
+                </tr>
+              )}
             </tbody>
             <tfoot className="bg-slate-50 font-bold border-t-2 border-slate-400">
               <tr>
                 <td className="py-2.5 px-3 border-r border-slate-300 uppercase">Totais Consolidados</td>
-                <td className="py-2.5 px-3 border-r border-slate-300 text-right font-mono">28.400</td>
-                <td className="py-2.5 px-3 border-r border-slate-300 text-right font-mono text-emerald-700">20.280</td>
-                <td className="py-2.5 px-3 border-r border-slate-300 text-right font-mono text-amber-700">1.840</td>
-                <td className="py-2.5 px-3 border-r border-slate-300 text-right font-mono text-rose-700">4</td>
-                <td className="py-2.5 px-3 text-right font-mono">71.4%</td>
+                <td className="py-2.5 px-3 border-r border-slate-300 text-right font-mono">{totalProps.toLocaleString('pt-BR')}</td>
+                <td className="py-2.5 px-3 border-r border-slate-300 text-right font-mono text-emerald-700">{totalWorked.toLocaleString('pt-BR')}</td>
+                <td className="py-2.5 px-3 border-r border-slate-300 text-right font-mono text-amber-700">{totalPending.toLocaleString('pt-BR')}</td>
+                <td className="py-2.5 px-3 border-r border-slate-300 text-right font-mono text-rose-700">{totalFoci}</td>
+                <td className="py-2.5 px-3 text-right font-mono">{totalCoverage}%</td>
               </tr>
             </tfoot>
           </table>

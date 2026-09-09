@@ -153,6 +153,20 @@ export const AcePwaView: React.FC<AcePwaViewProps> = ({ onNavigate }) => {
     loadMyProperties();
     loadOvitrapsPwa();
 
+    // Recuperar imóvel ativo selecionado pela rota otimizada
+    try {
+      const activeProp = localStorage.getItem('endemias_active_property');
+      if (activeProp) {
+        const parsed = JSON.parse(activeProp);
+        if (parsed && parsed.id) {
+          setSelectedProperty(parsed);
+          localStorage.removeItem('endemias_active_property');
+        }
+      }
+    } catch (err) {
+      console.warn('Erro ao restaurar imóvel ativo de rota:', err);
+    }
+
     async function loadOrders() {
       try {
         const orders = await workOrderService.getWorkOrders();

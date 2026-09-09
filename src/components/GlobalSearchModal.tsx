@@ -12,6 +12,7 @@ import {
   Crosshair,
   Layers,
   Activity,
+  FileText,
 } from 'lucide-react';
 import { db } from '../services/storage';
 
@@ -40,10 +41,6 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
   const [isSearching, setIsSearching] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const properties = db.getProperties();
-  const neighborhoods = db.getNeighborhoods();
-  const cases = db.getEpidemiologyBlocks();
-
   useEffect(() => {
     if (isOpen) {
       setTimeout(() => inputRef.current?.focus(), 50);
@@ -53,7 +50,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
     }
   }, [isOpen]);
 
-  // Busca com debounce de 300ms
+  // Busca com debounce de 250ms conectada a todas as entidades reais
   useEffect(() => {
     if (!searchTerm.trim()) {
       setResults([]);
@@ -67,110 +64,151 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
       const found: SearchResultItem[] = [];
 
       // 1. Imóveis
-      properties.forEach(p => {
-        if (
-          p.code.toLowerCase().includes(term) ||
-          p.address.toLowerCase().includes(term) ||
-          p.neighborhood.toLowerCase().includes(term)
-        ) {
-          found.push({
-            category: 'IMÓVEIS',
-            title: `${p.address}, ${p.number}`,
-            subtitle: `${p.code} • ${p.neighborhood} • ${p.type}`,
-            module: 'properties',
-            itemId: p.id,
-            icon: Home,
-          });
-        }
-      });
+      try {
+        const properties = db.getProperties();
+        properties.forEach(p => {
+          if (
+            p.code.toLowerCase().includes(term) ||
+            p.address.toLowerCase().includes(term) ||
+            p.neighborhood.toLowerCase().includes(term)
+          ) {
+            found.push({
+              category: 'IMÓVEIS',
+              title: `${p.address}, ${p.number}`,
+              subtitle: `${p.code} • ${p.neighborhood} • Tipo: ${p.type} • Status: ${p.status}`,
+              module: 'properties',
+              itemId: p.id,
+              icon: Home,
+            });
+          }
+        });
+      } catch {}
 
-      // 2. Bairros
-      neighborhoods.forEach(n => {
-        if (n.name.toLowerCase().includes(term)) {
-          found.push({
-            category: 'TERRITÓRIO & BAIRROS',
-            title: `Bairro ${n.name}`,
-            subtitle: `${n.totalProperties} imóveis • Cobertura: ${n.coveragePercentage}% • Risco: ${n.riskScore}/100`,
-            module: 'territory',
-            itemId: n.id,
-            icon: MapPin,
-          });
-        }
-      });
+      // 2. Bairros & Território
+      try {
+        const neighborhoods = db.getNeighborhoods();
+        neighborhoods.forEach(n => {
+          if (n.name.toLowerCase().includes(term)) {
+            found.push({
+              category: 'TERRITÓRIO & BAIRROS',
+              title: `Bairro ${n.name}`,
+              subtitle: `${n.totalProperties} imóveis • Cobertura: ${n.coveragePercentage}% • Focos: ${n.fociCount}`,
+              module: 'territory',
+              itemId: n.id,
+              icon: MapPin,
+            });
+          }
+        });
+      } catch {}
 
-      // 3. Agentes ACE & Equipes
-      const agents = [
-        { name: 'Carlos Eduardo Oliveira', code: 'ACE-104', team: 'Equipe Alpha' },
-        { name: 'Mariana Souza Santos', code: 'ACE-108', team: 'Equipe Alpha' },
-        { name: 'Lucas Ferreira Lima', code: 'ACE-112', team: 'Equipe Beta' },
-        { name: 'Juliana Mendes Rocha', code: 'ACE-115', team: 'Equipe Beta' },
-      ];
-      agents.forEach(a => {
-        if (a.name.toLowerCase().includes(term) || a.code.toLowerCase().includes(term) || a.team.toLowerCase().includes(term)) {
-          found.push({
-            category: 'AGENTES (ACE)',
-            title: a.name,
-            subtitle: `${a.code} • ${a.team}`,
-            module: 'productivity',
-            icon: Users,
-          });
-        }
-      });
+      // 3. Agentes ACE & Usuários
+      try {
+        const users = db.getUsers();
+        users.forEach(u => {
+          if (
+            u.name.toLowerCase().includes(term) ||
+            u.email.toLowerCase().includes(term) ||
+            (u.registrationNumber && u.registrationNumber.toLowerCase().includes(term))
+          ) {
+            found.push({
+              category: 'AGENTES & USUÁRIOS',
+              title: u.name,
+              subtitle: `Perfil: ${u.role} • Matrícula: ${u.registrationNumber || 'N/A'} • ${u.email}`,
+              module: u.role === 'ACE' ? 'teams' : 'users',
+              itemId: u.id,
+              icon: Users,
+            });
+          }
+        });
+      } catch {}
 
-      // 4. Denúncias
-      const complaints = [
-        { protocol: 'DEN-2026-0012', address: 'Rua Marechal Deodoro, 1450', neighborhood: 'Vila Nova' },
-        { protocol: 'DEN-2026-0015', address: 'Av. Independência, 320', neighborhood: 'Centro' },
-      ];
-      complaints.forEach(c => {
-        if (c.protocol.toLowerCase().includes(term) || c.address.toLowerCase().includes(term)) {
-          found.push({
-            category: 'DENÚNCIAS',
-            title: c.protocol,
-            subtitle: `${c.address} (${c.neighborhood})`,
-            module: 'complaints',
-            icon: AlertTriangle,
-          });
-        }
-      });
+      // 4. Denúncias Comunitárias
+      try {
+        const complaints = db.getComplaints();
+        complaints.forEach(c => {
+          if (
+            c.protocol.toLowerCase().includes(term) ||
+            (c.address && c.address.toLowerCase().includes(term)) ||
+            (c.description && c.description.toLowerCase().includes(term))
+          ) {
+            found.push({
+              category: 'DENÚNCIAS & OUVIDORIA',
+              title: `Protocolo ${c.protocol}`,
+              subtitle: `${c.address} • Status: ${c.status} • Prioridade: ${c.priority || 'MÉDIA'}`,
+              module: 'citizen_portal',
+              itemId: c.id,
+              icon: AlertTriangle,
+            });
+          }
+        });
+      } catch {}
 
-      // 5. Pontos Estratégicos
-      const pes = [
-        { name: 'Borracharia Central', type: 'Borracharia', address: 'Rua Deodoro, 1020' },
-        { name: 'Ferro Velho Rodoviário', type: 'Ferro Velho', address: 'Av. Presidente Vargas, 500' },
-      ];
-      pes.forEach(pe => {
-        if (pe.name.toLowerCase().includes(term) || pe.address.toLowerCase().includes(term)) {
-          found.push({
-            category: 'PONTOS ESTRATÉGICOS (PE)',
-            title: pe.name,
-            subtitle: `${pe.type} • ${pe.address}`,
-            module: 'strategic_points',
-            icon: Crosshair,
-          });
-        }
-      });
+      // 5. Ovitrampas
+      try {
+        const ovitraps = db.getOvitraps();
+        ovitraps.forEach(ovi => {
+          if (
+            ovi.code.toLowerCase().includes(term) ||
+            ovi.neighborhood.toLowerCase().includes(term) ||
+            ovi.address.toLowerCase().includes(term)
+          ) {
+            found.push({
+              category: 'REDE DE OVITRAMPAS',
+              title: `Armadilha ${ovi.code}`,
+              subtitle: `${ovi.address} (${ovi.neighborhood}) • Status: ${ovi.status}`,
+              module: 'ovitraps',
+              itemId: ovi.id,
+              icon: Flame,
+            });
+          }
+        });
+      } catch {}
 
-      // 6. Casos Epidemiológicos
-      const epiCases = [
-        { number: 'SINAN-2026-00124', disease: 'Dengue', location: 'Vila Nova' },
-        { number: 'SINAN-2026-00125', disease: 'Zika', location: 'Centro' },
-      ];
-      epiCases.forEach(ec => {
-        if (ec.number.toLowerCase().includes(term) || ec.disease.toLowerCase().includes(term)) {
-          found.push({
-            category: 'EPIDEMIOLOGIA',
-            title: `${ec.disease} — ${ec.number}`,
-            subtitle: `Notificação confirmada em ${ec.location}`,
-            module: 'epidemiology',
-            icon: Activity,
-          });
-        }
-      });
+      // 6. Pontos Estratégicos (PE)
+      try {
+        const pes = db.getStrategicPoints();
+        pes.forEach(pe => {
+          if (
+            pe.name.toLowerCase().includes(term) ||
+            pe.address.toLowerCase().includes(term) ||
+            pe.type.toLowerCase().includes(term)
+          ) {
+            found.push({
+              category: 'PONTOS ESTRATÉGICOS (PE)',
+              title: pe.name,
+              subtitle: `${pe.type} • ${pe.address} • Próxima Vistoria: ${pe.nextInspectionDate}`,
+              module: 'strategic_points',
+              itemId: pe.id,
+              icon: Crosshair,
+            });
+          }
+        });
+      } catch {}
 
-      setResults(found.slice(0, 15));
+      // 7. Bloqueios e Casos Epidemiológicos
+      try {
+        const blocks = db.getEpidemiologyBlocks();
+        blocks.forEach(b => {
+          if (
+            b.code.toLowerCase().includes(term) ||
+            b.disease.toLowerCase().includes(term) ||
+            b.targetNeighborhood.toLowerCase().includes(term)
+          ) {
+            found.push({
+              category: 'BLOQUEIOS EPIDEMIOLÓGICOS',
+              title: `Bloqueio ${b.code} (${b.disease})`,
+              subtitle: `${b.targetNeighborhood} • Raio: ${b.radiusMeters}m • Status: ${b.status}`,
+              module: 'blocks',
+              itemId: b.id,
+              icon: Activity,
+            });
+          }
+        });
+      } catch {}
+
+      setResults(found.slice(0, 20));
       setIsSearching(false);
-    }, 300);
+    }, 250);
 
     return () => clearTimeout(handler);
   }, [searchTerm]);
@@ -188,7 +226,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
             type="text"
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
-            placeholder="Pesquise por Imóvel, Logradouro, Bairro, ACE, Denúncia, PE, Ovitrampa ou Caso Sinan..."
+            placeholder="Pesquise por Imóvel, Endereço, Bairro, ACE, Denúncia, Ovitrampa ou Bloqueio..."
             className="w-full bg-transparent text-sm font-medium focus:outline-none placeholder:text-slate-400"
           />
           {searchTerm && (
@@ -201,55 +239,60 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
           )}
           <button
             onClick={onClose}
-            className="text-xs font-bold text-slate-500 hover:text-slate-800 px-2 py-1 bg-slate-200 rounded-md"
+            className="text-xs font-semibold px-2 py-1 rounded bg-slate-200 text-slate-700 hover:bg-slate-300"
           >
             ESC
           </button>
         </div>
 
-        {/* Resultados Agrupados */}
-        <div className="max-h-96 overflow-y-auto p-2 divide-y divide-slate-100">
-          {results.map((item, idx) => {
-            const Icon = item.icon;
-            return (
-              <button
-                key={idx}
-                onClick={() => {
-                  onSelectResult(item.module, item.itemId);
-                  onClose();
-                }}
-                className="w-full p-3 hover:bg-slate-50 rounded-xl transition flex items-center justify-between text-left group"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center flex-shrink-0">
-                    <Icon className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <span className="text-[9px] font-black uppercase text-indigo-700 block tracking-wider">
-                      {item.category}
-                    </span>
-                    <h4 className="font-bold text-xs text-slate-900 leading-tight group-hover:text-indigo-600 transition">
-                      {item.title}
-                    </h4>
-                    <p className="text-[11px] text-slate-500 leading-tight">{item.subtitle}</p>
-                  </div>
-                </div>
-
-                <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-indigo-600 group-hover:translate-x-0.5 transition" />
-              </button>
-            );
-          })}
-
-          {searchTerm && results.length === 0 && !isSearching && (
-            <div className="text-center py-10 text-xs text-slate-400">
-              Nenhum registro encontrado para <strong>"{searchTerm}"</strong> neste município.
+        {/* Resultados */}
+        <div className="max-h-[60vh] overflow-y-auto divide-y divide-slate-100">
+          {isSearching ? (
+            <div className="p-8 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
+              <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+              <span>Buscando registros integrados...</span>
             </div>
-          )}
-
-          {!searchTerm && (
-            <div className="p-4 text-center text-xs text-slate-400 space-y-1">
-              <p>Digite para buscar instantaneamente em toda a base municipal.</p>
-              <p className="text-[11px] text-slate-300">Respeita permissões de acesso e filtros por município.</p>
+          ) : results.length > 0 ? (
+            results.map((item, idx) => {
+              const Icon = item.icon;
+              return (
+                <div
+                  key={`${item.category}-${item.title}-${idx}`}
+                  onClick={() => {
+                    onSelectResult(item.module, item.itemId);
+                    onClose();
+                  }}
+                  className="p-3.5 hover:bg-slate-50 cursor-pointer flex items-center justify-between group transition"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="p-2 rounded-lg bg-slate-100 text-slate-700 group-hover:bg-blue-50 group-hover:text-blue-700 transition">
+                      <Icon className="w-4 h-4 flex-shrink-0" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
+                          {item.category}
+                        </span>
+                        <h4 className="text-xs font-bold text-slate-900 truncate">
+                          {item.title}
+                        </h4>
+                      </div>
+                      <p className="text-[11px] text-slate-500 truncate mt-0.5">
+                        {item.subtitle}
+                      </p>
+                    </div>
+                  </div>
+                  <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-blue-600 group-hover:translate-x-0.5 transition flex-shrink-0 ml-2" />
+                </div>
+              );
+            })
+          ) : searchTerm ? (
+            <div className="p-8 text-center text-xs text-slate-500">
+              Nenhum registro encontrado para "{searchTerm}". Verifique o termo e tente novamente.
+            </div>
+          ) : (
+            <div className="p-8 text-center text-xs text-slate-400">
+              Digite ao menos uma palavra para buscar em tempo real por imóveis, agentes, denúncias, ovitrampas e bloqueios.
             </div>
           )}
         </div>

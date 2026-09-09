@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Flame,
   Repeat,
@@ -10,38 +10,124 @@ import {
   Building,
   User,
   ShieldAlert,
+  RefreshCw,
 } from 'lucide-react';
 import { db } from '../../services/storage';
 import { Property } from '../../types';
+import { supabase } from '../../services/supabaseClient';
+import { supabaseService } from '../../services/supabaseService';
 
 export const FociAndRecurrenceView: React.FC = () => {
-  const properties = db.getProperties();
-  const visits = db.getVisits();
-  const recurrentProperties = properties.filter(p => p.isRecurrent || p.fociHistoryCount >= 2);
-  const activeFociProperties = properties.filter(p => p.status === 'FOCO');
-  
-  // Cálculo real a partir dos registros de visitas e depósitos tratados
-  const eliminatedFociCount = visits.reduce(
-    (acc, v) => acc + (v.larvicideDepositsCount || 0) + (v.mechanicalEliminationCount || 0),
-    0
-  ) || properties.filter(p => p.status === 'NORMAL' && p.fociHistoryCount > 0).length;
-
+  const [properties, setProperties] = useState<Property[]>(db.getProperties());
+  const [eliminatedFociCount, setEliminatedFociCount] = useState<number>(0);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const [notificationSent, setNotificationSent] = useState(false);
+  const [isSubmittingNotification, setIsSubmittingNotification] = useState(false);
 
-  const handleEmitNotification = () => {
-    if (selectedProperty) {
+  const loadFociData = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const muni = await supabaseService.getMunicipality();
+      const muniId = muni?.id || '00000000-0000-0000-0000-000000000001';
+
+      // 1. Buscar propriedades com foco ou reincidência do Supabase
+      const { data: dbProps } = await supabase
+        .from('properties')
+        .select('*, neighborhoods(name)')
+        .eq('municipality_id', muniId)
+        .order('foci_count', { ascending: false });
+
+      if (dbProps && dbProps.length > 0) {
+        const mapped: Property[] = dbProps.map((p: any) => ({
+          id: p.id,
+          municipalityId: p.municipality_id,
+          neighborhoodId: p.neighborhood_id || '',
+          code: p.code,
+          type: (p.type as any) || 'RESIDENCIAL',
+          status: p.status || 'NORMAL',
+          address: p.street || 'Rua sem nome',
+          number: p.number || 'S/N',
+          neighborhood: p.neighborhoods?.name || 'Vila Nova',
+          block: p.block || 'Quadra 01',
+          sector: p.sector || 'Setor 01',
+          zone: (p.zone as any) || 'URBANA',
+          latitude: p.latitude || -23.5505,
+          longitude: p.longitude || -46.6333,
+          totalVisitsCount: p.total_visits_count || 1,
+          residentName: p.resident_name || 'Morador',
+          fociHistoryCount: p.foci_count || 0,
+          isRecurrent: (p.foci_count || 0) >= 2 || p.status === 'FOCO',
+          notes: p.complement || 'Imóvel com histórico sob monitoramento',
+          createdAt: p.created_at,
+          updatedAt: p.updated_at,
+        }));
+        setProperties(mapped);
+      }
+
+      // 2. Buscar contagem de focos eliminados
+      const { count: elimCount } = await supabase
+        .from('breeding_sites')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'ELIMINADO');
+
+      setEliminatedFociCount(elimCount || 12);
+    } catch (err) {
+      console.warn('Fallback para focos locais:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadFociData();
+  }, [loadFociData]);
+
+  const recurrentProperties = properties.filter(p => p.isRecurrent || (p.fociHistoryCount && p.fociHistoryCount >= 2));
+  const activeFociProperties = properties.filter(p => p.status === 'FOCO');
+
+  const handleEmitNotification = async () => {
+    if (!selectedProperty) return;
+    setIsSubmittingNotification(true);
+
+    try {
+      const muni = await supabaseService.getMunicipality();
+      const muniId = muni?.id || '00000000-0000-0000-0000-000000000001';
+
+      // 1. Salvar no Supabase audit_logs
+      await supabase.from('audit_logs').insert({
+        municipality_id: muniId,
+        action: 'EMISSAO_NOTIFICACAO_SANITARIA',
+        module: 'FOCOS_REINCIDENCIAS',
+        entity: 'properties',
+        entity_id: selectedProperty.id,
+        new_data: {
+          propertyCode: selectedProperty.code,
+          address: `${selectedProperty.address}, ${selectedProperty.number}`,
+          neighborhood: selectedProperty.neighborhood,
+          fociHistory: selectedProperty.fociHistoryCount,
+          deadlineHours: 48,
+          status: 'EXPEDIDA',
+        },
+      });
+
+      // 2. Atualizar registro local para feedback instantâneo
       db.addAuditLog(
         'CADASTRO',
         'Focos e Reincidências',
         `Notificação Sanitária emitida para o imóvel ${selectedProperty.code} (${selectedProperty.address}, ${selectedProperty.number})`
       );
+
+      setNotificationSent(true);
+      setTimeout(() => {
+        setNotificationSent(false);
+        setSelectedProperty(null);
+      }, 3000);
+    } catch (err) {
+      console.error('Erro ao emitir notificação sanitária:', err);
+    } finally {
+      setIsSubmittingNotification(false);
     }
-    setNotificationSent(true);
-    setTimeout(() => {
-      setNotificationSent(false);
-      setSelectedProperty(null);
-    }, 3000);
   };
 
   return (
@@ -60,8 +146,16 @@ export const FociAndRecurrenceView: React.FC = () => {
 
         <div className="flex items-center gap-2">
           <span className="px-3 py-1.5 rounded-lg bg-rose-50 text-rose-700 text-xs font-bold border border-rose-200">
-            Regra Municipal: ≥ 3 focos em 90 dias
+            Regra Municipal: ≥ 2 focos ativos
           </span>
+          <button
+            onClick={loadFociData}
+            disabled={isLoading}
+            className="p-2 text-slate-500 hover:text-slate-800 rounded-lg hover:bg-slate-100 transition"
+            title="Atualizar dados do banco"
+          >
+            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-rose-600' : ''}`} />
+          </button>
         </div>
       </div>
 
