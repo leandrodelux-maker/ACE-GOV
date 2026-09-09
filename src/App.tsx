@@ -355,7 +355,7 @@ function AppContent() {
     return <AccessDeniedPage onNavigate={navigateTo} />;
   }
 
-  if (currentPath === '/minha-conta') {
+  if (currentPath === '/minha-conta' || currentPath === '/perfil') {
     if (!isAuthenticated) return <LoginPage onNavigate={navigateTo} />;
     return <MyAccountPage onNavigate={navigateTo} />;
   }
