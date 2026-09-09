@@ -12,6 +12,7 @@ import { ForgotPasswordPage } from './components/auth/ForgotPasswordPage';
 import { ResetPasswordPage } from './components/auth/ResetPasswordPage';
 import { FirstAccessPage } from './components/auth/FirstAccessPage';
 import { AccessDeniedPage } from './components/auth/AccessDeniedPage';
+import { MyAccountPage } from './components/auth/MyAccountPage';
 
 // Telas Administrativas RBAC
 import { RolesPermissionsView } from './components/admin/RolesPermissionsView';
@@ -72,6 +73,9 @@ import { PublicComplaintTrackingView } from './components/public/PublicComplaint
 import { HistoricalAnalysisView } from './components/views/HistoricalAnalysisView';
 import { ManagementTargetsView } from './components/views/ManagementTargetsView';
 import { DailyBriefingView } from './components/views/DailyBriefingView';
+import { GeographicReconnaissanceView } from './components/views/GeographicReconnaissanceView';
+import { FieldPendenciesView } from './components/views/FieldPendenciesView';
+import { ChemicalOperationsView } from './components/views/ChemicalOperationsView';
 
 // Rotas públicas que não necessitam de autenticação prévia
 const PUBLIC_ROUTES = [
@@ -168,6 +172,14 @@ function AppContent() {
       setCurrentView('management_targets');
     } else if (target === '/briefing') {
       setCurrentView('daily_briefing');
+    } else if (target === '/territorio/rg') {
+      setCurrentView('geographic_reconnaissance');
+    } else if (target === '/operacional/pendencias') {
+      setCurrentView('field_pendencies');
+    } else if (target === '/controle-vetorial/operacoes') {
+      setCurrentView('chemical_operations');
+    } else if (target === '/ovitrampas' || target === '/ovitraps') {
+      setCurrentView('ovitraps');
     } else {
       const cleanName = target.replace('/', '');
       if (cleanName && cleanName !== 'login' && !PUBLIC_ROUTES.includes(target)) {
@@ -241,6 +253,14 @@ function AppContent() {
         setCurrentView('management_targets');
       } else if (path === '/briefing') {
         setCurrentView('daily_briefing');
+      } else if (path === '/territorio/rg') {
+        setCurrentView('geographic_reconnaissance');
+      } else if (path === '/operacional/pendencias') {
+        setCurrentView('field_pendencies');
+      } else if (path === '/controle-vetorial/operacoes') {
+        setCurrentView('chemical_operations');
+      } else if (path === '/ovitrampas' || path === '/ovitraps') {
+        setCurrentView('ovitraps');
       } else {
         const cleanName = path.replace('/', '');
         if (cleanName && cleanName !== 'login' && !PUBLIC_ROUTES.includes(path)) {
@@ -330,6 +350,11 @@ function AppContent() {
     return <AccessDeniedPage onNavigate={navigateTo} />;
   }
 
+  if (currentPath === '/minha-conta') {
+    if (!isAuthenticated) return <LoginPage onNavigate={navigateTo} />;
+    return <MyAccountPage onNavigate={navigateTo} />;
+  }
+
   // Rotas Públicas do Cidadão (Sem necessidade de login)
   if (currentPath === '/publico') {
     return (
@@ -416,7 +441,7 @@ function AppContent() {
         return <CyclesView />;
       case 'ovitraps':
         if (!can('ovitraps.view')) return <AccessDeniedPage onNavigate={navigateTo} />;
-        return <OvitrapsView />;
+        return <OvitrapsView onNavigate={navigateTo} />;
       case 'strategic_points':
         if (!can('strategic_points.view')) return <AccessDeniedPage onNavigate={navigateTo} />;
         return <StrategicPointsView />;
@@ -509,6 +534,15 @@ function AppContent() {
       case 'management_targets':
         if (!can('reports.view')) return <AccessDeniedPage onNavigate={navigateTo} />;
         return <ManagementTargetsView />;
+      case 'geographic_reconnaissance':
+        if (!can('territory.view')) return <AccessDeniedPage onNavigate={navigateTo} />;
+        return <GeographicReconnaissanceView />;
+      case 'field_pendencies':
+        if (!can('visits.view')) return <AccessDeniedPage onNavigate={navigateTo} />;
+        return <FieldPendenciesView />;
+      case 'chemical_operations':
+        if (!can('visits.view')) return <AccessDeniedPage onNavigate={navigateTo} />;
+        return <ChemicalOperationsView />;
       default:
         return <DashboardView onNavigate={(view) => { setCurrentView(view as ViewModule); navigateTo(view); }} />;
     }

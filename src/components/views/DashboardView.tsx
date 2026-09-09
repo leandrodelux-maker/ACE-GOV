@@ -266,15 +266,22 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
         </div>
 
         {/* 10. Ovitrampas Positivas */}
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs hover:border-slate-300 transition">
+        <div
+          onClick={() => onNavigate('ovitraps')}
+          className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs hover:border-sky-400 hover:shadow-md transition cursor-pointer group"
+          title="Clique para abrir a Rede Municipal de Ovitrampas"
+        >
           <div className="flex items-center justify-between text-slate-500 mb-1.5">
-            <span className="text-[11px] font-semibold uppercase tracking-wider">Ovitrampas +</span>
-            <Layers className="w-4 h-4 text-sky-600" />
+            <span className="text-[11px] font-semibold uppercase tracking-wider group-hover:text-sky-700">Ovitrampas (Ovos)</span>
+            <Layers className="w-4 h-4 text-sky-600 group-hover:scale-110 transition" />
           </div>
           <p className="text-xl font-extrabold text-sky-700">
             {isLoading ? '...' : `${kpis?.positiveOvitraps || 0} / ${kpis?.totalOvitraps || 0}`}
           </p>
-          <span className="text-[10px] text-sky-700 font-medium">Rede de vigilância</span>
+          <div className="flex items-center justify-between text-[10px] text-sky-700 font-medium">
+            <span>Rede sentinela</span>
+            <span className="font-bold underline">Abrir &rarr;</span>
+          </div>
         </div>
 
         {/* 11. Bloqueios Ativos */}
@@ -418,6 +425,57 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
                   })}
                 </tbody>
               </table>
+            </div>
+          </div>
+
+          {/* Bloco Oficial: SITUAÇÃO DAS OVITRAMPAS */}
+          <div className="bg-gradient-to-r from-sky-950 to-blue-900 text-white p-5 rounded-xl shadow-xs space-y-4 border border-sky-800">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-sky-800/70">
+              <div className="flex items-center gap-2.5">
+                <span className="p-2 rounded-lg bg-sky-800 text-sky-200">
+                  <Layers className="w-5 h-5" />
+                </span>
+                <div>
+                  <h3 className="text-sm font-black tracking-tight">SITUAÇÃO DAS OVITRAMPAS (REDE SENTINELA)</h3>
+                  <p className="text-[11px] text-sky-200">Dispersão precoce de fêmeas e contagem de ovos no município</p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => onNavigate('ovitraps')}
+                className="px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs transition self-start sm:self-auto flex items-center gap-1 shadow-xs"
+              >
+                <span>Painel Completo de Ovitrampas</span>
+                <ArrowUpRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+              <div className="bg-sky-950/70 p-3 rounded-lg border border-sky-800/60">
+                <span className="text-[10px] text-sky-300 uppercase font-semibold">Armadilhas Ativas</span>
+                <p className="text-xl font-extrabold text-white mt-0.5">{kpis?.totalOvitraps || 0}</p>
+                <span className="text-[10px] text-sky-300">Pontos sentinela</span>
+              </div>
+
+              <div className="bg-sky-950/70 p-3 rounded-lg border border-sky-800/60">
+                <span className="text-[10px] text-rose-300 uppercase font-semibold">Armadilhas Positivas</span>
+                <p className="text-xl font-extrabold text-rose-300 mt-0.5">{kpis?.positiveOvitraps || 0}</p>
+                <span className="text-[10px] text-rose-200 font-medium">Presença de ovos</span>
+              </div>
+
+              <div className="bg-sky-950/70 p-3 rounded-lg border border-sky-800/60">
+                <span className="text-[10px] text-sky-300 uppercase font-semibold">Positividade (IPO)</span>
+                <p className="text-xl font-extrabold text-white mt-0.5">
+                  {(kpis?.totalOvitraps || 0) > 0 ? Math.round(((kpis?.positiveOvitraps || 0) / (kpis?.totalOvitraps || 1)) * 100) : 0}%
+                </p>
+                <span className="text-[10px] text-sky-300">Índice Municipal</span>
+              </div>
+
+              <div className="bg-sky-950/70 p-3 rounded-lg border border-sky-800/60">
+                <span className="text-[10px] text-purple-300 uppercase font-semibold">Foco Prioritário</span>
+                <p className="text-xl font-extrabold text-purple-200 mt-0.5">Centro</p>
+                <span className="text-[10px] text-purple-300">Maior densidade de ovos</span>
+              </div>
             </div>
           </div>
 

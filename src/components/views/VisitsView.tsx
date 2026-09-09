@@ -20,6 +20,7 @@ import {
 import { useAuth } from '../../contexts/AuthContext';
 import { supabaseService } from '../../services/supabaseService';
 import { Visit, FieldCycle } from '../../types';
+import { visitOfficialService, CONDUCT_OPTIONS } from '../../services/visitOfficialService';
 
 export const VisitsView: React.FC = () => {
   const { user, can } = useAuth();
@@ -39,22 +40,25 @@ export const VisitsView: React.FC = () => {
   // Lista de imóveis para seleção no modal
   const [availableProperties, setAvailableProperties] = useState<any[]>([]);
 
-  // Formulário de Visita
+  // Formulário de Visita Oficial
   const [formData, setFormData] = useState({
     propertyId: '',
-    visitType: 'ROTINA',
-    result: 'TRABALHADO',
+    visitType: 'rotina',
+    result: 'trabalhado',
     visitDate: new Date().toISOString().split('T')[0],
+    startTime: '08:00',
+    endTime: '08:25',
     notes: '',
+    conducts: ['orientacao_morador'] as string[],
     // Depósitos (A1-E)
     deposits: [
-      { depositType: 'A1', quantity: 0, positive: false, larvaeFound: false, eliminated: false, treated: false, treatmentProduct: '' },
-      { depositType: 'A2', quantity: 0, positive: false, larvaeFound: false, eliminated: false, treated: false, treatmentProduct: '' },
-      { depositType: 'B', quantity: 0, positive: false, larvaeFound: false, eliminated: false, treated: false, treatmentProduct: '' },
-      { depositType: 'C', quantity: 0, positive: false, larvaeFound: false, eliminated: false, treated: false, treatmentProduct: '' },
-      { depositType: 'D1', quantity: 0, positive: false, larvaeFound: false, eliminated: false, treated: false, treatmentProduct: '' },
-      { depositType: 'D2', quantity: 0, positive: false, larvaeFound: false, eliminated: false, treated: false, treatmentProduct: '' },
-      { depositType: 'E', quantity: 0, positive: false, larvaeFound: false, eliminated: false, treated: false, treatmentProduct: '' },
+      { depositType: 'A1', quantity: 0, hasWater: true, inspected: true, positive: false, larvaeFound: false, eliminated: false, treated: false, treatmentProduct: '', sampleCollected: false, sampleCode: '' },
+      { depositType: 'A2', quantity: 0, hasWater: true, inspected: true, positive: false, larvaeFound: false, eliminated: false, treated: false, treatmentProduct: '', sampleCollected: false, sampleCode: '' },
+      { depositType: 'B', quantity: 0, hasWater: true, inspected: true, positive: false, larvaeFound: false, eliminated: false, treated: false, treatmentProduct: '', sampleCollected: false, sampleCode: '' },
+      { depositType: 'C', quantity: 0, hasWater: true, inspected: true, positive: false, larvaeFound: false, eliminated: false, treated: false, treatmentProduct: '', sampleCollected: false, sampleCode: '' },
+      { depositType: 'D1', quantity: 0, hasWater: true, inspected: true, positive: false, larvaeFound: false, eliminated: false, treated: false, treatmentProduct: '', sampleCollected: false, sampleCode: '' },
+      { depositType: 'D2', quantity: 0, hasWater: true, inspected: true, positive: false, larvaeFound: false, eliminated: false, treated: false, treatmentProduct: '', sampleCollected: false, sampleCode: '' },
+      { depositType: 'E', quantity: 0, hasWater: true, inspected: true, positive: false, larvaeFound: false, eliminated: false, treated: false, treatmentProduct: '', sampleCollected: false, sampleCode: '' },
     ],
   });
 
@@ -102,6 +106,16 @@ export const VisitsView: React.FC = () => {
     });
   };
 
+  const handleToggleConduct = (conductKey: string) => {
+    setFormData(prev => {
+      const exists = prev.conducts.includes(conductKey);
+      return {
+        ...prev,
+        conducts: exists ? prev.conducts.filter(c => c !== conductKey) : [...prev.conducts, conductKey],
+      };
+    });
+  };
+
   const handleSubmitVisit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSubmitting) return;
@@ -120,46 +134,82 @@ export const VisitsView: React.FC = () => {
       const cycleId = activeCycle?.id || '00000000-0000-0000-0000-000000000001';
 
       // Filtrar depósitos com quantidade > 0
-      const activeDeposits = formData.deposits.filter(d => d.quantity > 0);
+      const activeDeposits = formData.deposits
+        .filter(d => d.quantity > 0)
+        .map(d => ({
+          deposit_type: d.depositType,
+          quantity: d.quantity,
+          has_water: d.hasWater,
+          inspected: d.inspected,
+          positive: d.positive,
+          larvae_found: d.larvaeFound,
+          eliminated: d.eliminated,
+          treated: d.treated,
+          treatment_product: d.treatmentProduct || undefined,
+          sample_collected: d.sampleCollected,
+          sample_code: d.sampleCode || undefined,
+        }));
 
-      const res = await supabaseService.registerVisitTransaction({
-        municipalityId: muniId,
-        cycleId: cycleId,
-        propertyId: formData.propertyId,
-        agentId: user?.id,
-        visitDate: formData.visitDate,
-        visitType: formData.visitType,
-        result: formData.result,
-        latitude: -29.718 + (Math.random() - 0.5) * 0.005,
-        longitude: -52.428 + (Math.random() - 0.5) * 0.005,
+      // Preparar condutas
+      const activeActions = formData.conducts.map(c => ({
+        action_type: c as any,
+        quantity: 1,
+      }));
+
+      const startedAt = new Date(`${formData.visitDate}T${formData.startTime}:00`).toISOString();
+      const finishedAt = new Date(`${formData.visitDate}T${formData.endTime}:00`).toISOString();
+
+      const res = await visitOfficialService.submitOfficialVisit({
+        municipality_id: muniId,
+        cycle_id: cycleId,
+        property_id: formData.propertyId,
+        agent_id: user?.id || '00000000-0000-0000-0000-000000000001',
+        visit_date: formData.visitDate,
+        started_at: startedAt,
+        finished_at: finishedAt,
+        visit_type: formData.visitType,
+        result: formData.result.toLowerCase() as any,
+        residents_present: formData.result.toLowerCase() === 'trabalhado',
         notes: formData.notes,
         deposits: activeDeposits,
+        actions: activeActions,
+        pendency_info: formData.result.toLowerCase() !== 'trabalhado' ? {
+          next_return_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          notes: formData.notes,
+        } : undefined,
       });
 
       if (res.success) {
-        setSuccessToast('Vistoria domiciliar registrada com sucesso no banco!');
+        setSuccessToast(res.message);
         setTimeout(() => setSuccessToast(null), 3500);
         setIsModalOpen(false);
         // Reset form
         setFormData({
           propertyId: availableProperties[0]?.id || '',
-          visitType: 'ROTINA',
-          result: 'TRABALHADO',
+          visitType: 'rotina',
+          result: 'trabalhado',
           visitDate: new Date().toISOString().split('T')[0],
+          startTime: '08:00',
+          endTime: '08:25',
           notes: '',
+          conducts: ['orientacao_morador'],
           deposits: formData.deposits.map(d => ({
             ...d,
             quantity: 0,
+            hasWater: true,
+            inspected: true,
             positive: false,
             larvaeFound: false,
             eliminated: false,
             treated: false,
             treatmentProduct: '',
+            sampleCollected: false,
+            sampleCode: '',
           })),
         });
         await loadData();
       } else {
-        setErrorToast(res.error || 'Falha ao registrar visita.');
+        setErrorToast(res.message || 'Falha ao registrar visita.');
       }
     } catch (err: any) {
       setErrorToast(err.message || 'Erro inesperado.');
@@ -367,16 +417,55 @@ export const VisitsView: React.FC = () => {
                     onChange={e => setFormData({ ...formData, result: e.target.value })}
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-800 font-semibold"
                   >
-                    <option value="TRABALHADO">Trabalhado / Inspecionado</option>
-                    <option value="FECHADO">Fechado / Morador Ausente</option>
-                    <option value="RECUSADO">Recusa de Acesso</option>
-                    <option value="DESABITADO">Desabitado / Desocupado</option>
+                    <option value="trabalhado">Trabalhado / Inspecionado</option>
+                    <option value="fechado">Fechado / Morador Ausente</option>
+                    <option value="recusa">Recusa de Acesso</option>
+                    <option value="desocupado">Desocupado / Desabitado</option>
+                    <option value="terreno_baldio">Terreno Baldio</option>
+                    <option value="demolido">Demolido</option>
+                    <option value="nao_localizado">Não Localizado</option>
                   </select>
+                </div>
+
+                <div>
+                  <label className="block text-slate-600 font-semibold mb-1">Tipo de Atividade</label>
+                  <select
+                    value={formData.visitType}
+                    onChange={e => setFormData({ ...formData, visitType: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-800 font-medium"
+                  >
+                    <option value="rotina">Inspeção de Rotina (Ciclo)</option>
+                    <option value="delimitacao_foco">Delimitação de Foco (DF)</option>
+                    <option value="ponto_estrategico">Ponto Estratégico (PE)</option>
+                    <option value="pesquisa_vetorial">Pesquisa Vetorial Especial (PVE)</option>
+                    <option value="bloqueio">Bloqueio de Caso Suspeito</option>
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-slate-600 font-semibold mb-1">Hora Inicial</label>
+                    <input
+                      type="time"
+                      value={formData.startTime}
+                      onChange={e => setFormData({ ...formData, startTime: e.target.value })}
+                      className="w-full px-2 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-800 font-medium"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-600 font-semibold mb-1">Hora Final</label>
+                    <input
+                      type="time"
+                      value={formData.endTime}
+                      onChange={e => setFormData({ ...formData, endTime: e.target.value })}
+                      className="w-full px-2 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-800 font-medium"
+                    />
+                  </div>
                 </div>
               </div>
 
               {/* Seção de Depósitos SUS (A1 a E) */}
-              {formData.result === 'TRABALHADO' && (
+              {formData.result === 'trabalhado' && (
                 <div className="space-y-3 pt-2">
                   <label className="block text-slate-800 font-bold text-xs uppercase tracking-wider">
                     Pesquisa Entomológica & Depósitos de Água (Padrão Ministério da Saúde)
@@ -455,6 +544,26 @@ export const VisitsView: React.FC = () => {
                   </div>
                 </div>
               )}
+
+              {/* Condutas Sanitárias Oficiais do ACE */}
+              <div className="space-y-2 pt-2">
+                <label className="block text-slate-800 font-bold text-xs uppercase tracking-wider">
+                  Condutas Sanitárias Adotadas
+                </label>
+                <div className="grid grid-cols-2 gap-2 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                  {CONDUCT_OPTIONS.map((c) => (
+                    <label key={c.value} className="flex items-center gap-2 text-slate-700 cursor-pointer text-xs">
+                      <input
+                        type="checkbox"
+                        checked={formData.conducts.includes(c.value)}
+                        onChange={() => handleToggleConduct(c.value)}
+                        className="rounded text-emerald-600 focus:ring-emerald-500"
+                      />
+                      <span>{c.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
 
               <div>
                 <label className="block text-slate-600 font-semibold mb-1">Conduta Sanitária & Observações</label>

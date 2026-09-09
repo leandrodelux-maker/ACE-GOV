@@ -74,7 +74,10 @@ export type ViewModule =
   | 'system_settings'
   | 'system_errors'
   | 'territory'
+  | 'geographic_reconnaissance'
   | 'properties'
+  | 'field_pendencies'
+  | 'chemical_operations'
   | 'visits'
   | 'ace_pwa'
   | 'routes'
@@ -159,8 +162,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
           allowedRoles: ['FIELD_SUPERVISOR', 'ENDEMIAS_COORDINATOR', 'MUNICIPAL_ADMIN', 'SUPER_ADMIN'],
         },
         { id: 'vector_control', label: 'Controle Vetorial', icon: Crosshair, requiredPermission: 'visits.view' },
+        { id: 'chemical_operations', label: 'Operações Químicas & UBV', icon: Flame, requiredPermission: 'visits.view' },
         { id: 'routes', label: 'Minha Rota Otimizada', icon: Navigation, requiredPermission: 'field_planning.view' },
         { id: 'visits', label: 'Visitas Domiciliares', icon: CheckSquare, requiredPermission: 'visits.view' },
+        { id: 'field_pendencies', label: 'Pendências de Campo', icon: Clock, badge: 'Fechados', highlight: true, requiredPermission: 'visits.view' },
         { id: 'planning', label: 'Planejamento de Campo', icon: Calendar, requiredPermission: 'field_planning.view' },
       ],
     },
@@ -170,6 +175,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         { id: 'daily_briefing', label: 'Briefing Diário', icon: FileText, highlight: true, badge: 'Matinal', requiredPermission: 'reports.view' },
         { id: 'command_center', label: 'Centro de Comando', icon: Radio, highlight: true, badge: 'Cockpit', requiredPermission: 'dashboard.view' },
         { id: 'dashboard', label: 'Sala de Situação', icon: LayoutDashboard, requiredPermission: 'dashboard.view' },
+        { id: 'ovitraps', label: 'Ovitrampas (Ovos)', icon: Layers, highlight: true, badge: 'Sentinela', requiredPermission: 'ovitraps.view' },
         { id: 'historical_analysis', label: 'Análise Histórica', icon: BarChart2, requiredPermission: 'dashboard.view' },
         { id: 'entomology_lab', label: 'Laboratório Entomológico', icon: FlaskConical, requiredPermission: 'dashboard.view' },
         { id: 'liraa', label: 'LIRAa / LIA', icon: PieChart, requiredPermission: 'dashboard.view' },
@@ -183,10 +189,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
     {
       title: 'TERRITÓRIO & CONTROLE',
       items: [
+        { id: 'geographic_reconnaissance', label: 'Reconhecimento Geográfico (RG)', icon: Map, highlight: true, badge: 'Base', requiredPermission: 'territory.view' },
         { id: 'territory', label: 'Território Municipal', icon: MapPin, requiredPermission: 'territory.view' },
         { id: 'properties', label: 'Cadastro de Imóveis', icon: Home, requiredPermission: 'properties.view' },
         { id: 'foci_recurrence', label: 'Focos e Reincidências', icon: Flame, requiredPermission: 'outbreaks.view' },
-        { id: 'ovitraps', label: 'Ovitrampas (Ovos)', icon: Layers, requiredPermission: 'ovitraps.view' },
         { id: 'strategic_points', label: 'Pontos Estratégicos (PE)', icon: Crosshair, requiredPermission: 'strategic_points.view' },
         { id: 'special_properties', label: 'Imóveis Especiais (IE)', icon: Building2, requiredPermission: 'special_properties.view' },
       ],

@@ -30,6 +30,8 @@ import { Property, VisitSituation, DepositCategory, DepositInspection, Visit } f
 import { qrCodeService } from '../../services/qrCodeService';
 import { fieldEvidenceService } from '../../services/fieldEvidenceService';
 import { workOrderService, WorkOrderItem } from '../../services/workOrderService';
+import { visitOfficialService } from '../../services/visitOfficialService';
+import { ovitrapService, OvitrapPoint } from '../../services/ovitrapService';
 import { QrCode, ClipboardList, ShieldCheck } from 'lucide-react';
 
 interface AcePwaViewProps {
@@ -99,7 +101,12 @@ export const AcePwaView: React.FC<AcePwaViewProps> = ({ onNavigate }) => {
   const [isQrScannerOpen, setIsQrScannerOpen] = useState<boolean>(false);
   const [qrInputText, setQrInputText] = useState<string>('');
   const [myWorkOrders, setMyWorkOrders] = useState<WorkOrderItem[]>([]);
-  const [activePwaTab, setActivePwaTab] = useState<'imoveis' | 'ordens'>('imoveis');
+  const [myOvitraps, setMyOvitraps] = useState<OvitrapPoint[]>([]);
+  const [activePwaTab, setActivePwaTab] = useState<'imoveis' | 'ordens' | 'ovitraps'>('imoveis');
+  const [selectedPwaOvitrap, setSelectedPwaOvitrap] = useState<OvitrapPoint | null>(null);
+  const [pwaOviAction, setPwaOviAction] = useState<'INSTALL' | 'COLLECT' | null>(null);
+  const [pwaPaddleCode, setPwaPaddleCode] = useState('');
+  const [pwaOviNotes, setPwaOviNotes] = useState('');
 
   // Saudação horária
   const currentHour = new Date().getHours();
@@ -131,8 +138,20 @@ export const AcePwaView: React.FC<AcePwaViewProps> = ({ onNavigate }) => {
     }
   }, []);
 
+  const loadOvitrapsPwa = useCallback(async () => {
+    try {
+      const res = await ovitrapService.getOvitraps();
+      setMyOvitraps(res.ovitraps);
+      localStorage.setItem('endemias_cached_ovitraps', JSON.stringify(res.ovitraps));
+    } catch {
+      const cached = localStorage.getItem('endemias_cached_ovitraps');
+      if (cached) setMyOvitraps(JSON.parse(cached));
+    }
+  }, []);
+
   useEffect(() => {
     loadMyProperties();
+    loadOvitrapsPwa();
 
     async function loadOrders() {
       try {
@@ -143,7 +162,7 @@ export const AcePwaView: React.FC<AcePwaViewProps> = ({ onNavigate }) => {
       }
     }
     loadOrders();
-  }, [loadMyProperties]);
+  }, [loadMyProperties, loadOvitrapsPwa]);
 
   const handleCapturePhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -202,16 +221,20 @@ export const AcePwaView: React.FC<AcePwaViewProps> = ({ onNavigate }) => {
       const remaining: any[] = [];
 
       for (const item of syncQueue) {
-        const res = await supabaseService.registerVisitTransaction({
-          ...item,
-          municipalityId: muniId,
-          cycleId: cycleId,
-        });
+        try {
+          const res = await visitOfficialService.submitOfficialVisit({
+            ...item,
+            municipality_id: muniId,
+            cycle_id: cycleId,
+          });
 
-        if (res.success) {
-          successCount++;
-        } else {
-          remaining.push(item);
+          if (res.success) {
+            successCount++;
+          } else {
+            remaining.push({ ...item, status: 'erro', retryCount: (item.retryCount || 0) + 1 });
+          }
+        } catch {
+          remaining.push({ ...item, status: 'erro', retryCount: (item.retryCount || 0) + 1 });
         }
       }
 
@@ -263,7 +286,7 @@ export const AcePwaView: React.FC<AcePwaViewProps> = ({ onNavigate }) => {
     }
   };
 
-  // Adicionar Depósito
+  // Adicionar Depósito Inspecionado
   const handleAddDeposit = () => {
     const isFoci = hasLarvae;
     const newInsp: DepositInspection = {
@@ -291,27 +314,40 @@ export const AcePwaView: React.FC<AcePwaViewProps> = ({ onNavigate }) => {
     setIsFinishing(true);
 
     const fociFound = inspections.some(i => i.isFoci || i.hasLarvae);
+    const clientGeneratedVisitId = crypto.randomUUID();
 
     const visitPayload = {
-      propertyId: selectedProperty.id,
-      agentId: user?.id,
-      visitDate: new Date().toISOString().split('T')[0],
-      startedAt: new Date().toISOString(),
-      finishedAt: new Date().toISOString(),
-      visitType: 'ROTINA',
-      result: visitSituation,
+      id: clientGeneratedVisitId,
+      property_id: selectedProperty.id,
+      agent_id: user?.id || '00000000-0000-0000-0000-000000000001',
+      visit_date: new Date().toISOString().split('T')[0],
+      started_at: new Date().toISOString(),
+      finished_at: new Date().toISOString(),
+      visit_type: 'rotina',
+      result: visitSituation.toLowerCase() as any,
       latitude: gpsLocation?.lat || selectedProperty.latitude,
       longitude: gpsLocation?.lng || selectedProperty.longitude,
+      residents_present: visitSituation === 'TRABALHADO',
       notes: conductNotes || (fociFound ? 'Foco detectado e tratado com larvicida.' : 'Inspeção concluída sem focos.'),
       deposits: inspections.map(i => ({
-        depositType: i.category,
+        deposit_type: i.category,
         quantity: i.quantity,
+        has_water: i.hasWater,
+        inspected: true,
         positive: i.isFoci,
-        larvaeFound: i.hasLarvae,
+        larvae_found: i.hasLarvae,
         eliminated: i.actionTaken === 'ELIMINADO',
         treated: i.actionTaken === 'TRATADO',
-        treatmentProduct: i.larvicideUsed,
+        treatment_product: i.larvicideUsed,
       })),
+      actions: [
+        { action_type: 'orientacao_morador' as any, quantity: 1 },
+        ...(fociFound ? [{ action_type: 'tratamento' as any, quantity: 1 }] : []),
+      ],
+      pendency_info: visitSituation !== 'TRABALHADO' ? {
+        next_return_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        notes: conductNotes,
+      } : undefined,
     };
 
     if (isOnline) {
@@ -321,21 +357,24 @@ export const AcePwaView: React.FC<AcePwaViewProps> = ({ onNavigate }) => {
         const cycle = await supabaseService.getActiveCycle(muniId);
         const cycleId = cycle?.id || '00000000-0000-0000-0000-000000000001';
 
-        await supabaseService.registerVisitTransaction({
+        const res = await visitOfficialService.submitOfficialVisit({
           ...visitPayload,
-          municipalityId: muniId,
-          cycleId: cycleId,
+          municipality_id: muniId,
+          cycle_id: cycleId,
         });
 
-        setSuccessMessage(`Visita ao imóvel ${selectedProperty.code} registrada diretamente no banco de dados!`);
+        if (res.success) {
+          setSuccessMessage(`Visita ao imóvel ${selectedProperty.code} registrada diretamente no banco de dados!`);
+        } else {
+          saveSyncQueue([...syncQueue, { ...visitPayload, status: 'pendente', retryCount: 0 }]);
+          setSuccessMessage(`Falha de conexão. Visita guardada com segurança na fila offline.`);
+        }
       } catch {
-        // Se falhar a requisição, salva na fila offline
-        saveSyncQueue([...syncQueue, visitPayload]);
-        setSuccessMessage(`Falha temporária de rede. Visita guardada na fila offline para sincronização.`);
+        saveSyncQueue([...syncQueue, { ...visitPayload, status: 'pendente', retryCount: 0 }]);
+        setSuccessMessage(`Falha de conexão. Visita guardada com segurança na fila offline.`);
       }
     } else {
-      // Offline: adiciona à fila local
-      saveSyncQueue([...syncQueue, visitPayload]);
+      saveSyncQueue([...syncQueue, { ...visitPayload, status: 'pendente', retryCount: 0 }]);
       setSuccessMessage(`Modo offline ativo. Visita guardada no dispositivo e pronta para sincronizar.`);
     }
 
@@ -509,6 +548,17 @@ export const AcePwaView: React.FC<AcePwaViewProps> = ({ onNavigate }) => {
               <ClipboardList className="w-3.5 h-3.5 text-blue-600" />
               <span>Minhas OS ({myWorkOrders.length})</span>
             </button>
+            <button
+              onClick={() => setActivePwaTab('ovitraps')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+                activePwaTab === 'ovitraps'
+                  ? 'bg-white text-slate-900 shadow-xs'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <Layers className="w-3.5 h-3.5 text-sky-600" />
+              <span>Ovitrampas ({myOvitraps.length})</span>
+            </button>
           </div>
 
           <div className="flex items-center gap-2">
@@ -591,7 +641,7 @@ export const AcePwaView: React.FC<AcePwaViewProps> = ({ onNavigate }) => {
               })
             )}
           </div>
-        ) : (
+        ) : activePwaTab === 'ordens' ? (
           /* Conteúdo da Aba Ordens de Serviço */
           <div className="space-y-2">
             {myWorkOrders.length === 0 ? (
@@ -632,8 +682,181 @@ export const AcePwaView: React.FC<AcePwaViewProps> = ({ onNavigate }) => {
               ))
             )}
           </div>
+        ) : (
+          /* Conteúdo da Aba Ovitrampas no PWA do ACE */
+          <div className="space-y-2">
+            {myOvitraps.length === 0 ? (
+              <p className="text-xs text-slate-500 text-center py-6">Nenhuma ovitrampa atribuída para hoje.</p>
+            ) : (
+              myOvitraps.map(trap => (
+                <div
+                  key={trap.id}
+                  className={`p-3.5 rounded-xl border transition flex items-center justify-between ${
+                    trap.status === 'Coleta vencida'
+                      ? 'border-rose-300 bg-rose-50/50'
+                      : trap.isPositive
+                      ? 'border-purple-300 bg-purple-50/40'
+                      : 'border-slate-200 bg-white'
+                  }`}
+                >
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-xs font-bold text-sky-800 bg-sky-50 px-2 py-0.5 rounded border border-sky-200">
+                        {trap.code}
+                      </span>
+                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                        trap.status === 'Coleta vencida'
+                          ? 'bg-rose-100 text-rose-800'
+                          : trap.status === 'Aguardando coleta'
+                          ? 'bg-sky-100 text-sky-800'
+                          : 'bg-slate-100 text-slate-700'
+                      }`}>
+                        {trap.status}
+                      </span>
+                    </div>
+                    <p className="text-xs font-bold text-slate-900">{trap.address}</p>
+                    <p className="text-[10px] text-slate-500">
+                      {trap.neighborhoodName} • {trap.nextCollectionDate ? `Coleta: ${trap.nextCollectionDate}` : 'Pronta para instalar'}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    {trap.status === 'Disponivel' || trap.status === 'Resultado disponivel' ? (
+                      <button
+                        onClick={() => {
+                          setSelectedPwaOvitrap(trap);
+                          setPwaOviAction('INSTALL');
+                          setPwaPaddleCode(`PAL-${trap.code}-${new Date().toLocaleDateString('pt-BR').replace(/\//g, '')}`);
+                        }}
+                        className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition shadow-xs"
+                      >
+                        Instalar
+                      </button>
+                    ) : null}
+
+                    {trap.status === 'Instalada' || trap.status === 'Aguardando coleta' || trap.status === 'Coleta vencida' ? (
+                      <button
+                        onClick={() => {
+                          setSelectedPwaOvitrap(trap);
+                          setPwaOviAction('COLLECT');
+                          setPwaPaddleCode('');
+                        }}
+                        className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition shadow-xs"
+                      >
+                        Coletar
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         )}
       </div>
+
+      {/* Mini-Modal Operacional de Ovitrampas no PWA (Instalar / Coletar com Suporte Offline) */}
+      {selectedPwaOvitrap && pwaOviAction && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl p-5 space-y-3">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+              <h3 className="text-sm font-bold text-slate-900">
+                {pwaOviAction === 'INSTALL' ? 'Instalar Ovitrampa' : 'Registrar Coleta'} — {selectedPwaOvitrap.code}
+              </h3>
+              <button
+                onClick={() => {
+                  setSelectedPwaOvitrap(null);
+                  setPwaOviAction(null);
+                }}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="text-xs space-y-2">
+              <p className="text-slate-600"><strong>Local:</strong> {selectedPwaOvitrap.address}</p>
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Identificação da Palheta</label>
+                <input
+                  type="text"
+                  value={pwaPaddleCode}
+                  onChange={e => setPwaPaddleCode(e.target.value)}
+                  placeholder="Ex: PAL-001"
+                  className="w-full p-2 rounded-lg border border-slate-300 font-mono text-xs"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Observações do Agente</label>
+                <textarea
+                  value={pwaOviNotes}
+                  onChange={e => setPwaOviNotes(e.target.value)}
+                  placeholder="Ex: Área externa sombreada."
+                  rows={2}
+                  className="w-full p-2 rounded-lg border border-slate-300 text-xs"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                onClick={() => {
+                  setSelectedPwaOvitrap(null);
+                  setPwaOviAction(null);
+                }}
+                className="px-3 py-1.5 border border-slate-300 rounded-lg text-slate-700 font-semibold text-xs"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={async () => {
+                  const trap = selectedPwaOvitrap;
+                  if (!trap) return;
+
+                  if (!isOnline) {
+                    ovitrapService.queueOfflineAction(pwaOviAction, {
+                      ovitrapId: trap.id,
+                      agentId: user?.id,
+                      paddleCode: pwaPaddleCode,
+                      notes: pwaOviNotes,
+                      actionDate: new Date().toISOString(),
+                    });
+                    setSuccessMessage(`Ação de ovitrampa guardada offline. Sincronizará quando conectar.`);
+                  } else {
+                    if (pwaOviAction === 'INSTALL') {
+                      await ovitrapService.installOvitrap({
+                        ovitrapId: trap.id,
+                        agentId: user?.id || '00000000-0000-0000-0000-000000000001',
+                        paddleCode: pwaPaddleCode,
+                        notes: pwaOviNotes,
+                      });
+                      setSuccessMessage(`Ovitrampa ${trap.code} instalada com sucesso!`);
+                    } else {
+                      await ovitrapService.registerCollection({
+                        ovitrapId: trap.id,
+                        agentId: user?.id || '00000000-0000-0000-0000-000000000001',
+                        status: 'coleta_realizada',
+                        paddleReplaced: true,
+                        paddleCode: pwaPaddleCode,
+                        notes: pwaOviNotes,
+                      });
+                      setSuccessMessage(`Coleta da ovitrampa ${trap.code} registrada com sucesso!`);
+                    }
+                    await loadOvitrapsPwa();
+                  }
+
+                  setSelectedPwaOvitrap(null);
+                  setPwaOviAction(null);
+                  setTimeout(() => setSuccessMessage(null), 4000);
+                }}
+                className="px-4 py-1.5 bg-sky-600 hover:bg-sky-700 text-white rounded-lg font-bold text-xs"
+              >
+                Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal de Visita Domiciliar em Campo */}
       {selectedProperty && (

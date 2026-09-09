@@ -261,21 +261,32 @@ export const Header: React.FC<HeaderProps> = ({
                   })}
                 </div>
 
-                {/* Botão Oficial de Logout */}
-                {onLogout && (
-                  <div className="p-2 border-t border-slate-100 bg-slate-50 rounded-b-xl">
+                {/* Botões de Perfil e Logout */}
+                <div className="p-2 border-t border-slate-100 bg-slate-50 rounded-b-xl space-y-1">
+                  <button
+                    onClick={() => {
+                      setRoleDropdownOpen(false);
+                      if (onNavigate) onNavigate('/minha-conta');
+                    }}
+                    className="w-full py-1.5 px-3 rounded-lg text-xs font-semibold text-slate-700 hover:bg-slate-200/70 transition flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <UserCheck className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Meu Perfil & Segurança</span>
+                  </button>
+
+                  {onLogout && (
                     <button
                       onClick={() => {
                         setRoleDropdownOpen(false);
                         onLogout();
                       }}
-                      className="w-full py-2 px-3 rounded-lg text-xs font-semibold text-rose-700 hover:bg-rose-100/70 transition flex items-center justify-center gap-2 cursor-pointer"
+                      className="w-full py-1.5 px-3 rounded-lg text-xs font-semibold text-rose-700 hover:bg-rose-100/70 transition flex items-center justify-center gap-2 cursor-pointer"
                     >
                       <LogOut className="w-3.5 h-3.5" />
                       <span>Sair do Sistema / Desconectar</span>
                     </button>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             )}
           </div>

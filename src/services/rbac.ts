@@ -3,7 +3,7 @@ import { UserRole } from '../types';
 export interface PermissionDefinition {
   slug: string;
   module: string;
-  action: 'view' | 'create' | 'update' | 'delete' | 'manage' | 'disable' | 'export' | 'use';
+  action: 'view' | 'create' | 'update' | 'delete' | 'manage' | 'disable' | 'export' | 'use' | 'approve' | 'close';
   label: string;
   description: string;
 }
@@ -60,14 +60,23 @@ export const PERMISSIONS_CATALOG: PermissionDefinition[] = [
   // Ciclos de Campo
   { slug: 'cycles.view', module: 'cycles', action: 'view', label: 'Visualizar Ciclos', description: 'Acompanhar metas do LIRAa/LIA' },
   { slug: 'cycles.manage', module: 'cycles', action: 'manage', label: 'Gerenciar Ciclos', description: 'Abrir, configurar e encerrar ciclos' },
+  { slug: 'cycles.close', module: 'cycles', action: 'close', label: 'Encerrar Ciclos', description: 'Consolidar e encerrar ciclo epidemiológico' },
+  { slug: 'cycles.approve', module: 'cycles', action: 'approve', label: 'Aprovar Ciclos', description: 'Aprovar consolidação de ciclo de campo' },
 
   // Focos e Surtos
   { slug: 'outbreaks.view', module: 'outbreaks', action: 'view', label: 'Visualizar Focos/Surtos', description: 'Acompanhar surtos e reincidências' },
   { slug: 'outbreaks.manage', module: 'outbreaks', action: 'manage', label: 'Gerenciar Surtos', description: 'Criar operações de contenção' },
 
-  // Ovitrampas
-  { slug: 'ovitraps.view', module: 'ovitraps', action: 'view', label: 'Visualizar Ovitrampas', description: 'Consultar armadilhas e índice IPO' },
-  { slug: 'ovitraps.manage', module: 'ovitraps', action: 'manage', label: 'Gerenciar Ovitrampas', description: 'Instalar, coletar e registrar ovos' },
+  // Ovitrampas (Vigilância Entomológica de Ovos)
+  { slug: 'ovitraps.view', module: 'ovitraps', action: 'view', label: 'Visualizar Ovitrampas', description: 'Consultar armadilhas e índices entomológicos (IPO/IDO)' },
+  { slug: 'ovitraps.create', module: 'ovitraps', action: 'create', label: 'Cadastrar Ovitrampas', description: 'Cadastrar novos pontos sentinela no território' },
+  { slug: 'ovitraps.update', module: 'ovitraps', action: 'update', label: 'Editar Ovitrampas', description: 'Atualizar dados de armadilhas e responsáveis' },
+  { slug: 'ovitraps.install', module: 'ovitraps', action: 'use', label: 'Instalar Ovitrampas', description: 'Registrar instalação de armadilhas e palhetas' },
+  { slug: 'ovitraps.collect', module: 'ovitraps', action: 'use', label: 'Coletar Ovitrampas', description: 'Registrar coletas de armadilhas em campo' },
+  { slug: 'ovitraps.results', module: 'ovitraps', action: 'manage', label: 'Registrar Resultados Entomológicos', description: 'Informar contagem de ovos e laudos laboratoriais' },
+  { slug: 'ovitraps.analyze', module: 'ovitraps', action: 'view', label: 'Analisar Inteligência de Ovitrampas', description: 'Acessar indicadores avançados, tendências e coberturas' },
+  { slug: 'ovitraps.export', module: 'ovitraps', action: 'export', label: 'Exportar Dados de Ovitrampas', description: 'Exportar relatórios operacionais e boletins em PDF/Excel' },
+  { slug: 'ovitraps.manage', module: 'ovitraps', action: 'manage', label: 'Gerenciar Rede de Ovitrampas', description: 'Gestão completa da rede de vigilância entomológica' },
 
   // Pontos Estratégicos (PE)
   { slug: 'strategic_points.view', module: 'strategic_points', action: 'view', label: 'Visualizar PEs', description: 'Consultar ferros-velhos, cemitérios e borracharias' },
@@ -96,12 +105,12 @@ export const PERMISSIONS_CATALOG: PermissionDefinition[] = [
   // Motor de Risco & IA
   { slug: 'risk_engine.view', module: 'risk_engine', action: 'view', label: 'Visualizar Motor de Risco', description: 'Consultar escores preditivos de risco' },
   { slug: 'risk_engine.manage', module: 'risk_engine', action: 'manage', label: 'Gerenciar Pesos de Risco', description: 'Ajustar pesos do algoritmo de risco' },
-  { slug: 'ai_assistant.use', module: 'ai_assistant', action: 'use', label: 'Usar Assistente IA', description: 'Consultar inteligência artificial SUS' },
+  { slug: 'ai_assistant.use', module: 'ai_assistant', action: 'use', label: 'Usar Assistente IA', description: 'Interagir com assistente inteligente' },
 
   // Configurações & Auditoria
-  { slug: 'settings.view', module: 'settings', action: 'view', label: 'Visualizar Configurações', description: 'Consultar dados municipais e parâmetros' },
-  { slug: 'settings.manage', module: 'settings', action: 'manage', label: 'Gerenciar Configurações', description: 'Editar parâmetros municipais' },
-  { slug: 'audit.view', module: 'audit', action: 'view', label: 'Visualizar Auditoria', description: 'Acessar logs de auditoria e conformidade LGPD' },
+  { slug: 'settings.view', module: 'settings', action: 'view', label: 'Visualizar Configurações', description: 'Acesso a parâmetros gerais' },
+  { slug: 'settings.manage', module: 'settings', action: 'manage', label: 'Administrar Sistema', description: 'Controle de sistema e integrações' },
+  { slug: 'audit.view', module: 'audit', action: 'view', label: 'Visualizar Auditoria', description: 'Acessar logs de conformidade SUS' },
 ];
 
 export const ROLES_REGISTRY: Record<UserRole, RoleDefinition> = {
@@ -151,6 +160,13 @@ export const ROLES_REGISTRY: Record<UserRole, RoleDefinition> = {
       'cycles.view',
       'outbreaks.view',
       'ovitraps.view',
+      'ovitraps.create',
+      'ovitraps.update',
+      'ovitraps.install',
+      'ovitraps.collect',
+      'ovitraps.results',
+      'ovitraps.analyze',
+      'ovitraps.export',
       'ovitraps.manage',
       'strategic_points.view',
       'strategic_points.manage',
@@ -181,7 +197,9 @@ export const ROLES_REGISTRY: Record<UserRole, RoleDefinition> = {
       'cycles.view',
       'field_planning.view',
       'ovitraps.view',
-      'ovitraps.manage',
+      'ovitraps.install',
+      'ovitraps.collect',
+      'ovitraps.update',
       'complaints.view',
       'ai_assistant.use',
     ],
@@ -198,6 +216,10 @@ export const ROLES_REGISTRY: Record<UserRole, RoleDefinition> = {
       'epidemiology.manage',
       'outbreaks.view',
       'outbreaks.manage',
+      'ovitraps.view',
+      'ovitraps.results',
+      'ovitraps.analyze',
+      'ovitraps.export',
       'visits.view',
       'properties.view',
       'territory.view',
@@ -224,6 +246,9 @@ export const ROLES_REGISTRY: Record<UserRole, RoleDefinition> = {
       'properties.view',
       'visits.view',
       'teams.view',
+      'ovitraps.view',
+      'ovitraps.analyze',
+      'ovitraps.export',
       'strategic_points.view',
       'special_properties.view',
       'risk_engine.view',
