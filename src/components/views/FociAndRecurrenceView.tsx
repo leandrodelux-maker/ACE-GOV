@@ -16,13 +16,27 @@ import { Property } from '../../types';
 
 export const FociAndRecurrenceView: React.FC = () => {
   const properties = db.getProperties();
+  const visits = db.getVisits();
   const recurrentProperties = properties.filter(p => p.isRecurrent || p.fociHistoryCount >= 2);
   const activeFociProperties = properties.filter(p => p.status === 'FOCO');
+  
+  // Cálculo real a partir dos registros de visitas e depósitos tratados
+  const eliminatedFociCount = visits.reduce(
+    (acc, v) => acc + (v.larvicideDepositsCount || 0) + (v.mechanicalEliminationCount || 0),
+    0
+  ) || properties.filter(p => p.status === 'NORMAL' && p.fociHistoryCount > 0).length;
 
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const [notificationSent, setNotificationSent] = useState(false);
 
   const handleEmitNotification = () => {
+    if (selectedProperty) {
+      db.addAuditLog(
+        'CADASTRO',
+        'Focos e Reincidências',
+        `Notificação Sanitária emitida para o imóvel ${selectedProperty.code} (${selectedProperty.address}, ${selectedProperty.number})`
+      );
+    }
     setNotificationSent(true);
     setTimeout(() => {
       setNotificationSent(false);
@@ -76,7 +90,7 @@ export const FociAndRecurrenceView: React.FC = () => {
             <span className="text-xs font-bold uppercase">Focos Eliminados</span>
             <CheckCircle2 className="w-4 h-4" />
           </div>
-          <p className="text-2xl font-black text-emerald-700 mt-2">39</p>
+          <p className="text-2xl font-black text-emerald-700 mt-2">{eliminatedFociCount}</p>
           <span className="text-[10px] text-emerald-700">Conduta física / larvicida</span>
         </div>
       </div>

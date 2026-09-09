@@ -22,6 +22,7 @@ import { DataImportView } from './components/admin/DataImportView';
 import { DataQualityView } from './components/admin/DataQualityView';
 import { SystemSettingsView } from './components/admin/SystemSettingsView';
 import { ErrorLogsView } from './components/admin/ErrorLogsView';
+import { DatabaseHealthView } from './components/admin/DatabaseHealthView';
 
 // Views Internas do Sistema
 import { DashboardView } from './components/views/DashboardView';
@@ -138,6 +139,8 @@ function AppContent() {
       setCurrentView('system_settings');
     } else if (target === '/admin/sistema') {
       setCurrentView('system_health');
+    } else if (target === '/admin/database-health') {
+      setCurrentView('database_health');
     } else if (target === '/admin/sistema/erros') {
       setCurrentView('system_errors');
     } else if (target === '/admin/qualidade-dados') {
@@ -219,6 +222,8 @@ function AppContent() {
         setCurrentView('system_settings');
       } else if (path === '/admin/sistema') {
         setCurrentView('system_health');
+      } else if (path === '/admin/database-health') {
+        setCurrentView('database_health');
       } else if (path === '/admin/sistema/erros') {
         setCurrentView('system_errors');
       } else if (path === '/admin/qualidade-dados') {
@@ -483,6 +488,9 @@ function AppContent() {
         return <ReportsView />;
       case 'system_health':
         return <SystemHealthView />;
+      case 'database_health':
+        if (!hasRole('SUPER_ADMIN') && !hasRole('MUNICIPAL_ADMIN')) return <AccessDeniedPage onNavigate={navigateTo} />;
+        return <DatabaseHealthView />;
       case 'data_import':
         if (!can('settings.manage')) return <AccessDeniedPage onNavigate={navigateTo} />;
         return <DataImportView />;

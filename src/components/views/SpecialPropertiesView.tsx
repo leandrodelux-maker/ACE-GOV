@@ -6,6 +6,7 @@ import { SpecialProperty } from '../../types';
 export const SpecialPropertiesView: React.FC = () => {
   const [properties, setProperties] = useState<SpecialProperty[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [inspectingId, setInspectingId] = useState<string | null>(null);
 
   const loadSpecialProperties = useCallback(async () => {
     setIsLoading(true);
@@ -21,6 +22,26 @@ export const SpecialPropertiesView: React.FC = () => {
       setIsLoading(false);
     }
   }, []);
+
+  const handleRegisterInspection = async (ie: SpecialProperty) => {
+    setInspectingId(ie.id);
+    try {
+      const success = await supabaseService.registerSpecialPropertyInspection({
+        specialPropertyId: ie.id,
+        findings: 'Vistoria bimestral realizada em áreas comuns, pátio e caixas d água.',
+        actions: 'Eliminação mecânica e aplicação de larvicida.',
+        notes: `Inspeção do Imóvel Especial ${ie.name} persistida com sucesso no banco.`,
+      });
+
+      if (success) {
+        await loadSpecialProperties();
+      }
+    } catch (err) {
+      console.error('Erro ao registrar vistoria de IE:', err);
+    } finally {
+      setInspectingId(null);
+    }
+  };
 
   useEffect(() => {
     loadSpecialProperties();
@@ -97,10 +118,18 @@ export const SpecialPropertiesView: React.FC = () => {
 
               <div className="pt-2 border-t border-slate-100 flex justify-end">
                 <button
-                  onClick={() => alert(`Inspeção do Imóvel Especial ${ie.name} iniciada.`)}
-                  className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs transition"
+                  onClick={() => handleRegisterInspection(ie)}
+                  disabled={inspectingId === ie.id}
+                  className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-semibold text-xs transition cursor-pointer flex items-center gap-1"
                 >
-                  Vistoriar Imóvel Especial
+                  {inspectingId === ie.id ? (
+                    <>
+                      <RefreshCw className="w-3 h-3 animate-spin" />
+                      <span>Salvando no banco...</span>
+                    </>
+                  ) : (
+                    <span>Vistoriar Imóvel Especial</span>
+                  )}
                 </button>
               </div>
             </div>

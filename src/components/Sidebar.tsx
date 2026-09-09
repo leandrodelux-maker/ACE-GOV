@@ -49,6 +49,7 @@ import {
   Radio,
   Target,
   BarChart2,
+  Database,
 } from 'lucide-react';
 import { UserRole } from '../types';
 import { can } from '../services/rbac';
@@ -110,7 +111,8 @@ export type ViewModule =
   | 'admin_users'
   | 'admin_roles'
   | 'admin_audit'
-  | 'system_health';
+  | 'system_health'
+  | 'database_health';
 
 interface SidebarProps {
   currentView: ViewModule;
@@ -237,6 +239,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         { id: 'data_import', label: 'Importação de Dados', icon: Upload, requiredPermission: 'settings.manage' },
         { id: 'data_quality', label: 'Qualidade dos Dados', icon: ShieldCheck, requiredPermission: 'settings.view' },
         { id: 'admin_audit', label: 'Auditoria', icon: FileSearch, requiredPermission: 'audit.view' },
+        { id: 'database_health', label: 'Integridade do Sistema', icon: Database, highlight: true, badge: 'Banco', allowedRoles: ['SUPER_ADMIN', 'MUNICIPAL_ADMIN'] },
         { id: 'system_health', label: 'Saúde do Sistema', icon: HeartPulse, requiredPermission: 'settings.view' },
         { id: 'system_errors', label: 'Logs de Erros', icon: AlertTriangle, allowedRoles: ['SUPER_ADMIN'] },
       ],

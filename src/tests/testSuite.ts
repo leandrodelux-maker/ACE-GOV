@@ -7,6 +7,7 @@ import { can, hasRole } from '../services/rbac';
 import { UserRole } from '../types';
 import { DEPOSIT_CATEGORIES, CONDUCT_OPTIONS } from '../services/visitOfficialService';
 import { CORE_MODULES, isCoreModule, CORE_MODULE_DEFINITIONS } from '../config/coreModules';
+import { systemAuditService, ALL_SYSTEM_PAGES } from '../services/systemAuditService';
 
 interface TestResult {
   suite: string;
@@ -601,6 +602,38 @@ async function main() {
     assertEquals(unmonitored.length, 1, 'Deve detectar exatamente 1 setor sem monitoramento');
     assertEquals(unmonitored[0].sector, 'Setor 03', 'O setor sem monitoramento deve ser o Setor 03');
     assertEquals(unmonitored[0].status, 'Sem monitoramento', 'Status deve ser Sem monitoramento');
+  });
+
+  // -------------------------------------------------------------
+  // 7. CENTRAL DE INTEGRIDADE & AUDITORIA DE PÁGINAS E BANCO DE DADOS
+  // -------------------------------------------------------------
+  console.log('\n🛡️ 7. CENTRAL DE INTEGRIDADE DO SISTEMA & AUDITORIA:');
+
+  await runTest('Auditoria do Sistema', 'Validação do Catálogo de 58 Páginas/Módulos', () => {
+    assert(ALL_SYSTEM_PAGES.length === 58, `Deve conter 58 páginas mapeadas no catálogo (encontradas: ${ALL_SYSTEM_PAGES.length})`);
+    
+    // Nenhuma página pode ter status PARCIAL, SEM_BANCO, MOCK_DATA ou ERRO
+    const invalidPages = ALL_SYSTEM_PAGES.filter(p => p.status !== 'FUNCIONAL');
+    if (invalidPages.length > 0) {
+      throw new Error(`Existem ${invalidPages.length} páginas com status não-funcional: ${invalidPages.map(p => p.name).join(', ')}`);
+    }
+  });
+
+  await runTest('Auditoria do Sistema', 'Validação de Conexão e Relação com Tabelas Supabase', () => {
+    for (const page of ALL_SYSTEM_PAGES) {
+      assert(page.tables.length > 0, `Página ${page.name} (${page.route}) deve declarar pelo menos 1 tabela de banco`);
+      assert(page.supportsRead || page.supportsCreate, `Página ${page.name} deve suportar leitura ou cadastro`);
+    }
+  });
+
+  await runTest('Auditoria do Sistema', 'Execução de Auditoria Completa e Persistência no Banco', async () => {
+    const { summary } = await systemAuditService.runCompleteAudit('test-runner-automated');
+    assert(summary.pagesChecked === 58, `Auditoria deve checar 58 páginas (checou: ${summary.pagesChecked})`);
+    assert(summary.functionalCount === 58, `Auditoria deve validar 58 páginas como FUNCIONAIS (validou: ${summary.functionalCount})`);
+    assert(summary.partialCount === 0, `Não deve haver páginas parciais`);
+    assert(summary.mockCount === 0, `Não deve haver páginas com mock data`);
+    assert(summary.errorCount === 0, `Não deve haver páginas com erro`);
+    assert(summary.databaseConnected === true, `Conexão com o banco deve estar ativa`);
   });
 
   // -------------------------------------------------------------

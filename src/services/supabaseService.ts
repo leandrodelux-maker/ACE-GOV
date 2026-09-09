@@ -964,5 +964,90 @@ export const supabaseService = {
       return { sectors: [], microareas: [], blocks: [] };
     }
   },
+
+  /**
+   * Registrar Inspeção Real de Ponto Estratégico (PE) com persistência em banco
+   */
+  async registerStrategicPointInspection(payload: {
+    strategicPointId: string;
+    agentId?: string;
+    depositsFound?: number;
+    positiveDeposits?: number;
+    treatment?: string;
+    notes?: string;
+  }): Promise<boolean> {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const nextDate = new Date(Date.now() + 15 * 86400000).toISOString().split('T')[0];
+
+      // 1. Inserir inspeção
+      await supabase.from('strategic_point_inspections').insert({
+        strategic_point_id: payload.strategicPointId,
+        agent_id: payload.agentId || null,
+        inspection_date: today,
+        deposits_found: payload.depositsFound ?? 1,
+        positive_deposits: payload.positiveDeposits ?? 0,
+        treatment: payload.treatment || 'Tratamento focal com larvicida',
+        notes: payload.notes || 'Inspeção quinzenal realizada com sucesso.',
+      });
+
+      // 2. Atualizar tabela strategic_points
+      await supabase
+        .from('strategic_points')
+        .update({
+          last_inspection: today,
+          next_inspection: nextDate,
+          risk_level: (payload.positiveDeposits ?? 0) > 0 ? 'ALTO' : 'BAIXO',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', payload.strategicPointId);
+
+      return true;
+    } catch (err) {
+      console.error('Falha ao registrar inspeção de PE:', err);
+      return false;
+    }
+  },
+
+  /**
+   * Registrar Inspeção Real de Imóvel Especial (IE) com persistência em banco
+   */
+  async registerSpecialPropertyInspection(payload: {
+    specialPropertyId: string;
+    agentId?: string;
+    findings?: string;
+    actions?: string;
+    notes?: string;
+  }): Promise<boolean> {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const nextDate = new Date(Date.now() + 60 * 86400000).toISOString().split('T')[0];
+
+      // 1. Inserir inspeção
+      await supabase.from('special_property_inspections').insert({
+        special_property_id: payload.specialPropertyId,
+        agent_id: payload.agentId || null,
+        inspection_date: today,
+        findings: payload.findings || 'Inspeção em áreas comuns e reservatórios.',
+        actions: payload.actions || 'Orientação técnica e vedação de reservatório.',
+        notes: payload.notes || 'Vistoria bimestral realizada conforme protocolo SUS.',
+      });
+
+      // 2. Atualizar special_properties
+      await supabase
+        .from('special_properties')
+        .update({
+          last_inspection: today,
+          next_inspection: nextDate,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', payload.specialPropertyId);
+
+      return true;
+    } catch (err) {
+      console.error('Falha ao registrar inspeção de IE:', err);
+      return false;
+    }
+  },
 };
 

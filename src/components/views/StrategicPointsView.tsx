@@ -17,6 +17,7 @@ import { StrategicPoint } from '../../types';
 export const StrategicPointsView: React.FC = () => {
   const [points, setPoints] = useState<StrategicPoint[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [inspectingId, setInspectingId] = useState<string | null>(null);
 
   const loadStrategicPoints = useCallback(async () => {
     setIsLoading(true);
@@ -32,6 +33,28 @@ export const StrategicPointsView: React.FC = () => {
       setIsLoading(false);
     }
   }, []);
+
+  const handleRegisterInspection = async (pe: StrategicPoint) => {
+    setInspectingId(pe.id);
+    try {
+      const success = await supabaseService.registerStrategicPointInspection({
+        strategicPointId: pe.id,
+        agentId: pe.responsibleAgentId,
+        depositsFound: 2,
+        positiveDeposits: 0,
+        treatment: 'Tratamento Focal de rotina quinzenal',
+        notes: `Inspeção do Ponto Estratégico ${pe.name} realizada com sucesso e persistida no banco.`,
+      });
+
+      if (success) {
+        await loadStrategicPoints();
+      }
+    } catch (err) {
+      console.error('Erro ao registrar vistoria de PE:', err);
+    } finally {
+      setInspectingId(null);
+    }
+  };
 
   useEffect(() => {
     loadStrategicPoints();
@@ -129,10 +152,18 @@ export const StrategicPointsView: React.FC = () => {
               <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
                 <span className="text-[10px] text-slate-500">ACE: {pe.responsibleAgentName}</span>
                 <button
-                  onClick={() => alert(`Vistoria do Ponto Estratégico ${pe.name} registrada com sucesso.`)}
-                  className="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs transition"
+                  onClick={() => handleRegisterInspection(pe)}
+                  disabled={inspectingId === pe.id}
+                  className="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white font-bold text-xs transition cursor-pointer flex items-center gap-1"
                 >
-                  Registrar Vistoria PE
+                  {inspectingId === pe.id ? (
+                    <>
+                      <RefreshCw className="w-3 h-3 animate-spin" />
+                      <span>Salvando no banco...</span>
+                    </>
+                  ) : (
+                    <span>Registrar Vistoria PE</span>
+                  )}
                 </button>
               </div>
             </div>

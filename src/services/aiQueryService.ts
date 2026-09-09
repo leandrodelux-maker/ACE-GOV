@@ -25,6 +25,8 @@ export const aiQueryService = {
     const currentSE = epidemiologicalWeekService.getEpidemiologicalWeek();
 
     try {
+      let response: StructuredAiResponse;
+
       // 1. Pergunta: Bairro mais crítico
       if (q.includes('qual bairro') || q.includes('mais crítico') || q.includes('crítico')) {
         const { data: neighs } = await supabase
@@ -36,7 +38,7 @@ export const aiQueryService = {
         const sorted = [...list].sort((a, b) => (b.risk_score || b.riskScore || 0) - (a.risk_score || a.riskScore || 0));
         const top = sorted[0] || { name: 'Vila Nova', riskScore: 82, coveragePercentage: 62 };
 
-        return {
+        response = {
           summary: `O bairro com maior criticidade de risco sanitário é **${top.name}**, com score de risco calculado em **${top.risk_score || top.riskScore || 82}/100 (Alto Risco)**.`,
           dataUsed: `Cruzamento de focos ativos, cobertura vacinal/censitária (${top.coverage_percentage || top.coveragePercentage || 62}%), e histórico de reincidência de depósitos.`,
           periodConsidered: `SE ${currentSE.week}/${currentSE.year} (Ciclo I - 2026)`,
@@ -44,10 +46,8 @@ export const aiQueryService = {
           recommendation: `Deslocar equipe volante de contenção para eliminar pendências de imóveis fechados e programar ação focal de bloqueio mecânico em até 48 horas.`,
           confidence: 'ALTA',
         };
-      }
-
-      // 2. Pergunta: Quantos imóveis faltam para 90%
-      if (q.includes('quantos imóveis') || q.includes('90%') || q.includes('cobertura')) {
+      } else if (q.includes('quantos imóveis') || q.includes('90%') || q.includes('cobertura')) {
+        // 2. Pergunta: Quantos imóveis faltam para 90%
         const { count: totalProps } = await supabase
           .from('properties')
           .select('*', { count: 'exact', head: true })
@@ -64,7 +64,7 @@ export const aiQueryService = {
         const missing = Math.max(0, target90 - visited);
         const currentPercent = ((visited / total) * 100).toFixed(1);
 
-        return {
+        response = {
           summary: `Faltam **${missing.toLocaleString('pt-BR')} imóveis** a serem trabalhados para atingir a meta recomendada de 90% de cobertura no município.`,
           dataUsed: `Total de imóveis cadastrados: ${total.toLocaleString('pt-BR')}; Visitas válidas realizadas: ${visited.toLocaleString('pt-BR')} (${currentPercent}%).`,
           periodConsidered: `1º Ciclo Censitário 2026 (Até SE ${currentSE.week})`,
@@ -72,10 +72,8 @@ export const aiQueryService = {
           recommendation: `Manter a cadência de visitas matutinas e programar 1 mutirão no sábado para resgatar imóveis fechados em horário comercial.`,
           confidence: 'ALTA',
         };
-      }
-
-      // 3. Pergunta: Pontos estratégicos vencidos
-      if (q.includes('pontos estratégicos') || q.includes('pe vencidos') || q.includes('vencidos')) {
+      } else if (q.includes('pontos estratégicos') || q.includes('pe vencidos') || q.includes('vencidos')) {
+        // 3. Pergunta: Pontos estratégicos vencidos
         const { data: pes } = await supabase
           .from('strategic_points')
           .select('*, neighborhoods(name)')
@@ -85,7 +83,7 @@ export const aiQueryService = {
         const overdue = peList.filter(p => p.status === 'IRREGULAR' || !p.last_inspection_date);
         const overdueCount = overdue.length > 0 ? overdue.length : 2;
 
-        return {
+        response = {
           summary: `Existem **${overdueCount} Pontos Estratégicos (PE)** com inspeção quinzenal obrigatória vencida no território municipal.`,
           dataUsed: `Registro oficial de 18 PEs ativos (borracharias, ferros-velhos, cemitérios e depósitos de reciclagem).`,
           periodConsidered: `Últimos 15 dias corridos (conforme Diretriz Nacional do PNCD)`,
@@ -93,10 +91,8 @@ export const aiQueryService = {
           recommendation: `Emitir Ordem de Serviço prioritária para o Supervisor de Campo inspecionar os estabelecimentos com pendência ainda esta semana.`,
           confidence: 'ALTA',
         };
-      }
-
-      // 4. Pergunta: Aumento de dengue / arboviroses
-      if (q.includes('aumento de dengue') || q.includes('dengue') || q.includes('últimas semanas') || q.includes('casos')) {
+      } else if (q.includes('aumento de dengue') || q.includes('dengue') || q.includes('últimas semanas') || q.includes('casos')) {
+        // 4. Pergunta: Aumento de dengue / arboviroses
         const { data: cases } = await supabase
           .from('epidemiological_cases')
           .select('*')
@@ -105,7 +101,7 @@ export const aiQueryService = {
 
         const totalCases = cases?.length || 5;
 
-        return {
+        response = {
           summary: `Observou-se uma tendência de **elevação moderada (+18%)** no registro de casos suspeitos nas últimas 3 Semanas Epidemiológicas.`,
           dataUsed: `Notificações Sinan registradas nas unidades de pronto atendimento (UPA 24h e UBSs municipais).`,
           periodConsidered: `SE ${Math.max(1, currentSE.week - 3)} a SE ${currentSE.week}/${currentSE.year}`,
@@ -113,11 +109,9 @@ export const aiQueryService = {
           recommendation: `Intensificar a busca ativa de sintomáticos nas microáreas onde houve confirmação e manter prontidão do estoque de larvicidas e UBV para bloqueio rápido.`,
           confidence: 'ALTA',
         };
-      }
-
-      // 5. Pergunta: Prioridade amanhã
-      if (q.includes('amanhã') || q.includes('prioridade') || q.includes('planejar')) {
-        return {
+      } else if (q.includes('amanhã') || q.includes('prioridade') || q.includes('planejar')) {
+        // 5. Pergunta: Prioridade amanhã
+        response = {
           summary: `A prioridade operacional de amanhã deve ser concentrada no **Setor 01 do Bairro Vila Nova** e no **Setor 02 do Bairro Centro**.`,
           dataUsed: `Cruzamento de focos ativos não resolvidos (3 criadouros), 1 caso de dengue em investigação e 24 retornos pendentes.`,
           periodConsidered: `Planejamento para o próximo dia útil de campo`,
@@ -125,17 +119,38 @@ export const aiQueryService = {
           recommendation: `Aprovar o Plano Operacional de Campo no módulo de Planejamento para que as rotas sincronizem automaticamente nos dispositivos dos agentes.`,
           confidence: 'ALTA',
         };
+      } else {
+        // 6. Resposta Geral Padrão
+        response = {
+          summary: `Análise sanitária consolidada para a gestão de endemias do município.`,
+          dataUsed: `Base oficial do Endemias GOV (visitas, focos, notificações Sinan e estoque).`,
+          periodConsidered: `SE ${currentSE.week}/${currentSE.year}`,
+          explanation: `Os indicadores mostram operação regular no município, com cobertura dentro da média histórica e resposta rápida aos bloqueios em andamento.`,
+          recommendation: `Consulte as telas temáticas da Sala de Situação e do Painel Executivo para relatórios aprofundados por microárea.`,
+          confidence: 'ALTA',
+        };
       }
 
-      // 6. Resposta Geral Padrão
-      return {
-        summary: `Análise sanitária consolidada para a gestão de endemias do município.`,
-        dataUsed: `Base oficial do Endemias GOV (visitas, focos, notificações Sinan e estoque).`,
-        periodConsidered: `SE ${currentSE.week}/${currentSE.year}`,
-        explanation: `Os indicadores mostram operação regular no município, com cobertura dentro da média histórica e resposta rápida aos bloqueios em andamento.`,
-        recommendation: `Consulte as telas temáticas da Sala de Situação e do Painel Executivo para relatórios aprofundados por microárea.`,
-        confidence: 'ALTA',
-      };
+      // Persistir log da consulta no Supabase para qualquer pergunta
+      try {
+        await supabase.from('audit_logs').insert({
+          municipality_id: municipalityId,
+          action: 'CONSULTA_INTELIGENTE',
+          module: 'Assistente IA',
+          entity: 'knowledge_query',
+          entity_id: `ai-${Date.now()}`,
+          new_data: {
+            question,
+            summary: response.summary,
+            confidence: response.confidence,
+            dataUsed: response.dataUsed,
+          },
+        });
+      } catch (err) {
+        console.warn('Erro ao registrar log de auditoria da IA:', err);
+      }
+
+      return response;
     } catch (err: any) {
       console.error('Erro na camada de consulta da IA:', err);
       return {
