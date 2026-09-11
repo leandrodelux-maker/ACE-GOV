@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { supabaseService } from '../../services/supabaseService';
 import { StrategicPoint } from '../../types';
+import { PageHeader } from '../ui';
 
 export const StrategicPointsView: React.FC = () => {
   const [points, setPoints] = useState<StrategicPoint[]>([]);
@@ -65,35 +66,30 @@ export const StrategicPointsView: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-base font-bold text-slate-900 flex items-center gap-2">
-            <Crosshair className="w-5 h-5 text-amber-600" />
-            <span>Pontos Estratégicos (PE) — Vigilância Quinzenal</span>
-          </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Borracharias, ferros-velhos, cemitérios e depósitos de reciclagem (Diretriz MS: Inspeção a cada 15 dias)
-          </p>
-        </div>
+      <PageHeader
+        icon={Crosshair}
+        title="Pontos Estratégicos (PE) — Vigilância Quinzenal"
+        subtitle="Borracharias, ferros-velhos, cemitérios e depósitos de reciclagem (Diretriz MS: Inspeção a cada 15 dias)"
+        actions={
+          <>
+            {overdueCount > 0 && (
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold animate-pulse">
+                <AlertTriangle className="w-4 h-4 text-rose-600" />
+                <span>{overdueCount} inspeções quinzenais vencidas!</span>
+              </div>
+            )}
 
-        <div className="flex items-center gap-2">
-          {overdueCount > 0 && (
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold animate-pulse">
-              <AlertTriangle className="w-4 h-4 text-rose-600" />
-              <span>{overdueCount} inspeções quinzenais vencidas!</span>
-            </div>
-          )}
-
-          <button
-            onClick={loadStrategicPoints}
-            disabled={isLoading}
-            className="p-2 text-slate-500 hover:text-slate-800 rounded-lg hover:bg-slate-100 transition"
-            title="Atualizar dados"
-          >
-            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-amber-600' : ''}`} />
-          </button>
-        </div>
-      </div>
+            <button
+              onClick={loadStrategicPoints}
+              disabled={isLoading}
+              className="p-2 text-slate-500 hover:text-slate-800 rounded-lg hover:bg-slate-100 transition"
+              title="Atualizar dados"
+            >
+              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-amber-600' : ''}`} />
+            </button>
+          </>
+        }
+      />
 
       {/* Grid of Strategic Points */}
       {isLoading ? (

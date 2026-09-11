@@ -13,6 +13,7 @@ import {
 import { supabaseService } from '../../services/supabaseService';
 import { riskEngineService, RiskSettings, RiskCalculationResult } from '../../services/riskEngineService';
 import { Neighborhood } from '../../types';
+import { PageHeader } from '../ui';
 
 export const RiskEngineView: React.FC = () => {
   const [neighborhoods, setNeighborhoods] = useState<Neighborhood[]>([]);
@@ -91,32 +92,27 @@ export const RiskEngineView: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Top Header */}
-      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-base font-bold text-slate-900 flex items-center gap-2">
-            <ShieldAlert className="w-5 h-5 text-rose-600" />
-            <span>Motor de Risco Territorial (Algoritmo Oficial 0 a 100)</span>
-          </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Modelagem ponderada multicritério com memória de cálculo transparente e parâmetros salvos no banco
-          </p>
-        </div>
+      <PageHeader
+        icon={ShieldAlert}
+        title="Motor de Risco Territorial (Algoritmo Oficial 0 a 100)"
+        subtitle="Modelagem ponderada multicritério com memória de cálculo transparente e parâmetros salvos no banco"
+        actions={
+          <>
+            <span className="text-xs font-bold px-3 py-1.5 rounded-lg bg-slate-100 text-slate-700">
+              Soma dos Pesos: {totalWeight}% {totalWeight === 100 ? '✅' : '⚠️ (Recomendado 100%)'}
+            </span>
 
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-bold px-3 py-1.5 rounded-lg bg-slate-100 text-slate-700">
-            Soma dos Pesos: {totalWeight}% {totalWeight === 100 ? '✅' : '⚠️ (Recomendado 100%)'}
-          </span>
-
-          <button
-            onClick={handleSaveSettings}
-            disabled={isSaving}
-            className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-semibold flex items-center gap-1.5 shadow-xs transition"
-          >
-            <Save className="w-4 h-4" />
-            <span>{isSaving ? 'Salvando...' : saveSuccess ? 'Salvo no Banco!' : 'Salvar Pesos'}</span>
-          </button>
-        </div>
-      </div>
+            <button
+              onClick={handleSaveSettings}
+              disabled={isSaving}
+              className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-semibold flex items-center gap-1.5 shadow-xs transition"
+            >
+              <Save className="w-4 h-4" />
+              <span>{isSaving ? 'Salvando...' : saveSuccess ? 'Salvo no Banco!' : 'Salvar Pesos'}</span>
+            </button>
+          </>
+        }
+      />
 
       {/* Interactive Weight Sliders */}
       <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-4">

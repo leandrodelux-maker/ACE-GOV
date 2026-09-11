@@ -14,6 +14,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { supabase } from '../../services/supabaseClient';
+import { PageHeader } from '../ui';
 
 export const SystemHealthView: React.FC = () => {
   const [dbConnected, setDbConnected] = useState<boolean>(true);
@@ -64,18 +65,11 @@ export const SystemHealthView: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Top Header */}
-      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-base font-bold text-slate-900 flex items-center gap-2">
-            <HeartPulse className="w-5 h-5 text-emerald-600" />
-            <span>Saúde da Infraestrutura, Backups & Operação Crítica</span>
-          </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Monitoramento de conectividade do banco PostgreSQL, latência da API, backups automáticos e integridade relacional
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2">
+      <PageHeader
+        icon={HeartPulse}
+        title="Saúde da Infraestrutura, Backups & Operação Crítica"
+        subtitle="Monitoramento de conectividade do banco PostgreSQL, latência da API, backups automáticos e integridade relacional"
+        actions={
           <button
             onClick={checkHealth}
             className="px-3.5 py-1.5 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-semibold flex items-center gap-1.5"
@@ -83,8 +77,8 @@ export const SystemHealthView: React.FC = () => {
             <RefreshCw className="w-3.5 h-3.5 text-slate-500" />
             <span>Verificar Conexão</span>
           </button>
-        </div>
-      </div>
+        }
+      />
 
       {/* Grid de 6 KPIs de Infraestrutura */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
