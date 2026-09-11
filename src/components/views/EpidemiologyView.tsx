@@ -29,6 +29,7 @@ import { supabase } from '../../services/supabaseClient';
 import { vectorControlService } from '../../services/vectorControlService';
 import { epidemiologicalWeekService } from '../../services/epidemiologicalWeekService';
 import { EpidemiologyImportModal } from './EpidemiologyImportModal';
+import { PageHeader } from '../ui';
 
 export const EpidemiologyView: React.FC = () => {
   const [blocks, setBlocks] = useState<EpidemiologicalBlock[]>(db.getEpidemiologyBlocks());
@@ -323,34 +324,29 @@ export const EpidemiologyView: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Top Header */}
-      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-base font-bold text-slate-900 flex items-center gap-2">
-            <Activity className="w-5 h-5 text-rose-600" />
-            <span>Vigilância Epidemiológica & Bloqueio de Transmissão Viral</span>
-          </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Monitoramento de arboviroses (Dengue, Zika, Chikungunya, Febre Amarela) integrado ao Sinan e contenção peridomiciliar
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowImportModal(true)}
-            className="px-3.5 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-bold shadow-xs transition flex items-center justify-center gap-1.5"
-          >
-            <UploadCloud className="w-4 h-4 text-rose-400" />
-            <span>Importar Dados (SINAN / CSV)</span>
-          </button>
-          <button
-            onClick={() => setShowNewBlockModal(true)}
-            className="px-3.5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold shadow-xs transition flex items-center justify-center gap-1.5"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Disparar Operação de Bloqueio</span>
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        icon={Activity}
+        title="Vigilância Epidemiológica & Bloqueio de Transmissão Viral"
+        subtitle="Monitoramento de arboviroses (Dengue, Zika, Chikungunya, Febre Amarela) integrado ao Sinan e contenção peridomiciliar"
+        actions={
+          <>
+            <button
+              onClick={() => setShowImportModal(true)}
+              className="px-3.5 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-bold shadow-xs transition flex items-center justify-center gap-1.5"
+            >
+              <UploadCloud className="w-4 h-4 text-rose-400" />
+              <span>Importar Dados (SINAN / CSV)</span>
+            </button>
+            <button
+              onClick={() => setShowNewBlockModal(true)}
+              className="px-3.5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold shadow-xs transition flex items-center justify-center gap-1.5"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Disparar Operação de Bloqueio</span>
+            </button>
+          </>
+        }
+      />
 
       {/* Barra de Filtros Epidemiológicos & Semanas Epidemiológicas */}
       <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs space-y-3">

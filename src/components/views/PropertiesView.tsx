@@ -29,6 +29,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { supabaseService } from '../../services/supabaseService';
 import { Property, PropertyType, PropertyStatus, Neighborhood } from '../../types';
 import { TerritoryTimelineModal } from './TerritoryTimelineModal';
+import { PageHeader } from '../ui';
 
 export const PropertiesView: React.FC = () => {
   const { can } = useAuth();
@@ -259,42 +260,37 @@ export const PropertiesView: React.FC = () => {
       )}
 
       {/* Header */}
-      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-base font-bold text-slate-900 flex items-center gap-2">
-            <Home className="w-5 h-5 text-blue-600" />
-            <span>Cadastro Sanitário e Ficha de Imóveis</span>
-          </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Base territorial com histórico sanitário, geolocalização, reincidências e auditoria municipal
-          </p>
-        </div>
+      <PageHeader
+        icon={Home}
+        title="Cadastro Sanitário e Ficha de Imóveis"
+        subtitle="Base territorial com histórico sanitário, geolocalização, reincidências e auditoria municipal"
+        actions={
+          <>
+            <span className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-slate-100 text-slate-700">
+              {totalCount} {totalCount === 1 ? 'imóvel cadastrado' : 'imóveis cadastrados'}
+            </span>
 
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-slate-100 text-slate-700">
-            {totalCount} {totalCount === 1 ? 'imóvel cadastrado' : 'imóveis cadastrados'}
-          </span>
+            {can('properties.create') && (
+              <button
+                onClick={handleOpenCreateForm}
+                className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs flex items-center gap-1.5 shadow-xs transition"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Novo Imóvel</span>
+              </button>
+            )}
 
-          {can('properties.create') && (
             <button
-              onClick={handleOpenCreateForm}
-              className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs flex items-center gap-1.5 shadow-xs transition"
+              onClick={loadProperties}
+              disabled={isLoading}
+              className="p-1.5 text-slate-500 hover:text-slate-800 rounded-lg hover:bg-slate-100 transition"
+              title="Atualizar dados do banco"
             >
-              <Plus className="w-4 h-4" />
-              <span>Novo Imóvel</span>
+              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-blue-600' : ''}`} />
             </button>
-          )}
-
-          <button
-            onClick={loadProperties}
-            disabled={isLoading}
-            className="p-1.5 text-slate-500 hover:text-slate-800 rounded-lg hover:bg-slate-100 transition"
-            title="Atualizar dados do banco"
-          >
-            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-blue-600' : ''}`} />
-          </button>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       {/* Filter & Search Bar */}
       <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-wrap items-center justify-between gap-3">

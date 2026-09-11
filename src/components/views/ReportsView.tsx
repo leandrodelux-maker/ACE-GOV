@@ -18,6 +18,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { db } from '../../services/storage';
+import { PageHeader } from '../ui';
 
 export const ReportsView: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState<string>('OPERACIONAL');
@@ -138,41 +139,38 @@ export const ReportsView: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Top Header */}
-      <div className="print:hidden bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-base font-bold text-slate-900 flex items-center gap-2">
-            <FileText className="w-5 h-5 text-blue-600" />
-            <span>Central Oficial de Relatórios Sanitários do Endemias GOV</span>
-          </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Geração com cabeçalho oficial do SUS, filtros dinâmicos e exportação em PDF, XLSX e CSV
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2 text-xs">
-          <button
-            onClick={handleExportCSV}
-            disabled={isExporting}
-            className="px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold transition flex items-center gap-1.5"
-          >
-            <Download className="w-4 h-4 text-slate-500" />
-            <span>{isExporting ? 'Exportando...' : 'Exportar CSV'}</span>
-          </button>
-          <button
-            onClick={handleExportXLSX}
-            className="px-3 py-2 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-semibold transition border border-emerald-200 flex items-center gap-1.5"
-          >
-            <Download className="w-4 h-4 text-emerald-600" />
-            <span>Exportar XLSX</span>
-          </button>
-          <button
-            onClick={handlePrint}
-            className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold transition flex items-center gap-1.5 shadow-xs"
-          >
-            <Printer className="w-4 h-4" />
-            <span>Imprimir / Gerar PDF</span>
-          </button>
-        </div>
+      <div className="print:hidden">
+        <PageHeader
+          icon={FileText}
+          title="Central Oficial de Relatórios Sanitários do Endemias GOV"
+          subtitle="Geração com cabeçalho oficial do SUS, filtros dinâmicos e exportação em PDF, XLSX e CSV"
+          actions={
+            <>
+              <button
+                onClick={handleExportCSV}
+                disabled={isExporting}
+                className="px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold transition flex items-center gap-1.5 text-xs"
+              >
+                <Download className="w-4 h-4 text-slate-500" />
+                <span>{isExporting ? 'Exportando...' : 'Exportar CSV'}</span>
+              </button>
+              <button
+                onClick={handleExportXLSX}
+                className="px-3 py-2 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-semibold transition border border-emerald-200 flex items-center gap-1.5 text-xs"
+              >
+                <Download className="w-4 h-4 text-emerald-600" />
+                <span>Exportar XLSX</span>
+              </button>
+              <button
+                onClick={handlePrint}
+                className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold transition flex items-center gap-1.5 shadow-xs text-xs"
+              >
+                <Printer className="w-4 h-4" />
+                <span>Imprimir / Gerar PDF</span>
+              </button>
+            </>
+          }
+        />
       </div>
 
       {/* Barra de Categorias e Filtros Pré-Geração */}

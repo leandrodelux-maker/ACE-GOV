@@ -21,6 +21,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { supabaseService } from '../../services/supabaseService';
 import { Visit, FieldCycle } from '../../types';
 import { visitOfficialService, CONDUCT_OPTIONS } from '../../services/visitOfficialService';
+import { PageHeader } from '../ui';
 
 export const VisitsView: React.FC = () => {
   const { user, can } = useAuth();
@@ -236,61 +237,56 @@ export const VisitsView: React.FC = () => {
       )}
 
       {/* Header */}
-      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-base font-bold text-slate-900 flex items-center gap-2">
-            <CheckSquare className="w-5 h-5 text-emerald-600" />
-            <span>Visitas Domiciliares & Inspeções Entomológicas</span>
-          </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Registro unificado de vistorias de rotina, pesquisa larvária (A1 a E) e tratamento focal
-          </p>
-        </div>
+      <PageHeader
+        icon={CheckSquare}
+        title="Visitas Domiciliares & Inspeções Entomológicas"
+        subtitle="Registro unificado de vistorias de rotina, pesquisa larvária (A1 a E) e tratamento focal"
+        actions={
+          <>
+            {can('visits.create') && (
+              <button
+                onClick={() => setIsModalOpen(true)}
+                className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs flex items-center gap-1.5 shadow-xs transition"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Registrar Visita</span>
+              </button>
+            )}
 
-        <div className="flex flex-wrap items-center gap-2">
-          {can('visits.create') && (
-            <button
-              onClick={() => setIsModalOpen(true)}
-              className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs flex items-center gap-1.5 shadow-xs transition"
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Buscar por endereço, ACE..."
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                className="p-2 pl-8 rounded-lg border border-slate-300 text-xs w-56 font-medium"
+              />
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
+            </div>
+
+            <select
+              value={filterSituation}
+              onChange={e => setFilterSituation(e.target.value)}
+              className="p-2 rounded-lg border border-slate-300 text-xs font-semibold bg-white"
             >
-              <Plus className="w-4 h-4" />
-              <span>Registrar Visita</span>
+              <option value="ALL">Todas as Situações</option>
+              <option value="TRABALHADO">Trabalhado</option>
+              <option value="FECHADO">Fechado</option>
+              <option value="RECUSADO">Recusa</option>
+              <option value="FOCO">Com Foco de Larvas</option>
+            </select>
+
+            <button
+              onClick={loadData}
+              disabled={isLoading}
+              className="p-2 text-slate-500 hover:text-slate-800 rounded-lg hover:bg-slate-100 transition"
+              title="Atualizar lista"
+            >
+              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-emerald-600' : ''}`} />
             </button>
-          )}
-
-          <div className="relative">
-            <input
-              type="text"
-              placeholder="Buscar por endereço, ACE..."
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-              className="p-2 pl-8 rounded-lg border border-slate-300 text-xs w-56 font-medium"
-            />
-            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
-          </div>
-
-          <select
-            value={filterSituation}
-            onChange={e => setFilterSituation(e.target.value)}
-            className="p-2 rounded-lg border border-slate-300 text-xs font-semibold bg-white"
-          >
-            <option value="ALL">Todas as Situações</option>
-            <option value="TRABALHADO">Trabalhado</option>
-            <option value="FECHADO">Fechado</option>
-            <option value="RECUSADO">Recusa</option>
-            <option value="FOCO">Com Foco de Larvas</option>
-          </select>
-
-          <button
-            onClick={loadData}
-            disabled={isLoading}
-            className="p-2 text-slate-500 hover:text-slate-800 rounded-lg hover:bg-slate-100 transition"
-            title="Atualizar lista"
-          >
-            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-emerald-600' : ''}`} />
-          </button>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       {/* Visits Table */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">

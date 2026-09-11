@@ -18,6 +18,7 @@ import {
 import { supabase } from '../../services/supabaseClient';
 import { supabaseService } from '../../services/supabaseService';
 import { Neighborhood, Municipality } from '../../types';
+import { PageHeader } from '../ui';
 
 export const TerritoryView: React.FC = () => {
   const [municipality, setMunicipality] = useState<Municipality | null>(null);
@@ -95,36 +96,31 @@ export const TerritoryView: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Top Header */}
-      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-base font-bold text-slate-900 flex items-center gap-2">
-            <MapPin className="w-5 h-5 text-blue-600" />
-            <span>Território Sanitário — {municipality?.name || 'Município'} ({municipality?.state || 'RS'})</span>
-          </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Hierarquia do SUS: Município → Bairros ({neighborhoods.length}) → Setores Censitários ({territoryStats.sectorsCount}) → Quadras ({territoryStats.blocksCount}) → Imóveis
-          </p>
-        </div>
+      <PageHeader
+        icon={MapPin}
+        title={`Território Sanitário — ${municipality?.name || 'Município'} (${municipality?.state || 'RS'})`}
+        subtitle={`Hierarquia do SUS: Município → Bairros (${neighborhoods.length}) → Setores Censitários (${territoryStats.sectorsCount}) → Quadras (${territoryStats.blocksCount}) → Imóveis`}
+        actions={
+          <>
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-xs transition flex items-center justify-center gap-1.5"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Novo Bairro</span>
+            </button>
 
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-xs transition flex items-center justify-center gap-1.5"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Novo Bairro</span>
-          </button>
-
-          <button
-            onClick={loadTerritoryData}
-            disabled={isLoading}
-            className="p-2 text-slate-500 hover:text-slate-800 rounded-lg hover:bg-slate-100 transition"
-            title="Atualizar dados territoriais"
-          >
-            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-blue-600' : ''}`} />
-          </button>
-        </div>
-      </div>
+            <button
+              onClick={loadTerritoryData}
+              disabled={isLoading}
+              className="p-2 text-slate-500 hover:text-slate-800 rounded-lg hover:bg-slate-100 transition"
+              title="Atualizar dados territoriais"
+            >
+              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-blue-600' : ''}`} />
+            </button>
+          </>
+        }
+      />
 
       {/* Filter and Search Bar */}
       <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs flex flex-wrap items-center justify-between gap-3">
