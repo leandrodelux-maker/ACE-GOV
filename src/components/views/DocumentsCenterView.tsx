@@ -22,6 +22,7 @@ import {
   signatureService,
   DocumentSignature,
 } from '../../services/signatureService';
+import { PageHeader } from '../ui';
 
 interface DocumentsCenterViewProps {
   municipalityId?: string;
@@ -151,45 +152,32 @@ export const DocumentsCenterView: React.FC<DocumentsCenterViewProps> = ({ munici
   return (
     <div className="space-y-6">
       {/* Top Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white dark:bg-slate-800 p-6 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm print:hidden">
-        <div>
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-lg bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300">
-              <FileText className="w-6 h-6" />
+      <div className="print:hidden">
+        <PageHeader
+          icon={FileText}
+          title="Central de Documentos & Assinatura Eletrônica"
+          subtitle="Geração de laudos, certidões e relatórios com substituição dinâmica e carimbo digital imutável SHA-256"
+          actions={
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setActiveTab('gerador')}
+                className={`px-4 py-2 rounded-lg text-xs font-semibold transition-colors ${
+                  activeTab === 'gerador' ? 'bg-teal-600 text-white' : 'bg-slate-100 text-slate-700'
+                }`}
+              >
+                Gerador de Documentos
+              </button>
+              <button
+                onClick={() => setActiveTab('verificador')}
+                className={`px-4 py-2 rounded-lg text-xs font-semibold transition-colors ${
+                  activeTab === 'verificador' ? 'bg-teal-600 text-white' : 'bg-slate-100 text-slate-700'
+                }`}
+              >
+                Verificar Autenticidade
+              </button>
             </div>
-            <div>
-              <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
-                Central de Documentos & Assinatura Eletrônica
-              </h1>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                Geração de laudos, certidões e relatórios com substituição dinâmica e carimbo digital imutável SHA-256
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setActiveTab('gerador')}
-            className={`px-4 py-2 rounded-lg text-xs font-semibold transition-colors ${
-              activeTab === 'gerador'
-                ? 'bg-teal-600 text-white'
-                : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
-            }`}
-          >
-            Gerador de Documentos
-          </button>
-          <button
-            onClick={() => setActiveTab('verificador')}
-            className={`px-4 py-2 rounded-lg text-xs font-semibold transition-colors ${
-              activeTab === 'verificador'
-                ? 'bg-teal-600 text-white'
-                : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
-            }`}
-          >
-            Verificar Autenticidade
-          </button>
-        </div>
+          }
+        />
       </div>
 
       {activeTab === 'gerador' ? (

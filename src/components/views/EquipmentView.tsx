@@ -28,6 +28,7 @@ import {
 } from '../../services/equipmentService';
 import { qrCodeService } from '../../services/qrCodeService';
 import { supabase } from '../../services/supabaseClient';
+import { PageHeader } from '../ui';
 
 interface EquipmentViewProps {
   municipalityId?: string;
@@ -181,31 +182,20 @@ export const EquipmentView: React.FC<EquipmentViewProps> = ({ municipalityId }) 
   return (
     <div className="space-y-6">
       {/* Top Header */}
-      <div className="bg-white dark:bg-slate-800 p-6 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-lg bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300">
-              <Wrench className="w-6 h-6" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
-                Gestão Operacional de Equipamentos
-              </h1>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                Termonebulizadores costais, bombas aspersoras, microscópios, tablets e frotas de apoio com QR Code e cautelas
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <button
-          onClick={() => setIsCreateOpen(true)}
-          className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
-        >
-          <Plus className="w-4 h-4" />
-          Novo Equipamento
-        </button>
-      </div>
+      <PageHeader
+        icon={Wrench}
+        title="Gestão Operacional de Equipamentos"
+        subtitle="Termonebulizadores costais, bombas aspersoras, microscópios, tablets e frotas de apoio com QR Code e cautelas"
+        actions={
+          <button
+            onClick={() => setIsCreateOpen(true)}
+            className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
+          >
+            <Plus className="w-4 h-4" />
+            Novo Equipamento
+          </button>
+        }
+      />
 
       {/* Alertas Operacionais de Manutenção */}
       {alerts.length > 0 && (

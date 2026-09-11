@@ -23,6 +23,7 @@ import {
   IntegrationProvider,
   OFFICIAL_PROVIDERS,
 } from '../../services/integrationService';
+import { PageHeader } from '../ui';
 
 interface IntegrationsViewProps {
   municipalityId?: string;
@@ -107,39 +108,28 @@ export const IntegrationsView: React.FC<IntegrationsViewProps> = ({ municipality
   return (
     <div className="space-y-6">
       {/* Top Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white dark:bg-slate-800 p-6 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
-        <div>
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-lg bg-cyan-100 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-300">
-              <Server className="w-6 h-6" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
-                Central de Integrações Governamentais
-              </h1>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                Conectores oficiais com e-SUS APS, SINAN, GAL, SIVEP, CNES e IBGE com deduplicação segura
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setIsManualOpen(true)}
-            className="flex items-center gap-2 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-white rounded-lg text-sm font-medium transition-colors"
-          >
-            <Upload className="w-4 h-4" />
-            Importação Estruturada (CSV/XLSX)
-          </button>
-          <button
-            onClick={loadData}
-            className="flex items-center gap-2 px-3 py-2.5 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg text-sm font-medium hover:bg-slate-200"
-          >
-            <RefreshCw className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        icon={Server}
+        title="Central de Integrações Governamentais"
+        subtitle="Conectores oficiais com e-SUS APS, SINAN, GAL, SIVEP, CNES e IBGE com deduplicação segura"
+        actions={
+          <>
+            <button
+              onClick={() => setIsManualOpen(true)}
+              className="flex items-center gap-2 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg text-sm font-medium transition-colors"
+            >
+              <Upload className="w-4 h-4" />
+              Importação Estruturada (CSV/XLSX)
+            </button>
+            <button
+              onClick={loadData}
+              className="flex items-center gap-2 px-3 py-2.5 bg-slate-100 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-200"
+            >
+              <RefreshCw className="w-4 h-4" />
+            </button>
+          </>
+        }
+      />
 
       {/* Alerta de Diretriz Governamental */}
       <div className="p-4 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-xl text-xs text-blue-900 dark:text-blue-200 flex items-start gap-3">

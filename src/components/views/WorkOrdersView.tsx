@@ -26,6 +26,7 @@ import {
   WorkOrderPriority,
   WorkOrderStatus,
 } from '../../services/workOrderService';
+import { PageHeader } from '../ui';
 
 interface WorkOrdersViewProps {
   municipalityId?: string;
@@ -182,41 +183,30 @@ export const WorkOrdersView: React.FC<WorkOrdersViewProps> = ({ municipalityId }
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white dark:bg-slate-800 p-6 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
-        <div>
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-lg bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
-              <ClipboardList className="w-6 h-6" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
-                Ordens de Serviço Operacionais (OS)
-              </h1>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                Expedição, despacho automático por gatilhos, execução em campo e comprovação técnica
-              </p>
-            </div>
-          </div>
-        </div>
+      <PageHeader
+        icon={ClipboardList}
+        title="Ordens de Serviço Operacionais (OS)"
+        subtitle="Expedição, despacho automático por gatilhos, execução em campo e comprovação técnica"
+        actions={
+          <>
+            <button
+              onClick={() => setIsAutoGenerateOpen(true)}
+              className="flex items-center gap-2 px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
+            >
+              <Sparkles className="w-4 h-4" />
+              Gerar OS Automática
+            </button>
 
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setIsAutoGenerateOpen(true)}
-            className="flex items-center gap-2 px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
-          >
-            <Sparkles className="w-4 h-4" />
-            Gerar OS Automática
-          </button>
-
-          <button
-            onClick={() => setIsCreateOpen(true)}
-            className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
-          >
-            <Plus className="w-4 h-4" />
-            Nova OS Manual
-          </button>
-        </div>
-      </div>
+            <button
+              onClick={() => setIsCreateOpen(true)}
+              className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
+            >
+              <Plus className="w-4 h-4" />
+              Nova OS Manual
+            </button>
+          </>
+        }
+      />
 
       {/* Filtros e Busca */}
       <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col md:flex-row gap-4 justify-between items-center">
