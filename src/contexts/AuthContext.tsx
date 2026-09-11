@@ -1,17 +1,26 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { User, UserRole, Municipality } from '../types';
-import { authService, AuthSessionData, getDefaultRouteForRole } from '../services/authService';
-import { can as rbacCan, hasRole as rbacHasRole } from '../services/rbac';
+import { authService, AuthSessionData } from '../services/authService';
+import { can as rbacCan, hasRole as rbacHasRole, ROLES_REGISTRY } from '../services/rbac';
+import { supabase } from '../services/supabaseClient';
+import { db } from '../services/storage';
+
+const PLATFORM_ADMIN_ROLES: UserRole[] = ['SUPER_ADMIN', 'MUNICIPAL_ADMIN'];
 
 interface AuthContextType {
-  user: User | null;
+  user: User | null;                 // usuário efetivo (papel = simulado, se houver)
+  realUser: User | null;             // usuário real da sessão
   session: AuthSessionData | null;
   municipality: Municipality | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (email: string, pass: string, rememberMe?: boolean) => Promise<AuthSessionData>;
+  realRole: UserRole | null;
+  effectiveRole: UserRole | null;
+  isImpersonating: boolean;
+  login: (email: string, pass: string) => Promise<AuthSessionData>;
   logout: () => Promise<void>;
-  switchRole: (newRole: UserRole) => void;
+  impersonateRole: (newRole: UserRole) => void;
+  stopImpersonation: () => void;
   hasPermission: (permissionSlug: string) => boolean;
   can: (permission: string) => boolean;
   hasRole: (role: UserRole | UserRole[]) => boolean;
@@ -24,102 +33,131 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [session, setSession] = useState<AuthSessionData | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [impersonatedRole, setImpersonatedRole] = useState<UserRole | null>(null);
 
-  // Inicialização e checagem de sessão ativa
+  // Restauração inicial da sessão
   useEffect(() => {
-    try {
-      const activeSession = authService.getSession();
-      if (activeSession) {
-        setSession(activeSession);
+    let active = true;
+    (async () => {
+      try {
+        const s = await authService.getSession();
+        if (active) setSession(s);
+      } catch (e) {
+        console.error('Falha ao restaurar sessão:', e);
+        if (active) setSession(null);
+      } finally {
+        if (active) setIsLoading(false);
       }
-    } catch (e) {
-      console.error('Falha ao restaurar sessão:', e);
-    } finally {
-      setIsLoading(false);
-    }
+    })();
+    return () => {
+      active = false;
+    };
   }, []);
 
-  // Monitoramento periódico de expiração da sessão (a cada 1 minuto)
+  // Sincronização com o Supabase Auth (logout, refresh de token, etc.)
   useEffect(() => {
-    if (!session) return;
-
-    const interval = setInterval(() => {
-      if (session.expiresAt && Date.now() > session.expiresAt) {
-        authService.logout();
+    const { data: sub } = supabase.auth.onAuthStateChange(async (event) => {
+      if (event === 'SIGNED_OUT') {
         setSession(null);
-        window.location.href = '/login?expired=1';
+        setImpersonatedRole(null);
+        return;
       }
-    }, 60000);
+      if (event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+        const s = await authService.refreshBootstrap();
+        if (s) setSession(s);
+      }
+    });
+    return () => sub.subscription.unsubscribe();
+  }, []);
 
-    return () => clearInterval(interval);
+  // Espelha a identidade da sessão no armazenamento local (rótulos/logs) e
+  // dispara a hidratação de dados do Supabase (respeitando RLS).
+  useEffect(() => {
+    if (session?.user) {
+      db.setSessionUser(session.user);
+      db.hydrateFromSupabase();
+    } else {
+      db.setSessionUser(null);
+    }
   }, [session]);
 
-  const login = async (
-    email: string,
-    pass: string,
-    rememberMe: boolean = true
-  ): Promise<AuthSessionData> => {
-    const sessionData = await authService.login(email, pass, rememberMe);
+  const login = async (email: string, pass: string): Promise<AuthSessionData> => {
+    const sessionData = await authService.login(email, pass);
     setSession(sessionData);
+    setImpersonatedRole(null);
     return sessionData;
   };
 
   const logout = async (): Promise<void> => {
     await authService.logout();
     setSession(null);
+    setImpersonatedRole(null);
   };
 
-  const switchRole = (newRole: UserRole) => {
-    if (!session) return;
+  const realRole = session?.user.role ?? null;
+  const isPlatformAdmin = !!realRole && PLATFORM_ADMIN_ROLES.includes(realRole);
+  const effectiveRole = impersonatedRole ?? realRole;
+  const isImpersonating = impersonatedRole !== null && impersonatedRole !== realRole;
 
-    const updatedUser: User = { ...session.user, role: newRole };
-    const updatedSession: AuthSessionData = {
-      ...session,
-      user: updatedUser,
-      defaultRoute: getDefaultRouteForRole(newRole),
-    };
+  const impersonateRole = useCallback(
+    (newRole: UserRole) => {
+      if (!session || !isPlatformAdmin) return; // apenas SUPER_ADMIN / MUNICIPAL_ADMIN
+      setImpersonatedRole(newRole === realRole ? null : newRole);
+      // Trilha de auditoria (não bloqueia a UI)
+      supabase.rpc('log_impersonation', { p_target_role: newRole }).then(({ error }) => {
+        if (error) console.warn('Falha ao registrar auditoria de simulação:', error.message);
+      });
+    },
+    [session, isPlatformAdmin, realRole]
+  );
 
-    setSession(updatedSession);
-    const storage = session.rememberMe ? localStorage : sessionStorage;
-    storage.setItem('endemias_gov_auth_session', JSON.stringify(updatedSession));
-    localStorage.setItem('endemias_gov_current_user', JSON.stringify(updatedUser));
-    localStorage.setItem('endemias_current_user', JSON.stringify(updatedUser));
-  };
+  const stopImpersonation = useCallback(() => setImpersonatedRole(null), []);
 
-  const checkCan = (permission: string): boolean => {
-    if (!session) return false;
-    return rbacCan(session.user.role, permission, session.permissions);
-  };
+  const checkCan = useCallback(
+    (permission: string): boolean => {
+      if (!session || !effectiveRole) return false;
+      // Simulando um perfil: preview pelas permissões PADRÃO do papel simulado.
+      if (isImpersonating) {
+        return rbacCan(effectiveRole, permission, ROLES_REGISTRY[effectiveRole]?.defaultPermissions || []);
+      }
+      // Normal: autoridade é a lista vinda do servidor (session.permissions).
+      return rbacCan(session.user.role, permission, session.permissions);
+    },
+    [session, effectiveRole, isImpersonating]
+  );
 
-  const checkHasRole = (role: UserRole | UserRole[]): boolean => {
-    if (!session) return false;
-    return rbacHasRole(session.user.role, role);
-  };
+  const checkHasRole = useCallback(
+    (role: UserRole | UserRole[]): boolean => {
+      if (!effectiveRole) return false;
+      return rbacHasRole(effectiveRole, role);
+    },
+    [effectiveRole]
+  );
 
-  const hasPermission = (permissionSlug: string): boolean => {
-    return checkCan(permissionSlug);
-  };
+  const requestPasswordReset = (email: string) => authService.requestPasswordReset(email);
+  const resetPassword = (password: string) => authService.resetPassword(password);
 
-  const requestPasswordReset = async (email: string) => {
-    return authService.requestPasswordReset(email);
-  };
-
-  const resetPassword = async (password: string) => {
-    return authService.resetPassword(password);
-  };
+  const effectiveUser: User | null = session
+    ? { ...session.user, role: effectiveRole ?? session.user.role }
+    : null;
 
   return (
     <AuthContext.Provider
       value={{
-        user: session?.user || null,
+        user: effectiveUser,
+        realUser: session?.user ?? null,
         session,
-        municipality: session?.municipality || null,
+        municipality: session?.municipality ?? null,
         isAuthenticated: !!session?.user,
         isLoading,
+        realRole,
+        effectiveRole,
+        isImpersonating,
         login,
         logout,
-        switchRole,
-        hasPermission,
+        impersonateRole,
+        stopImpersonation,
+        hasPermission: checkCan,
         can: checkCan,
         hasRole: checkHasRole,
         requestPasswordReset,

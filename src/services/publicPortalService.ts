@@ -30,9 +30,16 @@ export interface PublicPortalData {
 
 export interface PublicComplaintPayload {
   municipalityId: string;
-  problemType: 'terreno_baldinho' | 'piscina_abandonada' | 'acumulo_lixo' | 'caixa_dagua_aberta' | 'foco_larvas' | 'outro';
+  problemType:
+    | 'terreno_baldinho'
+    | 'piscina_abandonada'
+    | 'acumulo_lixo'
+    | 'caixa_dagua_aberta'
+    | 'foco_larvas'
+    | 'outro';
   description: string;
   neighborhood: string;
+  neighborhoodId?: string;
   approximateAddress: string;
   latitude?: number;
   longitude?: number;
@@ -52,253 +59,158 @@ export interface PublicComplaintTrackingResult {
   createdAt: string;
   updatedAt: string;
   publicNotes?: string;
-  timeline: Array<{
-    step: string;
-    date: string;
-    completed: boolean;
-    current: boolean;
-  }>;
+  timeline: Array<{ step: string; date: string; completed: boolean; current: boolean }>;
 }
 
+const EDUCATIONAL_CAMPAIGNS: PublicPortalData['educationalCampaigns'] = [
+  {
+    title: '10 Minutos Contra o Aedes',
+    description:
+      'Uma checagem semanal de 10 minutos no seu quintal elimina até 80% dos potenciais criadouros do mosquito transmissor da Dengue, Chikungunya e Zika.',
+    actionTips: [
+      'Vistorie pratos de plantas e coloque areia até a borda',
+      'Tampe caixas d’água e tonéis de armazenamento',
+      'Limpe calhas e ralos externos pelo menos uma vez por semana',
+      'Descarte pneus velhos e garrafas com a boca virada para baixo',
+    ],
+    priority: 'alta',
+  },
+  {
+    title: 'Sintomas e Quando Procurar a UBS',
+    description:
+      'Febre alta repentina, dor atrás dos olhos, dores articulares intensas e manchas vermelhas na pele são sinais de alerta. Beba muita água e evite automedicação.',
+    actionTips: [
+      'Nunca tome medicamentos à base de ácido acetilsalicílico (Aspirina/AAS)',
+      'Procure a Unidade Básica de Saúde logo no início dos sintomas',
+      'Mantenha repouso absoluto e hidratação oral vigorosa',
+    ],
+    priority: 'media',
+  },
+];
+
+const STATUS_MAP: Record<
+  string,
+  { label: string; stage: number; key: PublicComplaintTrackingResult['status'] }
+> = {
+  RECEBIDA: { label: 'Recebida no Sistema', stage: 1, key: 'recebida' },
+  EM_ANALISE: { label: 'Em Análise pela Vigilância', stage: 2, key: 'em_analise' },
+  TRIAGEM: { label: 'Em Análise pela Vigilância', stage: 2, key: 'em_analise' },
+  PROGRAMADA: { label: 'Vistoria de Campo Programada', stage: 3, key: 'vistoria_programada' },
+  ATRIBUIDA: { label: 'Vistoria de Campo Programada', stage: 3, key: 'vistoria_programada' },
+  EM_ATENDIMENTO: { label: 'Agente em Vistoria no Local', stage: 4, key: 'em_atendimento' },
+  RESOLVIDA: { label: 'Atendimento Concluído', stage: 5, key: 'concluida' },
+  CONCLUIDA: { label: 'Atendimento Concluído', stage: 5, key: 'concluida' },
+  CANCELADA: { label: 'Denúncia Cancelada / Inconsistente', stage: 5, key: 'cancelada' },
+};
+
+const PROBLEM_LABELS: Record<string, string> = {
+  terreno_baldinho: 'Terreno Baldio com Entulho',
+  piscina_abandonada: 'Piscina sem Tratamento',
+  acumulo_lixo: 'Acúmulo de Lixo / Sucata',
+  caixa_dagua_aberta: 'Caixa d’Água Destampada',
+  foco_larvas: 'Presença de Larvas / Mosquitos',
+  outro: 'Outro Criadouro Potencial',
+};
+
 export const publicPortalService = {
-  /**
-   * Obtém dados agregados para o portal público (100% anonimizado, sem dados de munícipes)
-   */
+  /** Dados agregados anonimizados do portal público (via RPC SECURITY DEFINER). */
   async getPublicOverview(municipalityId: string): Promise<PublicPortalData> {
-    try {
-      // 1. Obter nome do município
-      const { data: munData } = await supabase
-        .from('municipalities')
-        .select('name, state')
-        .eq('id', municipalityId)
-        .maybeSingle();
-
-      const municipalityName = munData ? `${munData.name} - ${munData.state}` : 'Município Monitorado';
-
-      // 2. Obter bairros com dados reais
-      const { data: neighborhoodsData } = await supabase
-        .from('neighborhoods')
-        .select('id, name, zone, risk_level, total_properties')
-        .eq('municipality_id', municipalityId);
-
-      // 3. Obter contagem de visitas e focos da tabela oficial 'visits'
-      const { data: visits } = await supabase
-        .from('visits')
-        .select('id, status, neighborhood_id, larvae_found')
-        .eq('municipality_id', municipalityId);
-
-      const visitedCount = visits ? visits.filter(v => v.status === 'TRABALHADO' || v.status === 'realizada').length : 0;
-      const larvaeCount = visits ? visits.filter(v => v.larvae_found).length : 0;
-
-      // Montar agregação por bairro
-      const neighborhoods: PublicNeighborhoodStats[] = (neighborhoodsData || []).map(n => {
-        const bVisits = (visits || []).filter(v => v.neighborhood_id === n.id && (v.status === 'TRABALHADO' || v.status === 'realizada'));
-        const bFoci = (visits || []).filter(v => v.neighborhood_id === n.id && v.larvae_found);
-        const total = n.total_properties || 100;
-        const cov = Math.min(100, Math.round((bVisits.length / total) * 100));
-
-        return {
-          id: n.id,
-          name: n.name,
-          zone: n.zone || 'Urbana',
-          risk_level: (n.risk_level as any) || 'medio',
-          visited_properties: bVisits.length,
-          foci_eliminated: bFoci.length,
-          coverage_percent: cov
-        };
-      });
-
-      const totalProps = (neighborhoodsData || []).reduce((acc, n) => acc + (n.total_properties || 0), 0) || 1;
-      const totalCoverage = Math.min(100, Math.round((visitedCount / totalProps) * 100));
-
-      return {
-        municipalityName,
-        lastUpdated: new Date().toLocaleDateString('pt-BR'),
-        indicators: {
-          totalVisited: visitedCount,
-          fociEliminated: larvaeCount,
-          blocksTreated: Math.round(visitedCount / 25) || 12,
-          coveragePercent: totalCoverage
-        },
-        neighborhoods: neighborhoods.length > 0 ? neighborhoods : [
-          {
-            id: 'mock-1',
-            name: 'Centro Histórico',
-            zone: 'Central',
-            risk_level: 'baixo',
-            visited_properties: 340,
-            foci_eliminated: 8,
-            coverage_percent: 85
-          },
-          {
-            id: 'mock-2',
-            name: 'Jardim Alvorada',
-            zone: 'Norte',
-            risk_level: 'alto',
-            visited_properties: 512,
-            foci_eliminated: 27,
-            coverage_percent: 64
-          }
-        ],
-        educationalCampaigns: [
-          {
-            title: '10 Minutos Contra o Aedes',
-            description: 'Uma checagem semanal de 10 minutos no seu quintal elimina até 80% dos potenciais criadouros do mosquito transmissor da Dengue, Chikungunya e Zika.',
-            actionTips: [
-              'Vistorie pratos de plantas e coloque areia até a borda',
-              'Tampe caixas d’água e tonéis de armazenamento',
-              'Limpe calhas e ralos externos pelo menos uma vez por semana',
-              'Descarte pneus velhos e garrafas com a boca virada para baixo'
-            ],
-            priority: 'alta'
-          },
-          {
-            title: 'Sintomas e Quando Procurar a UBS',
-            description: 'Febre alta repentina, dor atrás dos olhos, dores articulares intensas e manchas vermelhas na pele são sinais de alerta. Beba muita água e evite automedicação.',
-            actionTips: [
-              'Nunca tome medicamentos à base de ácido acetilsalicílico (Aspirina/AAS)',
-              'Procure a Unidade Básica de Saúde logo no início dos sintomas',
-              'Mantenha repouso absoluto e hidratação oral vigorosa'
-            ],
-            priority: 'media'
-          }
-        ]
-      };
-    } catch (err) {
-      console.error('Erro ao buscar resumo público:', err);
-      throw err;
-    }
-  },
-
-  /**
-   * Registra denúncia vinda do portal público, gerando protocolo no formato END-ANO-SEQUENCIAL e token seguro.
-   */
-  async submitPublicComplaint(payload: PublicComplaintPayload): Promise<{ protocol: string; trackingToken: string }> {
-    const year = new Date().getFullYear();
-    const randomSeq = Math.floor(100000 + Math.random() * 900000);
-    const protocol = `END-${year}-${randomSeq}`;
-    
-    // Gerar token alfanumérico seguro para consulta
-    const trackingToken = Array.from(crypto.getRandomValues(new Uint8Array(6)))
-      .map(b => b.toString(36))
-      .join('')
-      .toUpperCase();
-
-    const insertData: any = {
-      municipality_id: payload.municipalityId,
-      protocol,
-      tracking_token: trackingToken,
-      problem_type: payload.problemType,
-      description: payload.description,
-      street: payload.approximateAddress,
-      number: 'S/N',
-      status: 'RECEBIDA',
-      priority: 'MEDIA',
-      anonymous: !!payload.isAnonymous
-    };
-
-    if (!payload.isAnonymous) {
-      if (payload.reporterName) insertData.complainant_name = payload.reporterName;
-      if (payload.reporterPhone) insertData.complainant_phone = payload.reporterPhone;
-    }
-
-    if (payload.latitude && payload.longitude) {
-      insertData.latitude = payload.latitude;
-      insertData.longitude = payload.longitude;
-    }
-
-    if (payload.photoUrl) {
-      insertData.photo_url = payload.photoUrl;
-    }
-
-    const { error } = await supabase.from('complaints').insert(insertData);
-
+    const { data, error } = await supabase.rpc('public_portal_overview', {
+      p_municipality_id: municipalityId,
+    });
     if (error) {
-      console.error('Erro ao registrar denúncia pública:', error);
-      throw new Error(`Falha ao registrar denúncia: ${error.message}`);
+      console.error('Erro ao buscar resumo público:', error);
+      throw new Error('Não foi possível carregar os indicadores públicos no momento.');
     }
 
-    return { protocol, trackingToken };
+    const d = data as any;
+    return {
+      municipalityName: d.municipalityName,
+      lastUpdated: d.lastUpdated,
+      indicators: {
+        totalVisited: d.indicators?.totalVisited ?? 0,
+        fociEliminated: d.indicators?.fociEliminated ?? 0,
+        blocksTreated: d.indicators?.blocksTreated ?? 0,
+        coveragePercent: d.indicators?.coveragePercent ?? 0,
+      },
+      neighborhoods: (d.neighborhoods || []).map((n: any) => ({
+        id: n.id,
+        name: n.name,
+        zone: n.zone || 'Urbana',
+        risk_level: (n.risk_level as PublicNeighborhoodStats['risk_level']) || 'medio',
+        visited_properties: n.visited_properties ?? 0,
+        foci_eliminated: n.foci_eliminated ?? 0,
+        coverage_percent: n.coverage_percent ?? 0,
+      })),
+      educationalCampaigns: EDUCATIONAL_CAMPAIGNS,
+    };
   },
 
-  /**
-   * Consulta status de denúncia por Protocolo + Token Seguro (Proteção contra enumeração/scraping)
-   */
-  async trackComplaint(protocol: string, token: string): Promise<PublicComplaintTrackingResult> {
-    const cleanProto = protocol.trim().toUpperCase();
-    const cleanToken = token.trim().toUpperCase();
-
-    const { data, error } = await supabase
-      .from('complaints')
-      .select('protocol, status, problem_type, street, number, created_at, updated_at, inspected_at')
-      .eq('protocol', cleanProto)
-      .eq('tracking_token', cleanToken)
-      .maybeSingle();
+  /** Registra denúncia pública; protocolo e token são gerados no servidor. */
+  async submitPublicComplaint(
+    payload: PublicComplaintPayload
+  ): Promise<{ protocol: string; trackingToken: string }> {
+    const { data, error } = await supabase.rpc('public_submit_complaint', {
+      p_payload: {
+        municipalityId: payload.municipalityId,
+        problemType: payload.problemType,
+        description: payload.description,
+        neighborhoodId: payload.neighborhoodId ?? null,
+        approximateAddress: payload.approximateAddress,
+        latitude: payload.latitude ?? null,
+        longitude: payload.longitude ?? null,
+        photoUrl: payload.photoUrl ?? null,
+        reporterName: payload.reporterName ?? null,
+        reporterPhone: payload.reporterPhone ?? null,
+        isAnonymous: !!payload.isAnonymous,
+      },
+    });
 
     if (error || !data) {
-      throw new Error('Denúncia não encontrada com os dados informados. Verifique o protocolo e a chave de segurança.');
+      console.error('Erro ao registrar denúncia pública:', error);
+      throw new Error('Falha ao registrar denúncia. Verifique os dados e tente novamente.');
+    }
+    return { protocol: (data as any).protocol, trackingToken: (data as any).trackingToken };
+  },
+
+  /** Consulta status por Protocolo + Token (sem expor dados do denunciante). */
+  async trackComplaint(protocol: string, token: string): Promise<PublicComplaintTrackingResult> {
+    const { data, error } = await supabase.rpc('public_track_complaint', {
+      p_protocol: protocol.trim(),
+      p_token: token.trim(),
+    });
+
+    if (error || !data) {
+      throw new Error(
+        'Denúncia não encontrada com os dados informados. Verifique o protocolo e a chave de segurança.'
+      );
     }
 
-    const statusMap: Record<string, { label: string; stage: number; key: PublicComplaintTrackingResult['status'] }> = {
-      aguardando: { label: 'Recebida no Sistema', stage: 1, key: 'recebida' },
-      em_analise: { label: 'Em Análise pela Vigilância', stage: 2, key: 'em_analise' },
-      programada: { label: 'Vistoria de Campo Programada', stage: 3, key: 'vistoria_programada' },
-      em_atendimento: { label: 'Agente em Vistoria no Local', stage: 4, key: 'em_atendimento' },
-      concluida: { label: 'Atendimento Concluído', stage: 5, key: 'concluida' },
-      cancelada: { label: 'Denúncia Cancelada / Inconsistente', stage: 5, key: 'cancelada' }
-    };
-
-    const currentInfo = statusMap[data.status] || { label: 'Recebida', stage: 1, key: 'recebida' };
-
-    const problemLabels: Record<string, string> = {
-      terreno_baldinho: 'Terreno Baldio com Entulho',
-      piscina_abandonada: 'Piscina sem Tratamento',
-      acumulo_lixo: 'Acúmulo de Lixo / Sucata',
-      caixa_dagua_aberta: 'Caixa d’Água Destampada',
-      foco_larvas: 'Presença de Larvas / Mosquitos',
-      outro: 'Outro Criadouro Potencial'
-    };
+    const d = data as any;
+    const info = STATUS_MAP[d.status] || STATUS_MAP.RECEBIDA;
+    const fmtDate = (v?: string) => (v ? new Date(v).toLocaleDateString('pt-BR') : 'Aguardando');
 
     const timeline = [
-      {
-        step: 'Denúncia Recebida',
-        date: new Date(data.created_at).toLocaleDateString('pt-BR'),
-        completed: currentInfo.stage >= 1,
-        current: currentInfo.stage === 1
-      },
-      {
-        step: 'Triagem & Análise Técnica',
-        date: currentInfo.stage >= 2 ? new Date(data.updated_at).toLocaleDateString('pt-BR') : 'Aguardando',
-        completed: currentInfo.stage >= 2,
-        current: currentInfo.stage === 2
-      },
-      {
-        step: 'Programação de Vistoria ACE',
-        date: data.inspected_at ? new Date(data.inspected_at).toLocaleDateString('pt-BR') : 'Em fila de rota',
-        completed: currentInfo.stage >= 3,
-        current: currentInfo.stage === 3
-      },
-      {
-        step: 'Tratamento & Conclusão',
-        date: currentInfo.stage >= 5 ? new Date(data.updated_at).toLocaleDateString('pt-BR') : 'Pendente',
-        completed: currentInfo.stage >= 5,
-        current: currentInfo.stage >= 5
-      }
+      { step: 'Denúncia Recebida', date: fmtDate(d.createdAt), completed: info.stage >= 1, current: info.stage === 1 },
+      { step: 'Triagem & Análise Técnica', date: info.stage >= 2 ? fmtDate(d.updatedAt) : 'Aguardando', completed: info.stage >= 2, current: info.stage === 2 },
+      { step: 'Programação de Vistoria ACE', date: d.inspectedAt ? fmtDate(d.inspectedAt) : 'Em fila de rota', completed: info.stage >= 3, current: info.stage === 3 },
+      { step: 'Tratamento & Conclusão', date: info.stage >= 5 ? fmtDate(d.updatedAt) : 'Pendente', completed: info.stage >= 5, current: info.stage >= 5 },
     ];
 
     return {
-      protocol: data.protocol,
-      status: currentInfo.key,
-      statusLabel: currentInfo.label,
-      problemType: problemLabels[data.problem_type] || data.problem_type || 'Criadouro Potencial',
-      neighborhood: data.street ? `Região de ${data.street}` : 'Município',
-      approximateAddress: `${data.street || ''} ${data.number || ''}`.trim() || 'Endereço registrado',
-      createdAt: new Date(data.created_at).toLocaleString('pt-BR'),
-      updatedAt: new Date(data.updated_at).toLocaleString('pt-BR'),
-      publicNotes: currentInfo.stage >= 5 
-        ? 'A equipe de agentes de endemias realizou a vistoria e adotou as medidas cabíveis de eliminação e tratamento de focos.'
-        : 'Sua solicitação está em tramitação operacional junto ao setor de controle de vetores.',
-      timeline
+      protocol: d.protocol,
+      status: info.key,
+      statusLabel: info.label,
+      problemType: PROBLEM_LABELS[d.problemType] || d.problemType || 'Criadouro Potencial',
+      neighborhood: d.street ? `Região de ${d.street}` : 'Município',
+      approximateAddress: `${d.street || ''} ${d.number || ''}`.trim() || 'Endereço registrado',
+      createdAt: new Date(d.createdAt).toLocaleString('pt-BR'),
+      updatedAt: new Date(d.updatedAt).toLocaleString('pt-BR'),
+      publicNotes:
+        info.stage >= 5
+          ? 'A equipe de agentes de endemias realizou a vistoria e adotou as medidas cabíveis de eliminação e tratamento de focos.'
+          : 'Sua solicitação está em tramitação operacional junto ao setor de controle de vetores.',
+      timeline,
     };
-  }
+  },
 };

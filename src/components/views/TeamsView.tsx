@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { teamService, TeamEntity } from '../../services/teamService';
 import { OperationalLoadAgent } from '../../types';
+import { PageHeader, StatCard } from '../ui';
 
 export const TeamsView: React.FC = () => {
   const [teams, setTeams] = useState<TeamEntity[]>([]);
@@ -90,73 +91,37 @@ export const TeamsView: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-base font-bold text-slate-900 flex items-center gap-2">
-            <Users className="w-5 h-5 text-blue-600" />
-            <span>Equipes de Campo & Carga Operacional dos Agentes (ACE)</span>
-          </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Dimensionamento da força de trabalho, balanceamento de microáreas e sincronização com banco de dados
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <button
-            onClick={loadAll}
-            disabled={loading}
-            className="p-2 text-slate-600 hover:text-blue-600 hover:bg-slate-100 rounded-lg transition border border-slate-200"
-            title="Recarregar dados"
-          >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-blue-600' : ''}`} />
-          </button>
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-lg shadow-xs flex items-center gap-2 transition"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Nova Equipe</span>
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        icon={Users}
+        title="Equipes de Campo & Carga Operacional dos Agentes (ACE)"
+        subtitle="Dimensionamento da força de trabalho, balanceamento de microáreas e sincronização com banco de dados"
+        actions={
+          <>
+            <button
+              onClick={loadAll}
+              disabled={loading}
+              className="p-2 text-slate-600 hover:text-blue-600 hover:bg-slate-100 rounded-lg transition border border-slate-200"
+              title="Recarregar dados"
+            >
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-blue-600' : ''}`} />
+            </button>
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-lg shadow-xs flex items-center gap-2 transition"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Nova Equipe</span>
+            </button>
+          </>
+        }
+      />
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-          <div className="flex items-center justify-between text-slate-500 text-xs mb-1">
-            <span>Equipes Ativas</span>
-            <Layers className="w-4 h-4 text-blue-500" />
-          </div>
-          <p className="text-2xl font-bold text-slate-900">{teams.length}</p>
-          <p className="text-[11px] text-slate-400 mt-1">Conectadas via Supabase</p>
-        </div>
-
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-          <div className="flex items-center justify-between text-slate-500 text-xs mb-1">
-            <span>ACEs Monitorados</span>
-            <Users className="w-4 h-4 text-indigo-500" />
-          </div>
-          <p className="text-2xl font-bold text-slate-900">{loadData.length}</p>
-          <p className="text-[11px] text-slate-400 mt-1">Força de campo em operação</p>
-        </div>
-
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-          <div className="flex items-center justify-between text-slate-500 text-xs mb-1">
-            <span>Em Sobrecarga (&gt;75%)</span>
-            <AlertTriangle className="w-4 h-4 text-rose-500" />
-          </div>
-          <p className="text-2xl font-bold text-rose-600">{overloadedCount}</p>
-          <p className="text-[11px] text-slate-400 mt-1">Requer remanejamento de rota</p>
-        </div>
-
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-          <div className="flex items-center justify-between text-slate-500 text-xs mb-1">
-            <span>Carga Operacional Média</span>
-            <Activity className="w-4 h-4 text-emerald-500" />
-          </div>
-          <p className="text-2xl font-bold text-slate-900">{avgLoad}%</p>
-          <p className="text-[11px] text-emerald-600 font-semibold mt-1">{balancedCount} com carga equilibrada</p>
-        </div>
+        <StatCard tone="info" icon={Layers} label="Equipes Ativas" value={teams.length} caption="Conectadas via Supabase" />
+        <StatCard tone="info" icon={Users} label="ACEs Monitorados" value={loadData.length} caption="Força de campo em operação" />
+        <StatCard tone="danger" icon={AlertTriangle} label="Em Sobrecarga (>75%)" value={overloadedCount} caption="Requer remanejamento de rota" />
+        <StatCard tone="success" icon={Activity} label="Carga Operacional Média" value={`${avgLoad}%`} caption={`${balancedCount} com carga equilibrada`} />
       </div>
 
       {/* Grid de Equipes */}

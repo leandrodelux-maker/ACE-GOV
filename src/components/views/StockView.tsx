@@ -25,6 +25,7 @@ import {
   StockMovement,
   StockAlerts,
 } from '../../services/stockService';
+import { PageHeader, StatCard } from '../ui';
 
 export const StockView: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
@@ -117,58 +118,28 @@ export const StockView: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Top Header */}
-      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-base font-bold text-slate-900 flex items-center gap-2">
-              <Boxes className="w-5 h-5 text-emerald-600" />
-              <span>Estoque Operacional, Insumos & Critério FEFO</span>
-            </h1>
-            <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-emerald-100 text-emerald-800">
-              FIRST EXPIRE, FIRST OUT
-            </span>
-          </div>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Controle automatizado de lotes sanitários, validade, distribuição para ACEs e bloqueio de saldo negativo
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2 text-xs">
+      <PageHeader
+        icon={Boxes}
+        title="Estoque Operacional, Insumos & Critério FEFO"
+        subtitle="Controle automatizado de lotes sanitários, validade, distribuição para ACEs e bloqueio de saldo negativo"
+        badge={{ label: 'FIRST EXPIRE, FIRST OUT', tone: 'success' }}
+        actions={
           <button
             onClick={() => setActiveTab('ALERTAS')}
-            className="px-3.5 py-2 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-lg font-bold flex items-center gap-1.5 transition"
+            className="px-3.5 py-2 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-lg font-bold flex items-center gap-1.5 transition text-xs"
           >
             <AlertTriangle className="w-4 h-4 text-amber-600" />
             <span>{(alerts?.lowStockCount || 0) + (alerts?.nearExpirationCount || 0)} Alertas Ativos</span>
           </button>
-        </div>
-      </div>
+        }
+      />
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-          <span className="text-xs font-semibold text-slate-500">Catálogo de Produtos</span>
-          <div className="text-2xl font-black text-slate-900 mt-1">{products.length}</div>
-          <div className="text-[10px] text-slate-400 mt-0.5">Larvicidas, inseticidas e EPIs</div>
-        </div>
-
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-          <span className="text-xs font-semibold text-slate-500">Estoque Crítico / Baixo</span>
-          <div className="text-2xl font-black text-amber-600 mt-1">{alerts?.lowStockCount || 0}</div>
-          <div className="text-[10px] text-slate-400 mt-0.5">Abaixo da cota de segurança</div>
-        </div>
-
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-          <span className="text-xs font-semibold text-slate-500">Próximos do Vencimento</span>
-          <div className="text-2xl font-black text-orange-600 mt-1">{alerts?.nearExpirationCount || 0}</div>
-          <div className="text-[10px] text-slate-400 mt-0.5">Vencem em &le; 60 dias (Prioridade FEFO)</div>
-        </div>
-
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-          <span className="text-xs font-semibold text-slate-500">Lotes Vencidos</span>
-          <div className="text-2xl font-black text-rose-600 mt-1">{alerts?.expiredCount || 0}</div>
-          <div className="text-[10px] text-slate-400 mt-0.5">Aguardando descarte sanitário</div>
-        </div>
+        <StatCard tone="neutral" label="Catálogo de Produtos" value={products.length} caption="Larvicidas, inseticidas e EPIs" />
+        <StatCard tone="warning" label="Estoque Crítico / Baixo" value={alerts?.lowStockCount || 0} caption="Abaixo da cota de segurança" />
+        <StatCard tone="warning" label="Próximos do Vencimento" value={alerts?.nearExpirationCount || 0} caption="Vencem em ≤ 60 dias (Prioridade FEFO)" />
+        <StatCard tone="danger" label="Lotes Vencidos" value={alerts?.expiredCount || 0} caption="Aguardando descarte sanitário" />
       </div>
 
       {/* Tabs Menu */}

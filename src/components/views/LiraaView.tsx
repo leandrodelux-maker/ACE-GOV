@@ -28,6 +28,7 @@ import {
   LiraaSample,
   LiraaIndices,
 } from '../../services/liraaService';
+import { PageHeader } from '../ui';
 
 export const LiraaView: React.FC = () => {
   const [surveys, setSurveys] = useState<LiraaSurvey[]>([]);
@@ -177,45 +178,35 @@ export const LiraaView: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Top Header */}
-      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-base font-bold text-slate-900 flex items-center gap-2">
-              <PieChart className="w-5 h-5 text-blue-600" />
-              <span>LIRAa / LIA — Levantamento Amostral de Índices</span>
-            </h1>
-            <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-blue-100 text-blue-800">
-              MINISTÉRIO DA SAÚDE
-            </span>
-          </div>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Cálculo automático de IIP (Infestação Predial), IB (Breteau), estratificação territorial e tipologia de criadouros
-          </p>
-        </div>
+      <PageHeader
+        icon={PieChart}
+        title="LIRAa / LIA — Levantamento Amostral de Índices"
+        subtitle="Cálculo automático de IIP (Infestação Predial), IB (Breteau), estratificação territorial e tipologia de criadouros"
+        badge={{ label: 'MINISTÉRIO DA SAÚDE', tone: 'info' }}
+        actions={
+          <>
+            <select
+              value={selectedSurveyId}
+              onChange={e => setSelectedSurveyId(e.target.value)}
+              className="p-2 rounded-lg border border-slate-300 text-xs font-semibold text-slate-800 bg-white shadow-xs"
+            >
+              {surveys.map(s => (
+                <option key={s.id} value={s.id}>
+                  {s.name} ({s.type} {s.year}/{s.cycle_number}) - {s.status.toUpperCase()}
+                </option>
+              ))}
+            </select>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Seletor de Levantamento */}
-          <select
-            value={selectedSurveyId}
-            onChange={e => setSelectedSurveyId(e.target.value)}
-            className="p-2 rounded-lg border border-slate-300 text-xs font-semibold text-slate-800 bg-white shadow-xs"
-          >
-            {surveys.map(s => (
-              <option key={s.id} value={s.id}>
-                {s.name} ({s.type} {s.year}/{s.cycle_number}) - {s.status.toUpperCase()}
-              </option>
-            ))}
-          </select>
-
-          <button
-            onClick={() => setShowNewSurveyModal(true)}
-            className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-xs transition flex items-center gap-1.5"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Novo Levantamento</span>
-          </button>
-        </div>
-      </div>
+            <button
+              onClick={() => setShowNewSurveyModal(true)}
+              className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-xs transition flex items-center gap-1.5"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Novo Levantamento</span>
+            </button>
+          </>
+        }
+      />
 
       {/* Status Alert Banner */}
       {isFinalized && (

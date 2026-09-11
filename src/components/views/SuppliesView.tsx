@@ -12,6 +12,7 @@ import {
 import { db } from '../../services/storage';
 import { SupplyItem } from '../../types';
 import { supabase } from '../../services/supabaseClient';
+import { PageHeader } from '../ui';
 
 export const SuppliesView: React.FC = () => {
   const [supplies, setSupplies] = useState<SupplyItem[]>(db.getSupplies());
@@ -57,24 +58,19 @@ export const SuppliesView: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Top Header */}
-      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-base font-bold text-slate-900 flex items-center gap-2">
-            <Package className="w-5 h-5 text-emerald-600" />
-            <span>Gestão de Insumos Químicos, Larvicidas & EPIs</span>
-          </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Controle de lotes, datas de validade, estoque mínimo de segurança e distribuição para ACEs
-          </p>
-        </div>
-
-        {lowStockCount > 0 && (
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs font-bold">
-            <AlertTriangle className="w-4 h-4 text-amber-600" />
-            <span>{lowStockCount} insumo(s) em estoque crítico!</span>
-          </div>
-        )}
-      </div>
+      <PageHeader
+        icon={Package}
+        title="Gestão de Insumos Químicos, Larvicidas & EPIs"
+        subtitle="Controle de lotes, datas de validade, estoque mínimo de segurança e distribuição para ACEs"
+        actions={
+          lowStockCount > 0 ? (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs font-bold">
+              <AlertTriangle className="w-4 h-4 text-amber-600" />
+              <span>{lowStockCount} insumo(s) em estoque crítico!</span>
+            </div>
+          ) : undefined
+        }
+      />
 
       {/* Supplies Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

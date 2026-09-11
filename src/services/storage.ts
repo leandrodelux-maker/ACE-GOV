@@ -42,6 +42,22 @@ import {
   initialAuditLogs,
 } from './seedData';
 import { supabaseService } from './supabaseService';
+import { supabase } from './supabaseClient';
+
+// Identidade não-privilegiada usada apenas para rótulos/logs locais quando não
+// há sessão. NUNCA concede acesso — a autorização real é RLS no servidor.
+const ANON_STUB_USER: User = {
+  id: 'anon',
+  name: 'Sessão não autenticada',
+  email: '',
+  cpf: '',
+  registrationNumber: '',
+  role: 'AUDITOR_VIEWER',
+  municipalityId: '',
+  phone: '',
+  active: false,
+  createdAt: new Date(0).toISOString(),
+} as User;
 
 const STORAGE_KEYS = {
   MUNICIPALITY: 'endemias_gov_municipality',
@@ -90,16 +106,13 @@ class EndemiasStorageService {
     if (!localStorage.getItem(STORAGE_KEYS.MUNICIPALITY)) {
       saveToStorage(STORAGE_KEYS.MUNICIPALITY, initialMunicipality);
     }
-    // Hidratação progressiva assíncrona a partir do banco de dados Supabase
-    this.hydrateFromSupabase();
+    // A hidratação a partir do Supabase agora só ocorre COM sessão autenticada
+    // (disparada pelo AuthContext via db.hydrateFromSupabase()).
 
     if (!localStorage.getItem(STORAGE_KEYS.USERS)) {
       saveToStorage(STORAGE_KEYS.USERS, initialUsers);
     }
-    if (!localStorage.getItem(STORAGE_KEYS.CURRENT_USER)) {
-      // Default to Endemias Coordinator for full administrative view, can be switched anytime
-      saveToStorage(STORAGE_KEYS.CURRENT_USER, initialUsers[3]);
-    }
+    // NÃO semeia mais um usuário-padrão privilegiado. Sem sessão => stub anônimo.
     if (!localStorage.getItem(STORAGE_KEYS.CYCLE)) {
       saveToStorage(STORAGE_KEYS.CYCLE, initialCycle);
     }
@@ -153,9 +166,13 @@ class EndemiasStorageService {
     }
   }
 
-  // Hidratação progressiva assíncrona que puxa dados reais do Supabase/PostgreSQL
+  // Hidratação progressiva assíncrona que puxa dados reais do Supabase/PostgreSQL.
+  // Só executa quando há uma sessão Supabase Auth ativa (RLS aplica o município).
   async hydrateFromSupabase(): Promise<void> {
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) return;
+
       // 1. Município Real
       const mun = await supabaseService.getMunicipality();
       if (mun) {
@@ -191,13 +208,22 @@ class EndemiasStorageService {
   }
 
   // --- CURRENT USER & AUTH ---
+  // A fonte de verdade da identidade é o AuthContext (Supabase Auth + bootstrap).
+  // Aqui guardamos só uma cópia para rótulos/logs locais; sem sessão => stub anônimo.
   getCurrentUser(): User {
-    return getFromStorage<User>(STORAGE_KEYS.CURRENT_USER, initialUsers[3]);
+    return getFromStorage<User>(STORAGE_KEYS.CURRENT_USER, ANON_STUB_USER);
+  }
+
+  setSessionUser(user: User | null): void {
+    if (user) {
+      saveToStorage(STORAGE_KEYS.CURRENT_USER, user);
+    } else {
+      localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
+    }
   }
 
   setCurrentUser(user: User): void {
     saveToStorage(STORAGE_KEYS.CURRENT_USER, user);
-    this.addAuditLog('LOGIN', 'Autenticação', `Sessão alterada para ${user.name} (${user.role})`);
   }
 
   switchUserByRole(role: UserRole): User | undefined {
@@ -720,7 +746,7 @@ class EndemiasStorageService {
       userRole: currentUser.role,
       operation,
       timestamp: new Date().toISOString(),
-      ipAddress: '177.135.44.12',
+      ipAddress: undefined,
       device: typeof navigator !== 'undefined' ? navigator.userAgent.slice(0, 50) : 'Web Applet',
       module,
       recordIdentifier,

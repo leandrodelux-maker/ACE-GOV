@@ -3,6 +3,7 @@
  * Executado via Node/tsx: npx tsx src/tests/testSuite.ts
  */
 
+import 'dotenv/config'; // carrega .env para process.env (fora do runtime Vite)
 import { can, hasRole } from '../services/rbac';
 import { UserRole } from '../types';
 import { DEPOSIT_CATEGORIES, CONDUCT_OPTIONS } from '../services/visitOfficialService';

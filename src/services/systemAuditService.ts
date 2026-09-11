@@ -1001,15 +1001,29 @@ export const systemAuditService = {
 
       const latencyMs = Math.round(performance.now() - start);
 
-      if (error) {
-        return { connected: false, latencyMs, municipalityCount: 0 };
+      if (!error) {
+        return {
+          connected: true,
+          latencyMs,
+          municipalityCount: count || 0,
+        };
       }
 
-      return {
-        connected: true,
-        latencyMs,
-        municipalityCount: count || 0,
-      };
+      // Se houver erro de permissão (ex.: RLS estrito bloqueando anon em tabelas),
+      // valida conectividade via RPC pública do portal do cidadão
+      const { data: publicMun, error: rpcError } = await supabase.rpc('get_public_municipality', {
+        p_id: '00000000-0000-0000-0000-000000000001',
+      });
+
+      if (!rpcError && publicMun) {
+        return {
+          connected: true,
+          latencyMs: Math.round(performance.now() - start),
+          municipalityCount: 1,
+        };
+      }
+
+      return { connected: false, latencyMs, municipalityCount: 0 };
     } catch {
       return { connected: false, latencyMs: 0, municipalityCount: 0 };
     }

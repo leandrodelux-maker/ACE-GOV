@@ -1,9 +1,22 @@
 import { UserRole } from '../types';
+import { supabase } from './supabaseClient';
+
+/**
+ * RBAC do Endemias GOV — ESPELHO do catálogo canônico do banco.
+ *
+ * A FONTE DA VERDADE é o PostgreSQL (tabelas `permissions` / `role_permissions`,
+ * migration 20260907000024). As permissões efetivas de uma sessão vêm SEMPRE do
+ * servidor (RPC `get_auth_bootstrap` → `session.permissions`) e são reforçadas
+ * por RLS. Este arquivo existe apenas para:
+ *   - tipagem e rótulos de UI;
+ *   - preview de permissões ao SIMULAR um perfil (impersonation de admin);
+ *   - seed de referência para a matriz RBAC.
+ */
 
 export interface PermissionDefinition {
   slug: string;
   module: string;
-  action: 'view' | 'create' | 'update' | 'delete' | 'manage' | 'disable' | 'export' | 'use' | 'approve' | 'close';
+  action: 'view' | 'create' | 'update' | 'archive' | 'delete' | 'manage' | 'disable' | 'export' | 'use' | 'approve' | 'close' | 'install' | 'collect' | 'results' | 'analyze';
   label: string;
   description: string;
 }
@@ -16,126 +29,113 @@ export interface RoleDefinition {
   defaultPermissions: string[];
 }
 
+// ----------------------------------------------------------------------------
+// Catálogo canônico (PT) — espelha migration 24
+// ----------------------------------------------------------------------------
 export const PERMISSIONS_CATALOG: PermissionDefinition[] = [
-  // Dashboard & Sala de Situação
-  { slug: 'dashboard.view', module: 'dashboard', action: 'view', label: 'Visualizar Dashboard', description: 'Acesso à sala de situação e indicadores' },
-  { slug: 'maps.view', module: 'maps', action: 'view', label: 'Visualizar Mapas', description: 'Camadas espaciais de território e calor' },
+  { slug: 'painel.view', module: 'painel', action: 'view', label: 'Visualizar Painel', description: 'Sala de situação e indicadores' },
+  { slug: 'mapas.view', module: 'mapas', action: 'view', label: 'Visualizar Mapas', description: 'Camadas espaciais e mapas de calor' },
 
-  // Usuários
-  { slug: 'users.view', module: 'users', action: 'view', label: 'Visualizar Usuários', description: 'Listar usuários cadastrados' },
-  { slug: 'users.create', module: 'users', action: 'create', label: 'Criar Usuários', description: 'Cadastrar novos servidores' },
-  { slug: 'users.update', module: 'users', action: 'update', label: 'Editar Usuários', description: 'Alterar dados de usuários' },
-  { slug: 'users.disable', module: 'users', action: 'disable', label: 'Desativar Usuários', description: 'Desativar acesso sem exclusão física' },
+  { slug: 'usuarios.view', module: 'usuarios', action: 'view', label: 'Visualizar Usuários', description: 'Listar usuários municipais' },
+  { slug: 'usuarios.create', module: 'usuarios', action: 'create', label: 'Criar Usuários', description: 'Cadastrar novos servidores' },
+  { slug: 'usuarios.update', module: 'usuarios', action: 'update', label: 'Editar Usuários', description: 'Alterar dados de usuários' },
+  { slug: 'usuarios.disable', module: 'usuarios', action: 'disable', label: 'Desativar Usuários', description: 'Desativar acesso sem exclusão física' },
 
-  // Perfis e Permissões (RBAC)
-  { slug: 'roles.view', module: 'roles', action: 'view', label: 'Visualizar Perfis', description: 'Consultar matriz de controle de acesso' },
-  { slug: 'roles.manage', module: 'roles', action: 'manage', label: 'Gerenciar Perfis', description: 'Configurar permissões de papéis' },
+  { slug: 'perfis.view', module: 'perfis', action: 'view', label: 'Visualizar Perfis', description: 'Consultar matriz de controle de acesso' },
+  { slug: 'perfis.manage', module: 'perfis', action: 'manage', label: 'Gerenciar Perfis', description: 'Configurar permissões de papéis' },
 
-  // Território Municipal
-  { slug: 'territory.view', module: 'territory', action: 'view', label: 'Visualizar Território', description: 'Consultar zonas, bairros e setores' },
-  { slug: 'territory.create', module: 'territory', action: 'create', label: 'Criar Território', description: 'Cadastrar novos bairros e setores' },
-  { slug: 'territory.update', module: 'territory', action: 'update', label: 'Editar Território', description: 'Modificar dados territoriais' },
-  { slug: 'territory.delete', module: 'territory', action: 'delete', label: 'Excluir Território', description: 'Remover subdivisões territoriais' },
+  { slug: 'territorio.view', module: 'territorio', action: 'view', label: 'Visualizar Território', description: 'Consultar zonas, bairros e setores' },
+  { slug: 'territorio.manage', module: 'territorio', action: 'manage', label: 'Gerenciar Território', description: 'Cadastrar e editar território' },
 
-  // Cadastro de Imóveis
-  { slug: 'properties.view', module: 'properties', action: 'view', label: 'Visualizar Imóveis', description: 'Consultar imóveis e histórico sanitário' },
-  { slug: 'properties.create', module: 'properties', action: 'create', label: 'Criar Imóvel', description: 'Cadastrar novos imóveis no território' },
-  { slug: 'properties.update', module: 'properties', action: 'update', label: 'Editar Imóvel', description: 'Atualizar dados e responsável pelo imóvel' },
-  { slug: 'properties.delete', module: 'properties', action: 'delete', label: 'Arquivar Imóvel', description: 'Arquivar/soft delete de imóvel' },
+  { slug: 'imoveis.view', module: 'imoveis', action: 'view', label: 'Visualizar Imóveis', description: 'Consultar imóveis e histórico sanitário' },
+  { slug: 'imoveis.create', module: 'imoveis', action: 'create', label: 'Criar Imóvel', description: 'Cadastrar novos imóveis' },
+  { slug: 'imoveis.update', module: 'imoveis', action: 'update', label: 'Editar Imóvel', description: 'Atualizar dados e responsável' },
+  { slug: 'imoveis.archive', module: 'imoveis', action: 'archive', label: 'Arquivar Imóvel', description: 'Arquivar/soft delete de imóvel' },
 
-  // Visitas Domiciliares
-  { slug: 'visits.view', module: 'visits', action: 'view', label: 'Visualizar Visitas', description: 'Consultar vistorias e depósitos' },
-  { slug: 'visits.create', module: 'visits', action: 'create', label: 'Registrar Visitas', description: 'Executar vistorias domiciliares' },
-  { slug: 'visits.update', module: 'visits', action: 'update', label: 'Editar Visitas', description: 'Retificar vistorias cadastradas' },
-  { slug: 'visits.delete', module: 'visits', action: 'delete', label: 'Excluir Visitas', description: 'Cancelar registros de vistoria' },
+  { slug: 'visitas.view', module: 'visitas', action: 'view', label: 'Visualizar Visitas', description: 'Consultar vistorias e depósitos' },
+  { slug: 'visitas.create', module: 'visitas', action: 'create', label: 'Registrar Visitas', description: 'Executar vistorias domiciliares' },
+  { slug: 'visitas.update', module: 'visitas', action: 'update', label: 'Editar Visitas', description: 'Retificar vistorias cadastradas' },
+  { slug: 'visitas.delete', module: 'visitas', action: 'delete', label: 'Excluir Visitas', description: 'Cancelar registros de vistoria' },
 
-  // Equipes
-  { slug: 'teams.view', module: 'teams', action: 'view', label: 'Visualizar Equipes', description: 'Listar equipes e supervisores' },
-  { slug: 'teams.manage', module: 'teams', action: 'manage', label: 'Gerenciar Equipes', description: 'Criar e alocar equipes' },
+  { slug: 'equipes.view', module: 'equipes', action: 'view', label: 'Visualizar Equipes', description: 'Listar equipes e supervisores' },
+  { slug: 'equipes.manage', module: 'equipes', action: 'manage', label: 'Gerenciar Equipes', description: 'Criar e alocar equipes' },
 
-  // Agentes
-  { slug: 'agents.view', module: 'agents', action: 'view', label: 'Visualizar Agentes', description: 'Listar agentes de endemias' },
-  { slug: 'agents.manage', module: 'agents', action: 'manage', label: 'Gerenciar Agentes', description: 'Vincular agentes a microáreas e equipes' },
+  { slug: 'agentes.view', module: 'agentes', action: 'view', label: 'Visualizar Agentes', description: 'Listar agentes de endemias' },
+  { slug: 'agentes.manage', module: 'agentes', action: 'manage', label: 'Gerenciar Agentes', description: 'Vincular agentes a microáreas e equipes' },
 
-  // Ciclos de Campo
-  { slug: 'cycles.view', module: 'cycles', action: 'view', label: 'Visualizar Ciclos', description: 'Acompanhar metas do LIRAa/LIA' },
-  { slug: 'cycles.manage', module: 'cycles', action: 'manage', label: 'Gerenciar Ciclos', description: 'Abrir, configurar e encerrar ciclos' },
-  { slug: 'cycles.close', module: 'cycles', action: 'close', label: 'Encerrar Ciclos', description: 'Consolidar e encerrar ciclo epidemiológico' },
-  { slug: 'cycles.approve', module: 'cycles', action: 'approve', label: 'Aprovar Ciclos', description: 'Aprovar consolidação de ciclo de campo' },
+  { slug: 'ciclos.view', module: 'ciclos', action: 'view', label: 'Visualizar Ciclos', description: 'Acompanhar metas do LIRAa/LIA' },
+  { slug: 'ciclos.manage', module: 'ciclos', action: 'manage', label: 'Gerenciar Ciclos', description: 'Abrir, configurar e gerir ciclos' },
+  { slug: 'ciclos.close', module: 'ciclos', action: 'close', label: 'Encerrar Ciclos', description: 'Consolidar e encerrar ciclo epidemiológico' },
+  { slug: 'ciclos.approve', module: 'ciclos', action: 'approve', label: 'Aprovar Ciclos', description: 'Aprovar consolidação de ciclo' },
 
-  // Focos e Surtos
-  { slug: 'outbreaks.view', module: 'outbreaks', action: 'view', label: 'Visualizar Focos/Surtos', description: 'Acompanhar surtos e reincidências' },
-  { slug: 'outbreaks.manage', module: 'outbreaks', action: 'manage', label: 'Gerenciar Surtos', description: 'Criar operações de contenção' },
+  { slug: 'focos.view', module: 'focos', action: 'view', label: 'Visualizar Focos/Surtos', description: 'Acompanhar surtos e reincidências' },
+  { slug: 'focos.manage', module: 'focos', action: 'manage', label: 'Gerenciar Surtos', description: 'Criar operações de contenção' },
 
-  // Ovitrampas (Vigilância Entomológica de Ovos)
-  { slug: 'ovitraps.view', module: 'ovitraps', action: 'view', label: 'Visualizar Ovitrampas', description: 'Consultar armadilhas e índices entomológicos (IPO/IDO)' },
-  { slug: 'ovitraps.create', module: 'ovitraps', action: 'create', label: 'Cadastrar Ovitrampas', description: 'Cadastrar novos pontos sentinela no território' },
-  { slug: 'ovitraps.update', module: 'ovitraps', action: 'update', label: 'Editar Ovitrampas', description: 'Atualizar dados de armadilhas e responsáveis' },
-  { slug: 'ovitraps.install', module: 'ovitraps', action: 'use', label: 'Instalar Ovitrampas', description: 'Registrar instalação de armadilhas e palhetas' },
-  { slug: 'ovitraps.collect', module: 'ovitraps', action: 'use', label: 'Coletar Ovitrampas', description: 'Registrar coletas de armadilhas em campo' },
-  { slug: 'ovitraps.results', module: 'ovitraps', action: 'manage', label: 'Registrar Resultados Entomológicos', description: 'Informar contagem de ovos e laudos laboratoriais' },
-  { slug: 'ovitraps.analyze', module: 'ovitraps', action: 'view', label: 'Analisar Inteligência de Ovitrampas', description: 'Acessar indicadores avançados, tendências e coberturas' },
-  { slug: 'ovitraps.export', module: 'ovitraps', action: 'export', label: 'Exportar Dados de Ovitrampas', description: 'Exportar relatórios operacionais e boletins em PDF/Excel' },
-  { slug: 'ovitraps.manage', module: 'ovitraps', action: 'manage', label: 'Gerenciar Rede de Ovitrampas', description: 'Gestão completa da rede de vigilância entomológica' },
+  { slug: 'ovitrampas.view', module: 'ovitrampas', action: 'view', label: 'Visualizar Ovitrampas', description: 'Consultar armadilhas e índices IPO/IDO' },
+  { slug: 'ovitrampas.create', module: 'ovitrampas', action: 'create', label: 'Cadastrar Ovitrampas', description: 'Cadastrar novos pontos sentinela' },
+  { slug: 'ovitrampas.update', module: 'ovitrampas', action: 'update', label: 'Editar Ovitrampas', description: 'Atualizar dados de armadilhas' },
+  { slug: 'ovitrampas.install', module: 'ovitrampas', action: 'install', label: 'Instalar Ovitrampas', description: 'Registrar instalação de armadilhas' },
+  { slug: 'ovitrampas.collect', module: 'ovitrampas', action: 'collect', label: 'Coletar Ovitrampas', description: 'Registrar coletas em campo' },
+  { slug: 'ovitrampas.results', module: 'ovitrampas', action: 'results', label: 'Resultados Entomológicos', description: 'Informar contagem de ovos e laudos' },
+  { slug: 'ovitrampas.analyze', module: 'ovitrampas', action: 'analyze', label: 'Analisar Ovitrampas', description: 'Indicadores avançados, tendências e coberturas' },
+  { slug: 'ovitrampas.export', module: 'ovitrampas', action: 'export', label: 'Exportar Ovitrampas', description: 'Exportar relatórios e boletins' },
+  { slug: 'ovitrampas.manage', module: 'ovitrampas', action: 'manage', label: 'Gerenciar Rede de Ovitrampas', description: 'Gestão completa da rede sentinela' },
 
-  // Pontos Estratégicos (PE)
-  { slug: 'strategic_points.view', module: 'strategic_points', action: 'view', label: 'Visualizar PEs', description: 'Consultar ferros-velhos, cemitérios e borracharias' },
-  { slug: 'strategic_points.manage', module: 'strategic_points', action: 'manage', label: 'Gerenciar PEs', description: 'Cadastrar e registrar vistorias quinzenais' },
+  { slug: 'pontos_estrategicos.view', module: 'pontos_estrategicos', action: 'view', label: 'Visualizar PEs', description: 'Consultar ferros-velhos, cemitérios e borracharias' },
+  { slug: 'pontos_estrategicos.manage', module: 'pontos_estrategicos', action: 'manage', label: 'Gerenciar PEs', description: 'Cadastrar e registrar vistorias quinzenais' },
 
-  // Imóveis Especiais (IE)
-  { slug: 'special_properties.view', module: 'special_properties', action: 'view', label: 'Visualizar IEs', description: 'Consultar escolas, hospitais e órgãos públicos' },
-  { slug: 'special_properties.manage', module: 'special_properties', action: 'manage', label: 'Gerenciar IEs', description: 'Programar vistorias em imóveis especiais' },
+  { slug: 'imoveis_especiais.view', module: 'imoveis_especiais', action: 'view', label: 'Visualizar IEs', description: 'Consultar escolas, hospitais e órgãos públicos' },
+  { slug: 'imoveis_especiais.manage', module: 'imoveis_especiais', action: 'manage', label: 'Gerenciar IEs', description: 'Programar vistorias em imóveis especiais' },
 
-  // Denúncias do Cidadão
-  { slug: 'complaints.view', module: 'complaints', action: 'view', label: 'Visualizar Denúncias', description: 'Consultar protocolo de denúncias públicas' },
-  { slug: 'complaints.manage', module: 'complaints', action: 'manage', label: 'Gerenciar Denúncias', description: 'Triagem, despacho e atendimento de denúncias' },
+  { slug: 'denuncias.view', module: 'denuncias', action: 'view', label: 'Visualizar Denúncias', description: 'Consultar protocolo de denúncias públicas' },
+  { slug: 'denuncias.manage', module: 'denuncias', action: 'manage', label: 'Gerenciar Denúncias', description: 'Triagem, despacho e atendimento de denúncias' },
 
-  // Epidemiologia e Bloqueios
-  { slug: 'epidemiology.view', module: 'epidemiology', action: 'view', label: 'Visualizar Epidemiologia', description: 'Acessar notificações e boletins Sinan' },
-  { slug: 'epidemiology.manage', module: 'epidemiology', action: 'manage', label: 'Gerenciar Bloqueios', description: 'Definir raios de bloqueio focal e nebulização' },
+  { slug: 'epidemiologia.view', module: 'epidemiologia', action: 'view', label: 'Visualizar Epidemiologia', description: 'Acessar notificações e boletins Sinan' },
+  { slug: 'epidemiologia.manage', module: 'epidemiologia', action: 'manage', label: 'Gerenciar Bloqueios', description: 'Definir raios de bloqueio focal e nebulização' },
 
-  // Planejamento e Rotas
-  { slug: 'field_planning.view', module: 'field_planning', action: 'view', label: 'Visualizar Planejamento', description: 'Acompanhar itinerários e ordens de serviço' },
-  { slug: 'field_planning.manage', module: 'field_planning', action: 'manage', label: 'Gerenciar Rotas', description: 'Gerar e distribuir rotas para os ACEs' },
+  { slug: 'planejamento.view', module: 'planejamento', action: 'view', label: 'Visualizar Planejamento', description: 'Acompanhar itinerários e ordens de serviço' },
+  { slug: 'planejamento.manage', module: 'planejamento', action: 'manage', label: 'Gerenciar Rotas', description: 'Gerar e distribuir rotas para os ACEs' },
 
-  // Relatórios
-  { slug: 'reports.view', module: 'reports', action: 'view', label: 'Visualizar Relatórios', description: 'Consultar boletins e indicadores oficiais' },
-  { slug: 'reports.export', module: 'reports', action: 'export', label: 'Exportar Relatórios', description: 'Exportar dados em Excel, PDF e CSV' },
+  { slug: 'relatorios.view', module: 'relatorios', action: 'view', label: 'Visualizar Relatórios', description: 'Consultar boletins e indicadores oficiais' },
+  { slug: 'relatorios.export', module: 'relatorios', action: 'export', label: 'Exportar Relatórios', description: 'Exportar dados em Excel, PDF e CSV' },
 
-  // Motor de Risco & IA
-  { slug: 'risk_engine.view', module: 'risk_engine', action: 'view', label: 'Visualizar Motor de Risco', description: 'Consultar escores preditivos de risco' },
-  { slug: 'risk_engine.manage', module: 'risk_engine', action: 'manage', label: 'Gerenciar Pesos de Risco', description: 'Ajustar pesos do algoritmo de risco' },
-  { slug: 'ai_assistant.use', module: 'ai_assistant', action: 'use', label: 'Usar Assistente IA', description: 'Interagir com assistente inteligente' },
+  { slug: 'motor_risco.view', module: 'motor_risco', action: 'view', label: 'Visualizar Motor de Risco', description: 'Consultar escores preditivos de risco' },
+  { slug: 'motor_risco.manage', module: 'motor_risco', action: 'manage', label: 'Gerenciar Pesos de Risco', description: 'Ajustar pesos do algoritmo de risco' },
 
-  // Configurações & Auditoria
-  { slug: 'settings.view', module: 'settings', action: 'view', label: 'Visualizar Configurações', description: 'Acesso a parâmetros gerais' },
-  { slug: 'settings.manage', module: 'settings', action: 'manage', label: 'Administrar Sistema', description: 'Controle de sistema e integrações' },
-  { slug: 'audit.view', module: 'audit', action: 'view', label: 'Visualizar Auditoria', description: 'Acessar logs de conformidade SUS' },
+  { slug: 'ia_assistente.use', module: 'ia_assistente', action: 'use', label: 'Usar Assistente IA', description: 'Interagir com assistente inteligente' },
+
+  { slug: 'configuracoes.view', module: 'configuracoes', action: 'view', label: 'Visualizar Configurações', description: 'Acesso a parâmetros gerais' },
+  { slug: 'configuracoes.manage', module: 'configuracoes', action: 'manage', label: 'Administrar Sistema', description: 'Controle de sistema, integrações e endemias' },
+
+  { slug: 'auditoria.view', module: 'auditoria', action: 'view', label: 'Visualizar Auditoria', description: 'Acessar logs de conformidade SUS/LGPD' },
 ];
 
+const ALL_PERMISSION_SLUGS = PERMISSIONS_CATALOG.map((p) => p.slug);
+
+// ----------------------------------------------------------------------------
+// Registro de papéis (espelha migration 24 role_permissions)
+// ----------------------------------------------------------------------------
 export const ROLES_REGISTRY: Record<UserRole, RoleDefinition> = {
   SUPER_ADMIN: {
     slug: 'SUPER_ADMIN',
     name: 'Super Administrador',
     description: 'Acesso total ao sistema e todos os municípios',
     badgeColor: 'bg-red-700 text-white',
-    defaultPermissions: PERMISSIONS_CATALOG.map((p) => p.slug),
+    defaultPermissions: [...ALL_PERMISSION_SLUGS],
   },
   MUNICIPAL_ADMIN: {
     slug: 'MUNICIPAL_ADMIN',
     name: 'Administrador Municipal',
     description: 'Administra todo o Endemias GOV do município',
     badgeColor: 'bg-indigo-700 text-white',
-    defaultPermissions: PERMISSIONS_CATALOG.map((p) => p.slug),
+    defaultPermissions: [...ALL_PERMISSION_SLUGS],
   },
   ENDEMIAS_COORDINATOR: {
     slug: 'ENDEMIAS_COORDINATOR',
     name: 'Coordenador de Endemias',
     description: 'Acesso operacional completo ao município',
     badgeColor: 'bg-blue-600 text-white',
-    defaultPermissions: PERMISSIONS_CATALOG.filter((p) => p.slug !== 'settings.manage').map(
-      (p) => p.slug
-    ),
+    defaultPermissions: ALL_PERMISSION_SLUGS.filter((s) => s !== 'configuracoes.manage'),
   },
   FIELD_SUPERVISOR: {
     slug: 'FIELD_SUPERVISOR',
@@ -143,118 +143,57 @@ export const ROLES_REGISTRY: Record<UserRole, RoleDefinition> = {
     description: 'Gerencia equipes, agentes, planejamento e operações',
     badgeColor: 'bg-cyan-700 text-white',
     defaultPermissions: [
-      'dashboard.view',
-      'maps.view',
-      'territory.view',
-      'territory.update',
-      'properties.view',
-      'properties.create',
-      'properties.update',
-      'visits.view',
-      'visits.create',
-      'visits.update',
-      'teams.view',
-      'teams.manage',
-      'agents.view',
-      'agents.manage',
-      'cycles.view',
-      'outbreaks.view',
-      'ovitraps.view',
-      'ovitraps.create',
-      'ovitraps.update',
-      'ovitraps.install',
-      'ovitraps.collect',
-      'ovitraps.results',
-      'ovitraps.analyze',
-      'ovitraps.export',
-      'ovitraps.manage',
-      'strategic_points.view',
-      'strategic_points.manage',
-      'special_properties.view',
-      'special_properties.manage',
-      'complaints.view',
-      'complaints.manage',
-      'field_planning.view',
-      'field_planning.manage',
-      'reports.view',
-      'risk_engine.view',
-      'ai_assistant.use',
+      'painel.view', 'mapas.view', 'territorio.view', 'territorio.manage',
+      'imoveis.view', 'imoveis.create', 'imoveis.update',
+      'visitas.view', 'visitas.create', 'visitas.update',
+      'equipes.view', 'equipes.manage', 'agentes.view', 'agentes.manage',
+      'ciclos.view', 'focos.view',
+      'ovitrampas.view', 'ovitrampas.create', 'ovitrampas.update', 'ovitrampas.install',
+      'ovitrampas.collect', 'ovitrampas.results', 'ovitrampas.analyze', 'ovitrampas.export', 'ovitrampas.manage',
+      'pontos_estrategicos.view', 'pontos_estrategicos.manage',
+      'imoveis_especiais.view', 'imoveis_especiais.manage',
+      'denuncias.view', 'denuncias.manage',
+      'planejamento.view', 'planejamento.manage',
+      'relatorios.view', 'motor_risco.view', 'ia_assistente.use',
     ],
   },
   ACE: {
     slug: 'ACE',
     name: 'Agente de Combate às Endemias (ACE)',
-    description: 'Acesso principalmente às ferramentas de campo e seus próprios dados',
+    description: 'Ferramentas de campo e dados próprios',
     badgeColor: 'bg-emerald-600 text-white',
     defaultPermissions: [
-      'properties.view',
-      'properties.create',
-      'properties.update',
-      'visits.view',
-      'visits.create',
-      'visits.update',
-      'territory.view',
-      'cycles.view',
-      'field_planning.view',
-      'ovitraps.view',
-      'ovitraps.install',
-      'ovitraps.collect',
-      'ovitraps.update',
-      'complaints.view',
-      'ai_assistant.use',
+      'imoveis.view', 'imoveis.create', 'imoveis.update',
+      'visitas.view', 'visitas.create', 'visitas.update',
+      'territorio.view', 'ciclos.view', 'planejamento.view',
+      'ovitrampas.view', 'ovitrampas.install', 'ovitrampas.collect', 'ovitrampas.update',
+      'denuncias.view', 'ia_assistente.use',
     ],
   },
   EPIDEMIOLOGY_AGENT: {
     slug: 'EPIDEMIOLOGY_AGENT',
     name: 'Vigilância Epidemiológica',
-    description: 'Acesso a epidemiologia, casos, mapas, focos e inteligência',
+    description: 'Epidemiologia, casos, mapas, focos e inteligência',
     badgeColor: 'bg-rose-600 text-white',
     defaultPermissions: [
-      'dashboard.view',
-      'maps.view',
-      'epidemiology.view',
-      'epidemiology.manage',
-      'outbreaks.view',
-      'outbreaks.manage',
-      'ovitraps.view',
-      'ovitraps.results',
-      'ovitraps.analyze',
-      'ovitraps.export',
-      'visits.view',
-      'properties.view',
-      'territory.view',
-      'cycles.view',
-      'reports.view',
-      'reports.export',
-      'risk_engine.view',
-      'ai_assistant.use',
+      'painel.view', 'mapas.view', 'epidemiologia.view', 'epidemiologia.manage',
+      'focos.view', 'focos.manage',
+      'ovitrampas.view', 'ovitrampas.results', 'ovitrampas.analyze', 'ovitrampas.export',
+      'visitas.view', 'imoveis.view', 'territorio.view', 'ciclos.view',
+      'relatorios.view', 'relatorios.export', 'motor_risco.view', 'ia_assistente.use',
     ],
   },
   HEALTH_SECRETARY: {
     slug: 'HEALTH_SECRETARY',
     name: 'Secretário / Gestor de Saúde',
-    description: 'Acesso aos painéis gerenciais, indicadores, mapas e relatórios (leitura)',
+    description: 'Painéis gerenciais, indicadores, mapas e relatórios',
     badgeColor: 'bg-purple-600 text-white',
     defaultPermissions: [
-      'dashboard.view',
-      'maps.view',
-      'reports.view',
-      'reports.export',
-      'epidemiology.view',
-      'cycles.view',
-      'territory.view',
-      'properties.view',
-      'visits.view',
-      'teams.view',
-      'ovitraps.view',
-      'ovitraps.analyze',
-      'ovitraps.export',
-      'strategic_points.view',
-      'special_properties.view',
-      'risk_engine.view',
-      'audit.view',
-      'settings.view',
-      'ai_assistant.use',
+      'painel.view', 'mapas.view', 'relatorios.view', 'relatorios.export',
+      'epidemiologia.view', 'ciclos.view', 'territorio.view', 'imoveis.view', 'visitas.view',
+      'equipes.view', 'ovitrampas.view', 'ovitrampas.analyze', 'ovitrampas.export',
+      'pontos_estrategicos.view', 'imoveis_especiais.view', 'motor_risco.view',
+      'auditoria.view', 'configuracoes.view', 'ia_assistente.use',
     ],
   },
   AUDITOR_VIEWER: {
@@ -263,36 +202,21 @@ export const ROLES_REGISTRY: Record<UserRole, RoleDefinition> = {
     description: 'Somente leitura conforme módulos autorizados',
     badgeColor: 'bg-slate-700 text-white',
     defaultPermissions: [
-      'dashboard.view',
-      'maps.view',
-      'reports.view',
-      'reports.export',
-      'audit.view',
-      'visits.view',
-      'properties.view',
-      'territory.view',
-      'cycles.view',
-      'strategic_points.view',
-      'special_properties.view',
-      'settings.view',
+      'painel.view', 'mapas.view', 'relatorios.view', 'relatorios.export', 'auditoria.view',
+      'visitas.view', 'imoveis.view', 'territorio.view', 'ciclos.view',
+      'pontos_estrategicos.view', 'imoveis_especiais.view', 'configuracoes.view',
     ],
   },
   SANITARY_AGENT: {
     slug: 'SANITARY_AGENT',
     name: 'Vigilância Sanitária',
-    description: 'Fiscalização de pontos estratégicos, autuações e PE/IE',
+    description: 'Fiscalização de PE/IE, autuações e denúncias',
     badgeColor: 'bg-amber-600 text-white',
     defaultPermissions: [
-      'strategic_points.view',
-      'strategic_points.manage',
-      'special_properties.view',
-      'special_properties.manage',
-      'complaints.view',
-      'complaints.manage',
-      'territory.view',
-      'properties.view',
-      'visits.view',
-      'reports.view',
+      'pontos_estrategicos.view', 'pontos_estrategicos.manage',
+      'imoveis_especiais.view', 'imoveis_especiais.manage',
+      'denuncias.view', 'denuncias.manage',
+      'territorio.view', 'imoveis.view', 'visitas.view', 'relatorios.view',
     ],
   },
   PRIMARY_CARE_ACS: {
@@ -301,75 +225,137 @@ export const ROLES_REGISTRY: Record<UserRole, RoleDefinition> = {
     description: 'Integração territorial e busca ativa na comunidade',
     badgeColor: 'bg-teal-600 text-white',
     defaultPermissions: [
-      'territory.view',
-      'properties.view',
-      'complaints.view',
-      'visits.view',
-      'ai_assistant.use',
+      'territorio.view', 'imoveis.view', 'denuncias.view', 'visitas.view', 'ia_assistente.use',
     ],
   },
 };
 
-const CUSTOM_PERMISSIONS_STORAGE_KEY = 'endemias_gov_custom_permissions';
+// ----------------------------------------------------------------------------
+// Compatibilidade: slugs legados (inglês) -> canônicos (português)
+// Permite que call sites ainda não migrados continuem funcionando.
+// ----------------------------------------------------------------------------
+export const LEGACY_EN_TO_PT: Record<string, string> = {
+  'dashboard.view': 'painel.view',
+  'maps.view': 'mapas.view',
+  'users.view': 'usuarios.view',
+  'users.create': 'usuarios.create',
+  'users.update': 'usuarios.update',
+  'users.disable': 'usuarios.disable',
+  'roles.view': 'perfis.view',
+  'roles.manage': 'perfis.manage',
+  'territory.view': 'territorio.view',
+  'territory.create': 'territorio.manage',
+  'territory.update': 'territorio.manage',
+  'territory.delete': 'territorio.manage',
+  'properties.view': 'imoveis.view',
+  'properties.create': 'imoveis.create',
+  'properties.update': 'imoveis.update',
+  'properties.delete': 'imoveis.archive',
+  'visits.view': 'visitas.view',
+  'visits.create': 'visitas.create',
+  'visits.update': 'visitas.update',
+  'visits.delete': 'visitas.delete',
+  'teams.view': 'equipes.view',
+  'teams.manage': 'equipes.manage',
+  'agents.view': 'agentes.view',
+  'agents.manage': 'agentes.manage',
+  'cycles.view': 'ciclos.view',
+  'cycles.manage': 'ciclos.manage',
+  'cycles.close': 'ciclos.close',
+  'cycles.approve': 'ciclos.approve',
+  'outbreaks.view': 'focos.view',
+  'outbreaks.manage': 'focos.manage',
+  'ovitraps.view': 'ovitrampas.view',
+  'ovitraps.create': 'ovitrampas.create',
+  'ovitraps.update': 'ovitrampas.update',
+  'ovitraps.install': 'ovitrampas.install',
+  'ovitraps.collect': 'ovitrampas.collect',
+  'ovitraps.results': 'ovitrampas.results',
+  'ovitraps.analyze': 'ovitrampas.analyze',
+  'ovitraps.export': 'ovitrampas.export',
+  'ovitraps.manage': 'ovitrampas.manage',
+  'strategic_points.view': 'pontos_estrategicos.view',
+  'strategic_points.manage': 'pontos_estrategicos.manage',
+  'special_properties.view': 'imoveis_especiais.view',
+  'special_properties.manage': 'imoveis_especiais.manage',
+  'complaints.view': 'denuncias.view',
+  'complaints.manage': 'denuncias.manage',
+  'epidemiology.view': 'epidemiologia.view',
+  'epidemiology.manage': 'epidemiologia.manage',
+  'field_planning.view': 'planejamento.view',
+  'field_planning.manage': 'planejamento.manage',
+  'reports.view': 'relatorios.view',
+  'reports.export': 'relatorios.export',
+  'risk_engine.view': 'motor_risco.view',
+  'risk_engine.manage': 'motor_risco.manage',
+  'ai_assistant.use': 'ia_assistente.use',
+  'settings.view': 'configuracoes.view',
+  'settings.manage': 'configuracoes.manage',
+  'audit.view': 'auditoria.view',
+};
 
-export function getCustomPermissionsForRole(role: UserRole): string[] {
-  try {
-    const raw = localStorage.getItem(CUSTOM_PERMISSIONS_STORAGE_KEY);
-    if (!raw) return ROLES_REGISTRY[role]?.defaultPermissions || [];
-    const parsed = JSON.parse(raw);
-    return parsed[role] || ROLES_REGISTRY[role]?.defaultPermissions || [];
-  } catch {
-    return ROLES_REGISTRY[role]?.defaultPermissions || [];
-  }
+export function normalizePermission(permission: string): string {
+  return LEGACY_EN_TO_PT[permission] || permission;
 }
 
-export function saveCustomPermissionsForRole(role: UserRole, permissions: string[]): void {
-  try {
-    const raw = localStorage.getItem(CUSTOM_PERMISSIONS_STORAGE_KEY);
-    const parsed = raw ? JSON.parse(raw) : {};
-    parsed[role] = permissions;
-    localStorage.setItem(CUSTOM_PERMISSIONS_STORAGE_KEY, JSON.stringify(parsed));
-  } catch (err) {
-    console.error('Falha ao salvar permissões de papel:', err);
-  }
-}
+const PLATFORM_ADMIN_ROLES: UserRole[] = ['SUPER_ADMIN', 'MUNICIPAL_ADMIN'];
 
 /**
- * Função central de verificação de permissão granular: can(permission)
+ * Verificação de permissão para conveniência de UI (a autorização real é RLS).
+ *
+ * @param userRole            papel efetivo (real ou simulado)
+ * @param permission          slug (aceita legado em inglês)
+ * @param explicitPermissions lista vinda do servidor (session.permissions).
+ *                            Quando ausente, usa o default do papel (preview).
  */
 export function can(
   userRole?: UserRole,
   permission?: string,
-  userExplicitPermissions?: string[]
+  explicitPermissions?: string[] | null
 ): boolean {
   if (!userRole || !permission) return false;
 
-  // Super Admin e Admin Municipal possuem passe livre total
-  if (userRole === 'SUPER_ADMIN' || userRole === 'MUNICIPAL_ADMIN') {
-    return true;
+  if (PLATFORM_ADMIN_ROLES.includes(userRole)) return true;
+
+  const slug = normalizePermission(permission);
+
+  if (explicitPermissions && explicitPermissions.length > 0) {
+    return explicitPermissions.map(normalizePermission).includes(slug);
   }
 
-  // Se o usuário tiver array explícito vindo do banco/profile
-  if (userExplicitPermissions && userExplicitPermissions.includes(permission)) {
-    return true;
-  }
-
-  // Consulta matriz configurada ou padrão do papel
-  const rolePermissions = getCustomPermissionsForRole(userRole);
-  return rolePermissions.includes(permission);
+  // Sem lista do servidor: cai no catálogo de referência do papel.
+  return (ROLES_REGISTRY[userRole]?.defaultPermissions || []).includes(slug);
 }
 
-/**
- * Função central de verificação de papel: hasRole(role)
- */
 export function hasRole(currentRole?: UserRole, requiredRoles?: UserRole | UserRole[]): boolean {
   if (!currentRole || !requiredRoles) return false;
-
   if (currentRole === 'SUPER_ADMIN') return true;
-
-  if (Array.isArray(requiredRoles)) {
-    return requiredRoles.includes(currentRole);
-  }
-
+  if (Array.isArray(requiredRoles)) return requiredRoles.includes(currentRole);
   return currentRole === requiredRoles;
+}
+
+// ----------------------------------------------------------------------------
+// Persistência da matriz RBAC no banco (substitui o antigo localStorage)
+// ----------------------------------------------------------------------------
+
+/** Lê as permissões efetivas de um papel a partir do banco. */
+export async function fetchRolePermissions(roleSlug: UserRole): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('role_permissions')
+    .select('permissions(slug), roles!inner(slug)')
+    .eq('roles.slug', roleSlug);
+
+  if (error || !data) {
+    return ROLES_REGISTRY[roleSlug]?.defaultPermissions || [];
+  }
+  return data.map((r: any) => r.permissions?.slug).filter(Boolean);
+}
+
+/** Persiste a matriz de um papel via RPC (exige perfis.manage no servidor). */
+export async function saveRolePermissions(roleSlug: UserRole, permissions: string[]): Promise<void> {
+  const { error } = await supabase.rpc('set_role_permissions', {
+    p_role_slug: roleSlug,
+    p_perms: permissions.map(normalizePermission),
+  });
+  if (error) throw new Error(error.message);
 }

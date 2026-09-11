@@ -1,18 +1,31 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Obtenção segura das variáveis de ambiente com fallback para o projeto ativo
+// As credenciais vêm EXCLUSIVAMENTE das variáveis de ambiente. Não há fallback
+// hardcoded — em produção, RLS é a porta e a chave anônima precisa ser
+// rotacionável sem alterar código.
+//
+// Em runtime de navegador (Vite) vêm de import.meta.env; em scripts Node
+// (ex.: `npm run test` via tsx) vêm de process.env, carregado do .env pelo
+// `dotenv/config` importado no topo do entrypoint (ver src/tests/testSuite.ts).
 const metaEnv = (import.meta as any).env || {};
-const supabaseUrl =
-  metaEnv.VITE_SUPABASE_URL || 'https://aelgnzoevqupstjvsflp.supabase.co';
-const supabaseAnonKey =
-  metaEnv.VITE_SUPABASE_ANON_KEY ||
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFlbGduem9ldnF1cHN0anZzZmxwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyMjQ5MDIsImV4cCI6MjEwMzgwMDkwMn0.QnVi0v0rXR_m-R76LDCtr17XS7fNZHlp91xlHRZWGeU';
+const nodeEnv = typeof process !== 'undefined' ? process.env : ({} as Record<string, string | undefined>);
+const supabaseUrl: string | undefined = metaEnv.VITE_SUPABASE_URL || nodeEnv.VITE_SUPABASE_URL;
+const supabaseAnonKey: string | undefined = metaEnv.VITE_SUPABASE_ANON_KEY || nodeEnv.VITE_SUPABASE_ANON_KEY;
 
-// Cliente oficial Supabase para o Endemias GOV (somente permissões públicas / anônimas / autenticadas via RLS)
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error(
+    'Configuração ausente: defina VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY no ambiente (.env). ' +
+      'Consulte .env.example.'
+  );
+}
+
+// Cliente oficial Supabase para o Endemias GOV.
+// A sessão é gerida pelo Supabase Auth (persistência + refresh automático).
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true,
+    storageKey: 'endemias_gov_sb_auth',
   },
 });

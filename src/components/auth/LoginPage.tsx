@@ -24,7 +24,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate, redirectTo }) 
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [rememberMe, setRememberMe] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -41,8 +40,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate, redirectTo }) 
 
     if (!password) {
       errors.password = 'Informe sua senha de acesso.';
-    } else if (password.length < 4) {
-      errors.password = 'A senha deve conter ao menos 4 caracteres.';
+    } else if (password.length < 8) {
+      errors.password = 'A senha deve conter ao menos 8 caracteres.';
     }
 
     setFieldErrors(errors);
@@ -63,7 +62,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate, redirectTo }) 
     setIsSubmitting(true);
 
     try {
-      const session = await login(email, password, rememberMe);
+      const session = await login(email, password);
 
       // Redirecionamento após autenticação
       if (redirectTo && redirectTo !== '/login') {
@@ -76,13 +75,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate, redirectTo }) 
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const handleQuickFill = (demoEmail: string, demoPass: string) => {
-    setEmail(demoEmail);
-    setPassword(demoPass);
-    setFieldErrors({});
-    setErrorMessage(null);
   };
 
   return (
@@ -199,19 +191,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate, redirectTo }) 
               )}
             </div>
 
-            {/* Opções: Manter Conectado */}
-            <div className="flex items-center justify-between pt-1">
-              <label className="flex items-center gap-2 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                  disabled={isSubmitting}
-                  className="w-4 h-4 rounded border-slate-700 bg-slate-950/60 text-sky-500 focus:ring-sky-500/30 focus:ring-offset-slate-900"
-                />
-                <span className="text-xs text-slate-300">Manter conectado</span>
-              </label>
-
+            {/* Recuperação de senha */}
+            <div className="flex items-center justify-end pt-1">
               <button
                 type="button"
                 onClick={() => onNavigate('/esqueci-senha')}
@@ -250,44 +231,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate, redirectTo }) 
               className="text-sky-400 hover:text-sky-300 font-medium transition hover:underline"
             >
               Primeiro acesso
-            </button>
-          </div>
-        </div>
-
-        {/* Atalhos Rápidos para Demonstração / Avaliação do Usuário */}
-        <div className="mt-4 p-3.5 rounded-xl bg-slate-900/50 backdrop-blur border border-slate-800/50 text-slate-400">
-          <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-300 mb-2">
-            <Sparkles className="w-3.5 h-3.5 text-sky-400" />
-            <span>Perfis de Referência para Acesso Imediato:</span>
-          </div>
-          <div className="grid grid-cols-3 gap-2">
-            <button
-              type="button"
-              onClick={() =>
-                handleQuickFill('coordenacao.endemias@santacruz.rs.gov.br', 'Admin@2026')
-              }
-              className="px-2 py-1.5 rounded-lg bg-slate-800/70 hover:bg-slate-800 text-[11px] text-slate-200 hover:text-white transition text-center border border-slate-700/60"
-            >
-              <div className="font-medium text-sky-400">Coordenador</div>
-              <div className="text-[10px] text-slate-400">Dra. Vanessa</div>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleQuickFill('carlos.ace@santacruz.rs.gov.br', 'Admin@2026')}
-              className="px-2 py-1.5 rounded-lg bg-slate-800/70 hover:bg-slate-800 text-[11px] text-slate-200 hover:text-white transition text-center border border-slate-700/60"
-            >
-              <div className="font-medium text-emerald-400">Agente ACE</div>
-              <div className="text-[10px] text-slate-400">Carlos Eduardo</div>
-            </button>
-            <button
-              type="button"
-              onClick={() =>
-                handleQuickFill('secretario.saude@santacruz.rs.gov.br', 'Admin@2026')
-              }
-              className="px-2 py-1.5 rounded-lg bg-slate-800/70 hover:bg-slate-800 text-[11px] text-slate-200 hover:text-white transition text-center border border-slate-700/60"
-            >
-              <div className="font-medium text-purple-400">Secretário</div>
-              <div className="text-[10px] text-slate-400">Dr. Fernando</div>
             </button>
           </div>
         </div>

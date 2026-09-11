@@ -23,7 +23,10 @@ import { NotificationsDrawer } from './NotificationsDrawer';
 
 interface HeaderProps {
   currentUser: User;
-  onSwitchRole: (role: UserRole) => void;
+  realRole?: UserRole | null;
+  isImpersonating?: boolean;
+  onImpersonateRole: (role: UserRole) => void;
+  onStopImpersonation?: () => void;
   pendingSyncCount: number;
   onSync: () => void;
   onToggleSidebar: () => void;
@@ -50,7 +53,10 @@ const ROLES_LIST: { role: UserRole; label: string; badgeColor: string }[] = [
 
 export const Header: React.FC<HeaderProps> = ({
   currentUser,
-  onSwitchRole,
+  realRole,
+  isImpersonating,
+  onImpersonateRole,
+  onStopImpersonation,
   pendingSyncCount,
   onSync,
   onToggleSidebar,
@@ -61,6 +67,7 @@ export const Header: React.FC<HeaderProps> = ({
   onLogout,
   onNavigate,
 }) => {
+  const canImpersonate = realRole === 'SUPER_ADMIN' || realRole === 'MUNICIPAL_ADMIN';
   const isOnline = useOnlineStatus();
   const { isInstallable, isInstalled, install, isIOS } = usePWAInstall();
   const [roleDropdownOpen, setRoleDropdownOpen] = useState(false);
@@ -212,54 +219,75 @@ export const Header: React.FC<HeaderProps> = ({
             )}
           </button>
 
-          {/* Role Switcher Dropdown (Prompt 03 RBAC) */}
+          {/* Perfil do usuário + (apenas admin) simulação de perfil auditada */}
           <div className="relative">
             <button
               onClick={() => setRoleDropdownOpen(!roleDropdownOpen)}
-              className="flex items-center gap-2 pl-2 pr-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700/80 border border-slate-700 transition"
-              title="Alternar Perfil / Role para testes de RBAC"
+              className={`flex items-center gap-2 pl-2 pr-2.5 py-1.5 rounded-lg border transition ${
+                isImpersonating
+                  ? 'bg-amber-600/20 border-amber-500/60 hover:bg-amber-600/30'
+                  : 'bg-slate-800 hover:bg-slate-700/80 border-slate-700'
+              }`}
+              title={canImpersonate ? 'Perfil e simulação de perfil (auditada)' : 'Meu perfil'}
             >
               <div className="w-6 h-6 rounded-full bg-sky-600 flex items-center justify-center text-xs font-bold text-white">
                 {currentUser.name.charAt(0)}
               </div>
               <div className="text-left hidden md:block">
                 <p className="text-xs font-medium text-slate-200 leading-tight">{currentUser.name}</p>
-                <p className="text-[10px] text-sky-400 leading-none">{currentRoleInfo.label}</p>
+                <p className={`text-[10px] leading-none ${isImpersonating ? 'text-amber-300' : 'text-sky-400'}`}>
+                  {isImpersonating ? `Simulando: ${currentRoleInfo.label}` : currentRoleInfo.label}
+                </p>
               </div>
               <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
             </button>
 
             {roleDropdownOpen && (
               <div className="absolute right-0 mt-2 w-72 bg-white rounded-xl shadow-2xl border border-slate-200 py-2 z-50 text-slate-800 animate-in fade-in zoom-in-95">
-                <div className="px-3 py-2 border-b border-slate-100">
-                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Simular Perfil / RBAC</p>
-                  <p className="text-[11px] text-slate-500">Alternar permissão e visão institucional:</p>
-                </div>
-                <div className="max-h-80 overflow-y-auto divide-y divide-slate-100">
-                  {ROLES_LIST.map(({ role, label, badgeColor }) => {
-                    const isSelected = currentUser.role === role;
-                    return (
+                {canImpersonate && (
+                  <>
+                    <div className="px-3 py-2 border-b border-slate-100">
+                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Simular Perfil (auditado)</p>
+                      <p className="text-[11px] text-slate-500">
+                        Pré-visualização de menu/permissões. O acesso a dados continua sendo o do seu perfil real.
+                      </p>
+                    </div>
+                    {isImpersonating && onStopImpersonation && (
                       <button
-                        key={role}
-                        onClick={() => {
-                          onSwitchRole(role);
-                          setRoleDropdownOpen(false);
-                        }}
-                        className={`w-full text-left px-3 py-2.5 hover:bg-slate-50 transition flex items-center justify-between ${
-                          isSelected ? 'bg-sky-50 font-semibold' : ''
-                        }`}
+                        onClick={() => { onStopImpersonation(); setRoleDropdownOpen(false); }}
+                        className="w-full text-left px-3 py-2 text-xs font-semibold text-amber-700 hover:bg-amber-50 transition flex items-center gap-2"
                       >
-                        <div>
-                          <p className="text-xs text-slate-900">{label}</p>
-                          <span className={`inline-block px-1.5 py-0.5 mt-0.5 rounded text-[9px] font-medium ${badgeColor}`}>
-                            {role}
-                          </span>
-                        </div>
-                        {isSelected && <UserCheck className="w-4 h-4 text-sky-600 flex-shrink-0" />}
+                        <X className="w-3.5 h-3.5" />
+                        Encerrar simulação (voltar a {realRole})
                       </button>
-                    );
-                  })}
-                </div>
+                    )}
+                    <div className="max-h-72 overflow-y-auto divide-y divide-slate-100">
+                      {ROLES_LIST.map(({ role, label, badgeColor }) => {
+                        const isSelected = currentUser.role === role;
+                        return (
+                          <button
+                            key={role}
+                            onClick={() => {
+                              onImpersonateRole(role);
+                              setRoleDropdownOpen(false);
+                            }}
+                            className={`w-full text-left px-3 py-2.5 hover:bg-slate-50 transition flex items-center justify-between ${
+                              isSelected ? 'bg-sky-50 font-semibold' : ''
+                            }`}
+                          >
+                            <div>
+                              <p className="text-xs text-slate-900">{label}</p>
+                              <span className={`inline-block px-1.5 py-0.5 mt-0.5 rounded text-[9px] font-medium ${badgeColor}`}>
+                                {role}
+                              </span>
+                            </div>
+                            {isSelected && <UserCheck className="w-4 h-4 text-sky-600 flex-shrink-0" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
 
                 {/* Botões de Perfil e Logout */}
                 <div className="p-2 border-t border-slate-100 bg-slate-50 rounded-b-xl space-y-1">

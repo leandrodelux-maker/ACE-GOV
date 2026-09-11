@@ -91,7 +91,19 @@ const PUBLIC_ROUTES = [
 ];
 
 function AppContent() {
-  const { user, municipality: authMunicipality, isAuthenticated, isLoading, logout, switchRole, can, hasRole } = useAuth();
+  const {
+    user,
+    municipality: authMunicipality,
+    isAuthenticated,
+    isLoading,
+    logout,
+    impersonateRole,
+    stopImpersonation,
+    isImpersonating,
+    realRole,
+    can,
+    hasRole,
+  } = useAuth();
 
   // Roteamento baseado no pathname do navegador
   const [currentPath, setCurrentPath] = useState<string>(() => {
@@ -288,6 +300,14 @@ function AppContent() {
     }
   }, [currentView, currentPath]);
 
+  // Se cair em /login já autenticado, encaminha para a rota inicial do perfil
+  useEffect(() => {
+    if (currentPath === '/login' && isAuthenticated) {
+      navigateTo(currentView);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPath, isAuthenticated]);
+
   // Sincronização manual de visitas salvas em offline
   const handleSync = () => {
     const offlineVisits = JSON.parse(localStorage.getItem('endemias_offline_visits') || '[]');
@@ -328,11 +348,9 @@ function AppContent() {
   // 3. Renderização de Rotas Públicas / Específicas
   if (currentPath === '/login') {
     if (isAuthenticated) {
-      // Se já autenticado, redireciona para a view principal
       return (
         <div className="min-h-screen bg-slate-900 flex items-center justify-center text-white">
           <p className="text-sm">Redirecionando para o painel de trabalho...</p>
-          {setTimeout(() => navigateTo(currentView), 50)}
         </div>
       );
     }
@@ -389,8 +407,12 @@ function AppContent() {
   }
 
   // 4. Aplicação Interna Autenticada
-  const currentUser: User = user || db.getCurrentUser();
-  const municipality = authMunicipality || db.getMunicipality();
+  // Sem usuário/município reais da sessão => volta ao login (nunca identidade-seed).
+  if (!user || !authMunicipality) {
+    return <LoginPage onNavigate={navigateTo} />;
+  }
+  const currentUser: User = user;
+  const municipality = authMunicipality;
   const alerts = db.getAlerts();
   const unreadAlertsCount = alerts.filter((a) => !a.resolved).length;
 
@@ -561,7 +583,10 @@ function AppContent() {
       {/* Top Main Navigation Header */}
       <Header
         currentUser={currentUser}
-        onSwitchRole={switchRole}
+        realRole={realRole}
+        isImpersonating={isImpersonating}
+        onImpersonateRole={impersonateRole}
+        onStopImpersonation={stopImpersonation}
         pendingSyncCount={pendingSyncCount}
         onSync={handleSync}
         onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
@@ -590,6 +615,7 @@ function AppContent() {
             setSidebarOpen(false);
           }}
           userRole={currentUser.role}
+          can={can}
           isOpen={sidebarOpen}
           onClose={() => setSidebarOpen(false)}
           pendingSyncCount={pendingSyncCount}
