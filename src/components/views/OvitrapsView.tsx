@@ -53,6 +53,7 @@ import {
   calculateOvitrapPositivityIndex,
   calculateEggDensityIndex,
 } from '../../services/ovitrapService';
+import { PageHeader } from '../ui';
 import { supabase } from '../../services/supabaseClient';
 import { supabaseService } from '../../services/supabaseService';
 import { Neighborhood } from '../../types';
@@ -605,67 +606,51 @@ export const OvitrapsView: React.FC<OvitrapsViewProps> = ({ onNavigate }) => {
       {/* ========================================================================= */}
       {/* 1. CABEÇALHO CENTRAL DE OVITRAMPAS (CORE MODULE)                           */}
       {/* ========================================================================= */}
-      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <span className="p-2.5 rounded-xl bg-sky-100 text-sky-700 shadow-2xs">
-              <Layers className="w-6 h-6" />
-            </span>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-black text-slate-900 tracking-tight">
-                  CENTRAL DE OVITRAMPAS
-                </h1>
-                <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-800 border border-indigo-200">
-                  CORE MODULE
-                </span>
-                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
-                  Rede Sentinela Ativa
-                </span>
-              </div>
-              <p className="text-xs text-slate-500 mt-1">
-                Vigilância Entomológica de Ovos de <em>Aedes aegypti</em> — Ferramenta Operacional, Territorial e Preditiva
-              </p>
-            </div>
-          </div>
-        </div>
+      <PageHeader
+        icon={Layers}
+        title="Central de Ovitrampas"
+        subtitle="Vigilância Entomológica de Ovos de Aedes aegypti — Ferramenta Operacional, Territorial e Preditiva"
+        badge={[
+          { label: 'CORE MODULE', tone: 'info' },
+          { label: 'Rede Sentinela Ativa', tone: 'success' },
+        ]}
+        actions={
+          <>
+            <button
+              onClick={loadData}
+              disabled={isLoading}
+              className="p-2.5 text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-xl transition"
+              title="Sincronizar e Recarregar Dados"
+            >
+              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-sky-600' : ''}`} />
+            </button>
 
-        {/* Ações Globais */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <button
-            onClick={loadData}
-            disabled={isLoading}
-            className="p-2.5 text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-xl transition"
-            title="Sincronizar e Recarregar Dados"
-          >
-            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-sky-600' : ''}`} />
-          </button>
+            <button
+              onClick={handleExportCSV}
+              className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 transition shadow-2xs"
+            >
+              <Download className="w-4 h-4 text-slate-500" />
+              <span>Exportar CSV</span>
+            </button>
 
-          <button
-            onClick={handleExportCSV}
-            className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 transition shadow-2xs"
-          >
-            <Download className="w-4 h-4 text-slate-500" />
-            <span>Exportar CSV</span>
-          </button>
+            <button
+              onClick={() => setShowPlanNetworkModal(true)}
+              className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-indigo-800 bg-indigo-50 border border-indigo-200 rounded-xl hover:bg-indigo-100 transition shadow-2xs"
+            >
+              <Crosshair className="w-4 h-4 text-indigo-600" />
+              <span>Planejar Rede</span>
+            </button>
 
-          <button
-            onClick={() => setShowPlanNetworkModal(true)}
-            className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-indigo-800 bg-indigo-50 border border-indigo-200 rounded-xl hover:bg-indigo-100 transition shadow-2xs"
-          >
-            <Crosshair className="w-4 h-4 text-indigo-600" />
-            <span>Planejar Rede</span>
-          </button>
-
-          <button
-            onClick={handleOpenCreatePoint}
-            className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-sky-600 hover:bg-sky-700 rounded-xl shadow-xs transition"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Cadastrar Ponto</span>
-          </button>
-        </div>
-      </div>
+            <button
+              onClick={handleOpenCreatePoint}
+              className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-sky-600 hover:bg-sky-700 rounded-xl shadow-xs transition"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Cadastrar Ponto</span>
+            </button>
+          </>
+        }
+      />
 
       {/* ========================================================================= */}
       {/* 2. FILTROS GLOBAIS NO TOPO (RESPONDEM A TODAS AS ABAS)                    */}

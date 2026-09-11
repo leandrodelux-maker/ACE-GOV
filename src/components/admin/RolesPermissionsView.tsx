@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Shield,
   KeyRound,
@@ -15,49 +15,76 @@ import { UserRole } from '../../types';
 import {
   PERMISSIONS_CATALOG,
   ROLES_REGISTRY,
-  getCustomPermissionsForRole,
-  saveCustomPermissionsForRole,
+  fetchRolePermissions,
+  saveRolePermissions,
 } from '../../services/rbac';
 import { useAuth } from '../../contexts/AuthContext';
+import { PageHeader } from '../ui';
+
+const PROTECTED_ROLES: UserRole[] = ['SUPER_ADMIN', 'MUNICIPAL_ADMIN'];
 
 export const RolesPermissionsView: React.FC = () => {
   const { user } = useAuth();
   const [selectedRole, setSelectedRole] = useState<UserRole>('FIELD_SUPERVISOR');
-  const [activePermissions, setActivePermissions] = useState<string[]>(() => {
-    return getCustomPermissionsForRole('FIELD_SUPERVISOR');
-  });
+  const [activePermissions, setActivePermissions] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Módulos agrupados para a matriz
+  const isProtected = PROTECTED_ROLES.includes(selectedRole);
+
+  // Módulos agrupados para a matriz (slugs canônicos em PT)
   const MODULES = [
-    { key: 'dashboard', name: 'Sala de Situação & Mapas', icon: '📊' },
-    { key: 'properties', name: 'Cadastro de Imóveis', icon: '🏠' },
-    { key: 'visits', name: 'Visitas Domiciliares', icon: '📝' },
-    { key: 'territory', name: 'Território Municipal', icon: '📍' },
-    { key: 'teams', name: 'Equipes de Campo', icon: '👥' },
-    { key: 'agents', name: 'Agentes (ACE)', icon: '🩺' },
-    { key: 'cycles', name: 'Ciclos de Trabalho (LIRAa)', icon: '🔄' },
-    { key: 'ovitraps', name: 'Ovitrampas (Entomologia)', icon: '🔬' },
-    { key: 'strategic_points', name: 'Pontos Estratégicos (PE)', icon: '🎯' },
-    { key: 'special_properties', name: 'Imóveis Especiais (IE)', icon: '🏢' },
-    { key: 'complaints', name: 'Denúncias do Cidadão', icon: '📢' },
-    { key: 'epidemiology', name: 'Epidemiologia & Bloqueios', icon: '⚠️' },
-    { key: 'field_planning', name: 'Planejamento & Rotas', icon: '🗺️' },
-    { key: 'reports', name: 'Relatórios Oficiais', icon: '📄' },
-    { key: 'users', name: 'Usuários do Sistema', icon: '👤' },
-    { key: 'roles', name: 'Perfis e Permissões (RBAC)', icon: '🔐' },
-    { key: 'settings', name: 'Configurações Municipais', icon: '⚙️' },
-    { key: 'audit', name: 'Auditoria & Logs', icon: '🛡️' },
+    { key: 'painel', name: 'Sala de Situação', icon: '📊' },
+    { key: 'mapas', name: 'Mapas', icon: '🗺️' },
+    { key: 'imoveis', name: 'Cadastro de Imóveis', icon: '🏠' },
+    { key: 'visitas', name: 'Visitas Domiciliares', icon: '📝' },
+    { key: 'territorio', name: 'Território Municipal', icon: '📍' },
+    { key: 'equipes', name: 'Equipes de Campo', icon: '👥' },
+    { key: 'agentes', name: 'Agentes (ACE)', icon: '🩺' },
+    { key: 'ciclos', name: 'Ciclos de Trabalho (LIRAa)', icon: '🔄' },
+    { key: 'focos', name: 'Focos e Surtos', icon: '🔥' },
+    { key: 'ovitrampas', name: 'Ovitrampas (Entomologia)', icon: '🔬' },
+    { key: 'pontos_estrategicos', name: 'Pontos Estratégicos (PE)', icon: '🎯' },
+    { key: 'imoveis_especiais', name: 'Imóveis Especiais (IE)', icon: '🏢' },
+    { key: 'denuncias', name: 'Denúncias do Cidadão', icon: '📢' },
+    { key: 'epidemiologia', name: 'Epidemiologia & Bloqueios', icon: '⚠️' },
+    { key: 'planejamento', name: 'Planejamento & Rotas', icon: '🧭' },
+    { key: 'relatorios', name: 'Relatórios Oficiais', icon: '📄' },
+    { key: 'motor_risco', name: 'Motor de Risco', icon: '📈' },
+    { key: 'ia_assistente', name: 'Assistente IA', icon: '✨' },
+    { key: 'usuarios', name: 'Usuários do Sistema', icon: '👤' },
+    { key: 'perfis', name: 'Perfis e Permissões (RBAC)', icon: '🔐' },
+    { key: 'configuracoes', name: 'Configurações Municipais', icon: '⚙️' },
+    { key: 'auditoria', name: 'Auditoria & Logs', icon: '🛡️' },
   ];
+
+  const loadRole = useCallback(async (role: UserRole) => {
+    setLoading(true);
+    setErrorMsg(null);
+    try {
+      const perms = await fetchRolePermissions(role);
+      setActivePermissions(perms);
+    } catch {
+      setActivePermissions(ROLES_REGISTRY[role]?.defaultPermissions || []);
+      setErrorMsg('Não foi possível carregar as permissões do banco; exibindo o padrão do perfil.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadRole(selectedRole);
+  }, [selectedRole, loadRole]);
 
   const handleSelectRole = (role: UserRole) => {
     setSelectedRole(role);
-    setActivePermissions(getCustomPermissionsForRole(role));
     setSaveSuccess(false);
   };
 
   const handleTogglePermission = (slug: string) => {
-    if (selectedRole === 'SUPER_ADMIN') return; // Super admin sempre possui tudo
+    if (isProtected) return; // papéis de plataforma têm tudo, sempre
 
     setActivePermissions((prev) =>
       prev.includes(slug) ? prev.filter((p) => p !== slug) : [...prev, slug]
@@ -66,7 +93,7 @@ export const RolesPermissionsView: React.FC = () => {
   };
 
   const handleToggleActionForModule = (moduleKey: string, actionPattern: string) => {
-    if (selectedRole === 'SUPER_ADMIN') return;
+    if (isProtected) return;
 
     const modulePerms = PERMISSIONS_CATALOG.filter(
       (p) => p.module === moduleKey && (p.slug.endsWith(`.${actionPattern}`) || p.action === actionPattern)
@@ -85,18 +112,31 @@ export const RolesPermissionsView: React.FC = () => {
     }
   };
 
+  const persist = async (perms: string[]) => {
+    setSaving(true);
+    setErrorMsg(null);
+    try {
+      await saveRolePermissions(selectedRole, perms);
+      setActivePermissions(perms);
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    } catch (e: any) {
+      setErrorMsg(e?.message?.includes('forbidden')
+        ? 'Você não tem permissão (perfis.manage) para alterar a matriz RBAC.'
+        : 'Falha ao salvar as permissões no banco. Tente novamente.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleSave = () => {
-    saveCustomPermissionsForRole(selectedRole, activePermissions);
-    setSaveSuccess(true);
-    setTimeout(() => setSaveSuccess(false), 3000);
+    if (isProtected) return;
+    persist(activePermissions);
   };
 
   const handleResetDefault = () => {
-    const defaultPerms = ROLES_REGISTRY[selectedRole]?.defaultPermissions || [];
-    setActivePermissions(defaultPerms);
-    saveCustomPermissionsForRole(selectedRole, defaultPerms);
-    setSaveSuccess(true);
-    setTimeout(() => setSaveSuccess(false), 3000);
+    if (isProtected) return;
+    persist(ROLES_REGISTRY[selectedRole]?.defaultPermissions || []);
   };
 
   const roleInfo = ROLES_REGISTRY[selectedRole] || ROLES_REGISTRY.FIELD_SUPERVISOR;
@@ -104,36 +144,47 @@ export const RolesPermissionsView: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Cabeçalho */}
-      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-            <KeyRound className="w-5 h-5 text-sky-600" />
-            <span>Matriz de Controle de Acesso e Permissões (RBAC)</span>
-          </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Configuração granular de segurança: Visualizar, Criar, Editar, Excluir e Exportar por módulo
-          </p>
-        </div>
+      <PageHeader
+        icon={KeyRound}
+        title="Matriz de Controle de Acesso e Permissões (RBAC)"
+        subtitle="Configuração granular de segurança: Visualizar, Criar, Editar, Excluir e Exportar por módulo"
+        actions={
+          <>
+            <button
+              onClick={handleResetDefault}
+              disabled={isProtected || saving || loading}
+              className="px-3 py-2 rounded-xl text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Restaurar permissões oficiais recomendadas pelo SUS"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Padrão SUS</span>
+            </button>
 
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleResetDefault}
-            className="px-3 py-2 rounded-xl text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 transition flex items-center gap-1.5 cursor-pointer"
-            title="Restaurar permissões oficiais recomendadas pelo SUS"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span>Padrão SUS</span>
-          </button>
+            <button
+              onClick={handleSave}
+              disabled={isProtected || saving || loading}
+              className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-sky-600 hover:bg-sky-500 transition shadow-sm flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Save className="w-3.5 h-3.5" />
+              <span>{saving ? 'Salvando...' : 'Salvar Permissões'}</span>
+            </button>
+          </>
+        }
+      />
 
-          <button
-            onClick={handleSave}
-            className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-sky-600 hover:bg-sky-500 transition shadow-sm flex items-center gap-1.5 cursor-pointer"
-          >
-            <Save className="w-3.5 h-3.5" />
-            <span>Salvar Permissões</span>
-          </button>
+      {isProtected && (
+        <div className="p-3.5 rounded-xl bg-slate-100 border border-slate-200 text-slate-600 text-xs flex items-center gap-2">
+          <Shield className="w-4 h-4 text-slate-500 shrink-0" />
+          <span>Perfis de plataforma (<strong>SUPER_ADMIN</strong> / <strong>MUNICIPAL_ADMIN</strong>) têm acesso total e não podem ser editados aqui.</span>
         </div>
-      </div>
+      )}
+
+      {errorMsg && (
+        <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+          <span>{errorMsg}</span>
+        </div>
+      )}
 
       {saveSuccess && (
         <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2 animate-in fade-in">
