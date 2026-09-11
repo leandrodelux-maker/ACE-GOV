@@ -24,6 +24,7 @@ import {
 } from '../../services/historicalAnalysisService';
 import { predictiveIntelligenceService, PredictiveOverview } from '../../services/predictiveIntelligenceService';
 import { supabase } from '../../services/supabaseClient';
+import { PageHeader } from '../ui';
 
 export const HistoricalAnalysisView: React.FC = () => {
   const municipalityId = '00000000-0000-0000-0000-000000000001';
@@ -90,46 +91,34 @@ export const HistoricalAnalysisView: React.FC = () => {
   return (
     <div className="space-y-6 pb-12">
       {/* Cabeçalho */}
-      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-600">
-            <BarChart2 className="w-6 h-6" />
+      <PageHeader
+        icon={BarChart2}
+        title="Análise Histórica & Séries Temporais"
+        subtitle="Comparações entre ciclos bimestrais, anos e semanas epidemiológicas • Detecção de tendências estatísticas"
+        badge={{ label: 'Vigilância & Inteligência', tone: 'info' }}
+        actions={
+          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-xs font-semibold">
+            <button
+              onClick={() => setActiveTab('COMPARATIVO')}
+              className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 ${
+                activeTab === 'COMPARATIVO' ? 'bg-white text-blue-700 shadow-xs font-bold' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <BarChart2 className="w-3.5 h-3.5" />
+              <span>Séries Históricas</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('PREDITIVA')}
+              className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 ${
+                activeTab === 'PREDITIVA' ? 'bg-white text-violet-700 shadow-xs font-bold' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Sparkles className="w-3.5 h-3.5 text-violet-600" />
+              <span>Inteligência Preditiva & Anomalias</span>
+            </button>
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl font-bold text-slate-900">Análise Histórica & Séries Temporais</h1>
-              <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 text-[10px] font-bold">
-                Vigilância & Inteligência
-              </span>
-            </div>
-            <p className="text-xs text-slate-500">
-              Comparações entre ciclos bimestrais, anos e semanas epidemiológicas • Detecção de tendências estatísticas
-            </p>
-          </div>
-        </div>
-
-        {/* Alternador de Abas */}
-        <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-xs font-semibold self-start md:self-auto">
-          <button
-            onClick={() => setActiveTab('COMPARATIVO')}
-            className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 ${
-              activeTab === 'COMPARATIVO' ? 'bg-white text-blue-700 shadow-xs font-bold' : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <BarChart2 className="w-3.5 h-3.5" />
-            <span>Séries Históricas</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('PREDITIVA')}
-            className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 ${
-              activeTab === 'PREDITIVA' ? 'bg-white text-violet-700 shadow-xs font-bold' : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <Sparkles className="w-3.5 h-3.5 text-violet-600" />
-            <span>Inteligência Preditiva & Anomalias</span>
-          </button>
-        </div>
-      </div>
+        }
+      />
 
       {activeTab === 'COMPARATIVO' ? (
         <>

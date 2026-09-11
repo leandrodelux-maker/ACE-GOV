@@ -23,6 +23,7 @@ import {
   WhatsAppProviderConfig,
   OperationalEvent
 } from '../../services/communicationService';
+import { PageHeader } from '../ui';
 
 export const CommunicationAdminView: React.FC = () => {
   const municipalityId = '00000000-0000-0000-0000-000000000001';
@@ -135,59 +136,51 @@ export const CommunicationAdminView: React.FC = () => {
   return (
     <div className="space-y-6 pb-12">
       {/* Cabeçalho */}
-      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-600">
-            <MessageSquare className="w-6 h-6" />
+      <PageHeader
+        icon={MessageSquare}
+        title="Comunicação Operacional & Notificações"
+        subtitle="Disparos institucionais para equipes de campo e gestores • WhatsApp Desacoplado • Conformidade LGPD"
+        actions={
+          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-xs font-semibold">
+            <button
+              onClick={() => setActiveTab('DISPATCH')}
+              className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 ${
+                activeTab === 'DISPATCH' ? 'bg-white text-emerald-700 shadow-xs font-bold' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Send className="w-3.5 h-3.5" />
+              <span>Disparo Rápido</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('TEMPLATES')}
+              className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 ${
+                activeTab === 'TEMPLATES' ? 'bg-white text-emerald-700 shadow-xs font-bold' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <FileText className="w-3.5 h-3.5" />
+              <span>Templates ({templates.length})</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('LOGS')}
+              className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 ${
+                activeTab === 'LOGS' ? 'bg-white text-emerald-700 shadow-xs font-bold' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Clock className="w-3.5 h-3.5" />
+              <span>Histórico ({logs.length})</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('SETTINGS')}
+              className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 ${
+                activeTab === 'SETTINGS' ? 'bg-white text-emerald-700 shadow-xs font-bold' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Server className="w-3.5 h-3.5" />
+              <span>Provedor Gateway</span>
+            </button>
           </div>
-          <div>
-            <h1 className="text-xl font-bold text-slate-900">Comunicação Operacional & Notificações</h1>
-            <p className="text-xs text-slate-500">
-              Disparos institucionais para equipes de campo e gestores • WhatsApp Desacoplado • Conformidade LGPD
-            </p>
-          </div>
-        </div>
-
-        {/* Abas */}
-        <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-xs font-semibold">
-          <button
-            onClick={() => setActiveTab('DISPATCH')}
-            className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 ${
-              activeTab === 'DISPATCH' ? 'bg-white text-emerald-700 shadow-xs font-bold' : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <Send className="w-3.5 h-3.5" />
-            <span>Disparo Rápido</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('TEMPLATES')}
-            className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 ${
-              activeTab === 'TEMPLATES' ? 'bg-white text-emerald-700 shadow-xs font-bold' : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <FileText className="w-3.5 h-3.5" />
-            <span>Templates ({templates.length})</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('LOGS')}
-            className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 ${
-              activeTab === 'LOGS' ? 'bg-white text-emerald-700 shadow-xs font-bold' : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <Clock className="w-3.5 h-3.5" />
-            <span>Histórico ({logs.length})</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('SETTINGS')}
-            className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 ${
-              activeTab === 'SETTINGS' ? 'bg-white text-emerald-700 shadow-xs font-bold' : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <Server className="w-3.5 h-3.5" />
-            <span>Provedor Gateway</span>
-          </button>
-        </div>
-      </div>
+        }
+      />
 
       {/* ABA 1: DISPARO OPERACIONAL */}
       {activeTab === 'DISPATCH' && (

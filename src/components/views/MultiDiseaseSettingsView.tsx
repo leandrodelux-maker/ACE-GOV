@@ -12,6 +12,7 @@ import {
   Info
 } from 'lucide-react';
 import { multiDiseaseService, DiseaseModuleConfig, DiseaseModuleId } from '../../services/multiDiseaseService';
+import { PageHeader } from '../ui';
 
 export const MultiDiseaseSettingsView: React.FC = () => {
   const municipalityId = '00000000-0000-0000-0000-000000000001';
@@ -53,27 +54,20 @@ export const MultiDiseaseSettingsView: React.FC = () => {
   return (
     <div className="space-y-6 pb-12">
       {/* Cabeçalho */}
-      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center text-teal-600">
-            <Layers className="w-6 h-6" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-slate-900">Configuração Multi-Endemias Municipal</h1>
-            <p className="text-xs text-slate-500">
-              Adapte o Endemias GOV ao perfil epidemiológico do seu município além do Aedes aegypti
-            </p>
-          </div>
-        </div>
-
-        <button
-          onClick={handleSave}
-          className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow-xs transition flex items-center gap-2 self-start md:self-auto"
-        >
-          <Save className="w-4 h-4" />
-          <span>Salvar Módulos Ativos</span>
-        </button>
-      </div>
+      <PageHeader
+        icon={Layers}
+        title="Configuração Multi-Endemias Municipal"
+        subtitle="Adapte o Endemias GOV ao perfil epidemiológico do seu município além do Aedes aegypti"
+        actions={
+          <button
+            onClick={handleSave}
+            className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow-xs transition flex items-center gap-2"
+          >
+            <Save className="w-4 h-4" />
+            <span>Salvar Módulos Ativos</span>
+          </button>
+        }
+      />
 
       {savedSuccess && (
         <div className="p-3 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-xl text-xs flex items-center gap-2">

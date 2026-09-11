@@ -17,6 +17,7 @@ import {
   X
 } from 'lucide-react';
 import { trainingService, Training, TrainingParticipant, AgentTrainingPassport } from '../../services/trainingService';
+import { PageHeader } from '../ui';
 
 export const TrainingsView: React.FC = () => {
   const municipalityId = '00000000-0000-0000-0000-000000000001';
@@ -115,27 +116,20 @@ export const TrainingsView: React.FC = () => {
   return (
     <div className="space-y-6 pb-12">
       {/* Cabeçalho */}
-      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-600">
-            <GraduationCap className="w-6 h-6" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-slate-900">Capacitação & Educação Permanente</h1>
-            <p className="text-xs text-slate-500">
-              Formação contínua de ACEs e Supervisores • Emissão de Certificados • Histórico Técnico
-            </p>
-          </div>
-        </div>
-
-        <button
-          onClick={() => setShowNewTrainingModal(true)}
-          className="px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-xl text-xs font-bold shadow-xs transition flex items-center gap-1.5 self-start md:self-auto"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Cadastrar Nova Capacitação</span>
-        </button>
-      </div>
+      <PageHeader
+        icon={GraduationCap}
+        title="Capacitação & Educação Permanente"
+        subtitle="Formação contínua de ACEs e Supervisores • Emissão de Certificados • Histórico Técnico"
+        actions={
+          <button
+            onClick={() => setShowNewTrainingModal(true)}
+            className="px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-xl text-xs font-bold shadow-xs transition flex items-center gap-1.5"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Cadastrar Nova Capacitação</span>
+          </button>
+        }
+      />
 
       {/* Grid de Turmas e Detalhes */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
