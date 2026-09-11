@@ -16,6 +16,7 @@ import { db } from '../../services/storage';
 import { Property } from '../../types';
 import { supabase } from '../../services/supabaseClient';
 import { supabaseService } from '../../services/supabaseService';
+import { PageHeader } from '../ui';
 
 export const FociAndRecurrenceView: React.FC = () => {
   const [properties, setProperties] = useState<Property[]>(db.getProperties());
@@ -133,31 +134,26 @@ export const FociAndRecurrenceView: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Top Header */}
-      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-base font-bold text-slate-900 flex items-center gap-2">
-            <Flame className="w-5 h-5 text-rose-600" />
-            <span>Central de Focos e Imóveis Reincidentes</span>
-          </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Monitoramento sanitário rigoroso de criadouros persistentes e reincidência de Aedes aegypti
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <span className="px-3 py-1.5 rounded-lg bg-rose-50 text-rose-700 text-xs font-bold border border-rose-200">
-            Regra Municipal: ≥ 2 focos ativos
-          </span>
-          <button
-            onClick={loadFociData}
-            disabled={isLoading}
-            className="p-2 text-slate-500 hover:text-slate-800 rounded-lg hover:bg-slate-100 transition"
-            title="Atualizar dados do banco"
-          >
-            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-rose-600' : ''}`} />
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        icon={Flame}
+        title="Central de Focos e Imóveis Reincidentes"
+        subtitle="Monitoramento sanitário rigoroso de criadouros persistentes e reincidência de Aedes aegypti"
+        actions={
+          <>
+            <span className="px-3 py-1.5 rounded-lg bg-rose-50 text-rose-700 text-xs font-bold border border-rose-200">
+              Regra Municipal: ≥ 2 focos ativos
+            </span>
+            <button
+              onClick={loadFociData}
+              disabled={isLoading}
+              className="p-2 text-slate-500 hover:text-slate-800 rounded-lg hover:bg-slate-100 transition"
+              title="Atualizar dados do banco"
+            >
+              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-rose-600' : ''}`} />
+            </button>
+          </>
+        }
+      />
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

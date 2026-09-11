@@ -11,6 +11,7 @@ import {
   Check,
 } from 'lucide-react';
 import { db } from '../../services/storage';
+import { PageHeader } from '../ui';
 
 export const AdministrationView: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'users' | 'municipality' | 'importer'>('municipality');
@@ -38,39 +39,33 @@ export const AdministrationView: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-base font-bold text-slate-900 flex items-center gap-2">
-            <Settings className="w-5 h-5 text-slate-700" />
-            <span>Administração do Sistema, Usuários & Importador de Dados</span>
-          </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Configuração institucional do município, controle de acesso RBAC e importação em lote de imóveis
-          </p>
-        </div>
-
-        {/* Tab switch */}
-        <div className="flex rounded-lg bg-slate-100 p-1 border border-slate-200 text-xs font-semibold">
-          <button
-            onClick={() => setActiveTab('municipality')}
-            className={`px-3 py-1.5 rounded-md transition ${activeTab === 'municipality' ? 'bg-white text-blue-700 shadow-xs' : 'text-slate-600'}`}
-          >
-            Município & Órgão
-          </button>
-          <button
-            onClick={() => setActiveTab('users')}
-            className={`px-3 py-1.5 rounded-md transition ${activeTab === 'users' ? 'bg-white text-blue-700 shadow-xs' : 'text-slate-600'}`}
-          >
-            Usuários & Perfis
-          </button>
-          <button
-            onClick={() => setActiveTab('importer')}
-            className={`px-3 py-1.5 rounded-md transition ${activeTab === 'importer' ? 'bg-white text-blue-700 shadow-xs' : 'text-slate-600'}`}
-          >
-            Importador CSV
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        icon={Settings}
+        title="Administração do Sistema, Usuários & Importador de Dados"
+        subtitle="Configuração institucional do município, controle de acesso RBAC e importação em lote de imóveis"
+        actions={
+          <div className="flex rounded-lg bg-slate-100 p-1 border border-slate-200 text-xs font-semibold">
+            <button
+              onClick={() => setActiveTab('municipality')}
+              className={`px-3 py-1.5 rounded-md transition ${activeTab === 'municipality' ? 'bg-white text-blue-700 shadow-xs' : 'text-slate-600'}`}
+            >
+              Município & Órgão
+            </button>
+            <button
+              onClick={() => setActiveTab('users')}
+              className={`px-3 py-1.5 rounded-md transition ${activeTab === 'users' ? 'bg-white text-blue-700 shadow-xs' : 'text-slate-600'}`}
+            >
+              Usuários & Perfis
+            </button>
+            <button
+              onClick={() => setActiveTab('importer')}
+              className={`px-3 py-1.5 rounded-md transition ${activeTab === 'importer' ? 'bg-white text-blue-700 shadow-xs' : 'text-slate-600'}`}
+            >
+              Importador CSV
+            </button>
+          </div>
+        }
+      />
 
       {/* Tab 1: Municipality Settings */}
       {activeTab === 'municipality' && (

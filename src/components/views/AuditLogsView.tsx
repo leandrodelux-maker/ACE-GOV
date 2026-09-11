@@ -3,6 +3,7 @@ import { Shield, Clock, Search, Filter, Lock, User } from 'lucide-react';
 import { db } from '../../services/storage';
 import { AuditLog } from '../../types';
 import { supabase } from '../../services/supabaseClient';
+import { PageHeader } from '../ui';
 
 export const AuditLogsView: React.FC = () => {
   const [logs, setLogs] = useState<AuditLog[]>(db.getAuditLogs());
@@ -54,28 +55,23 @@ export const AuditLogsView: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-base font-bold text-slate-900 flex items-center gap-2">
-            <Lock className="w-5 h-5 text-slate-700" />
-            <span>Auditoria de Conformidade & Trilha Imutável de Logs</span>
-          </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Registro detalhado e cronológico de todas as ações de usuários, alterações de cadastros e despachos
-          </p>
-        </div>
-
-        <div className="relative">
-          <input
-            type="text"
-            placeholder="Filtrar logs..."
-            value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
-            className="p-2 pl-8 rounded-lg border border-slate-300 text-xs w-64"
-          />
-          <Search className="w-4 h-4 text-slate-400 absolute left-2.5 top-2.5" />
-        </div>
-      </div>
+      <PageHeader
+        icon={Lock}
+        title="Auditoria de Conformidade & Trilha Imutável de Logs"
+        subtitle="Registro detalhado e cronológico de todas as ações de usuários, alterações de cadastros e despachos"
+        actions={
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Filtrar logs..."
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              className="p-2 pl-8 rounded-lg border border-slate-300 text-xs w-64"
+            />
+            <Search className="w-4 h-4 text-slate-400 absolute left-2.5 top-2.5" />
+          </div>
+        }
+      />
 
       {/* Logs Table */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">

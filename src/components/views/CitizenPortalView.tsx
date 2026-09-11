@@ -16,6 +16,7 @@ import {
 import { db } from '../../services/storage';
 import { supabaseService } from '../../services/supabaseService';
 import { CitizenComplaint } from '../../types';
+import { PageHeader } from '../ui';
 
 const DEFAULT_MUN_ID = '00000000-0000-0000-0000-000000000001';
 
@@ -139,49 +140,43 @@ export const CitizenPortalView: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Top Header */}
-      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-base font-bold text-slate-900 flex items-center gap-2">
-            <AlertCircle className="w-5 h-5 text-amber-500" />
-            <span>Portal do Cidadão & Ouvidoria de Endemias</span>
-          </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Canal de denúncias públicas de focos de mosquito conectado em tempo real com o banco de dados
-          </p>
-        </div>
-
-        {/* View mode switcher */}
-        <div className="flex items-center gap-2">
-          <button
-            onClick={loadComplaints}
-            disabled={loading}
-            className="p-2 text-slate-600 hover:text-blue-600 hover:bg-slate-100 rounded-lg transition border border-slate-200"
-            title="Recarregar denúncias"
-          >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-blue-600' : ''}`} />
-          </button>
-          <div className="flex rounded-lg bg-slate-100 p-1 border border-slate-200 text-xs font-semibold">
+      <PageHeader
+        icon={AlertCircle}
+        title="Portal do Cidadão & Ouvidoria de Endemias"
+        subtitle="Canal de denúncias públicas de focos de mosquito conectado em tempo real com o banco de dados"
+        actions={
+          <>
             <button
-              onClick={() => setActiveTab('internal')}
-              className={`px-3 py-1.5 rounded-md transition ${activeTab === 'internal' ? 'bg-white text-blue-700 shadow-xs' : 'text-slate-600'}`}
+              onClick={loadComplaints}
+              disabled={loading}
+              className="p-2 text-slate-600 hover:text-blue-600 hover:bg-slate-100 rounded-lg transition border border-slate-200"
+              title="Recarregar denúncias"
             >
-              Gestão Interna ({complaints.length})
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-blue-600' : ''}`} />
             </button>
-            <button
-              onClick={() => setActiveTab('public_form')}
-              className={`px-3 py-1.5 rounded-md transition ${activeTab === 'public_form' ? 'bg-white text-blue-700 shadow-xs' : 'text-slate-600'}`}
-            >
-              Formulário Cidadão
-            </button>
-            <button
-              onClick={() => setActiveTab('search_protocol')}
-              className={`px-3 py-1.5 rounded-md transition ${activeTab === 'search_protocol' ? 'bg-white text-blue-700 shadow-xs' : 'text-slate-600'}`}
-            >
-              Consultar Protocolo
-            </button>
-          </div>
-        </div>
-      </div>
+            <div className="flex rounded-lg bg-slate-100 p-1 border border-slate-200 text-xs font-semibold">
+              <button
+                onClick={() => setActiveTab('internal')}
+                className={`px-3 py-1.5 rounded-md transition ${activeTab === 'internal' ? 'bg-white text-blue-700 shadow-xs' : 'text-slate-600'}`}
+              >
+                Gestão Interna ({complaints.length})
+              </button>
+              <button
+                onClick={() => setActiveTab('public_form')}
+                className={`px-3 py-1.5 rounded-md transition ${activeTab === 'public_form' ? 'bg-white text-blue-700 shadow-xs' : 'text-slate-600'}`}
+              >
+                Formulário Cidadão
+              </button>
+              <button
+                onClick={() => setActiveTab('search_protocol')}
+                className={`px-3 py-1.5 rounded-md transition ${activeTab === 'search_protocol' ? 'bg-white text-blue-700 shadow-xs' : 'text-slate-600'}`}
+              >
+                Consultar Protocolo
+              </button>
+            </div>
+          </>
+        }
+      />
 
       {/* Mode 1: Internal Oversight List */}
       {activeTab === 'internal' && (

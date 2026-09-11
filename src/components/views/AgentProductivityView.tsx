@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { agentProductivityService, AgentProductivityMetric, TeamProductivityMetric } from '../../services/agentProductivityService';
 import { epidemiologicalWeekService } from '../../services/epidemiologicalWeekService';
+import { PageHeader } from '../ui';
 
 export const AgentProductivityView: React.FC = () => {
   const [agents, setAgents] = useState<AgentProductivityMetric[]>([]);
@@ -83,31 +84,26 @@ export const AgentProductivityView: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Top Banner Institucional */}
-      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-base font-bold text-slate-900 flex items-center gap-2">
-            <Users className="w-5 h-5 text-emerald-600" />
-            <span>Gestão Operacional de Produtividade dos Agentes (ACE)</span>
-          </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Acompanhamento técnico não punitivo: equilíbrio de carga de trabalho, cobertura de ciclo e apoio às microáreas
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2 text-xs">
-          <div className="bg-emerald-50 text-emerald-800 font-bold px-3 py-1.5 rounded-lg border border-emerald-200 flex items-center gap-1.5">
-            <Calendar className="w-4 h-4 text-emerald-600" />
-            <span>SE {currentSE.week}/{currentSE.year} (Ciclo I - 2026)</span>
-          </div>
-          <button
-            onClick={loadData}
-            className="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition"
-            title="Atualizar dados"
-          >
-            <RefreshCw className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        icon={Users}
+        title="Gestão Operacional de Produtividade dos Agentes (ACE)"
+        subtitle="Acompanhamento técnico não punitivo: equilíbrio de carga de trabalho, cobertura de ciclo e apoio às microáreas"
+        actions={
+          <>
+            <div className="bg-emerald-50 text-emerald-800 font-bold px-3 py-1.5 rounded-lg border border-emerald-200 flex items-center gap-1.5 text-xs">
+              <Calendar className="w-4 h-4 text-emerald-600" />
+              <span>SE {currentSE.week}/{currentSE.year} (Ciclo I - 2026)</span>
+            </div>
+            <button
+              onClick={loadData}
+              className="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition"
+              title="Atualizar dados"
+            >
+              <RefreshCw className="w-4 h-4" />
+            </button>
+          </>
+        }
+      />
 
       {/* 4 Cards de Indicadores Globais */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Clock, Calendar, CheckCircle2, AlertCircle, RefreshCw, Layers, Plus } from 'lucide-react';
 import { supabaseService } from '../../services/supabaseService';
 import { FieldCycle } from '../../types';
+import { PageHeader } from '../ui';
 
 export const CyclesView: React.FC = () => {
   const [cycles, setCycles] = useState<FieldCycle[]>([]);
@@ -35,26 +36,21 @@ export const CyclesView: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-base font-bold text-slate-900 flex items-center gap-2">
-            <Clock className="w-5 h-5 text-blue-600" />
-            <span>Ciclos Operacionais & Cronograma LIRAa / LIA</span>
-          </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Gerenciamento dos ciclos bimestrais de visitas e metas pactuadas com o Ministério da Saúde
-          </p>
-        </div>
-
-        <button
-          onClick={loadCycles}
-          disabled={isLoading}
-          className="p-2 text-slate-500 hover:text-slate-800 rounded-lg hover:bg-slate-100 transition"
-          title="Atualizar ciclos"
-        >
-          <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-blue-600' : ''}`} />
-        </button>
-      </div>
+      <PageHeader
+        icon={Clock}
+        title="Ciclos Operacionais & Cronograma LIRAa / LIA"
+        subtitle="Gerenciamento dos ciclos bimestrais de visitas e metas pactuadas com o Ministério da Saúde"
+        actions={
+          <button
+            onClick={loadCycles}
+            disabled={isLoading}
+            className="p-2 text-slate-500 hover:text-slate-800 rounded-lg hover:bg-slate-100 transition"
+            title="Atualizar ciclos"
+          >
+            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-blue-600' : ''}`} />
+          </button>
+        }
+      />
 
       {isLoading ? (
         <div className="py-16 text-center text-slate-400 bg-white rounded-xl border border-slate-200">

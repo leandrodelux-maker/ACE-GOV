@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { alertsService, AlertNotificationItem } from '../../services/alertsService';
 import { supabaseService } from '../../services/supabaseService';
+import { PageHeader } from '../ui';
 
 export const AlertsView: React.FC = () => {
   const [alerts, setAlerts] = useState<AlertNotificationItem[]>([]);
@@ -62,56 +63,50 @@ export const AlertsView: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-base font-bold text-slate-900 flex items-center gap-2">
-            <Bell className="w-5 h-5 text-rose-600" />
-            <span>Central de Alertas em Tempo Real (Supabase)</span>
-          </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Incidentes epidemiológicos, entomológicos, operacionais e administrativos conectados ao banco
-          </p>
-        </div>
+      <PageHeader
+        icon={Bell}
+        title="Central de Alertas em Tempo Real (Supabase)"
+        subtitle="Incidentes epidemiológicos, entomológicos, operacionais e administrativos conectados ao banco"
+        actions={
+          <>
+            <div className="flex rounded-lg bg-slate-100 p-1 border border-slate-200 text-xs font-semibold">
+              <button
+                onClick={() => setFilterType('ALL')}
+                className={`px-3 py-1.5 rounded-md transition ${filterType === 'ALL' ? 'bg-white text-blue-700 shadow-xs' : 'text-slate-600'}`}
+              >
+                Todos ({alerts.length})
+              </button>
+              <button
+                onClick={() => setFilterType('CRITICO')}
+                className={`px-3 py-1.5 rounded-md transition ${filterType === 'CRITICO' ? 'bg-white text-rose-700 shadow-xs' : 'text-slate-600'}`}
+              >
+                Críticos
+              </button>
+              <button
+                onClick={() => setFilterType('EPIDEMIOLOGICO')}
+                className={`px-3 py-1.5 rounded-md transition ${filterType === 'EPIDEMIOLOGICO' ? 'bg-white text-blue-700 shadow-xs' : 'text-slate-600'}`}
+              >
+                Epidemiológicos
+              </button>
+              <button
+                onClick={() => setFilterType('ENTOMOLOGICO')}
+                className={`px-3 py-1.5 rounded-md transition ${filterType === 'ENTOMOLOGICO' ? 'bg-white text-blue-700 shadow-xs' : 'text-slate-600'}`}
+              >
+                Entomológicos
+              </button>
+            </div>
 
-        <div className="flex items-center gap-3">
-          {/* Filter */}
-          <div className="flex rounded-lg bg-slate-100 p-1 border border-slate-200 text-xs font-semibold">
             <button
-              onClick={() => setFilterType('ALL')}
-              className={`px-3 py-1.5 rounded-md transition ${filterType === 'ALL' ? 'bg-white text-blue-700 shadow-xs' : 'text-slate-600'}`}
+              onClick={loadAlerts}
+              disabled={isLoading}
+              className="p-2 text-slate-500 hover:text-slate-800 rounded-lg hover:bg-slate-100 transition"
+              title="Recarregar alertas"
             >
-              Todos ({alerts.length})
+              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-rose-600' : ''}`} />
             </button>
-            <button
-              onClick={() => setFilterType('CRITICO')}
-              className={`px-3 py-1.5 rounded-md transition ${filterType === 'CRITICO' ? 'bg-white text-rose-700 shadow-xs' : 'text-slate-600'}`}
-            >
-              Críticos
-            </button>
-            <button
-              onClick={() => setFilterType('EPIDEMIOLOGICO')}
-              className={`px-3 py-1.5 rounded-md transition ${filterType === 'EPIDEMIOLOGICO' ? 'bg-white text-blue-700 shadow-xs' : 'text-slate-600'}`}
-            >
-              Epidemiológicos
-            </button>
-            <button
-              onClick={() => setFilterType('ENTOMOLOGICO')}
-              className={`px-3 py-1.5 rounded-md transition ${filterType === 'ENTOMOLOGICO' ? 'bg-white text-blue-700 shadow-xs' : 'text-slate-600'}`}
-            >
-              Entomológicos
-            </button>
-          </div>
-
-          <button
-            onClick={loadAlerts}
-            disabled={isLoading}
-            className="p-2 text-slate-500 hover:text-slate-800 rounded-lg hover:bg-slate-100 transition"
-            title="Recarregar alertas"
-          >
-            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-rose-600' : ''}`} />
-          </button>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       {/* Alerts Feed */}
       {isLoading ? (
