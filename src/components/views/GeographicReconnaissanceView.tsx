@@ -27,6 +27,7 @@ import {
   RGIndicators,
   RGCadastralAnomaly,
 } from '../../services/geographicReconnaissanceService';
+import { PageHeader } from '../ui';
 
 export const GeographicReconnaissanceView: React.FC = () => {
   const [indicators, setIndicators] = useState<RGIndicators>({
@@ -231,41 +232,31 @@ export const GeographicReconnaissanceView: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Cabeçalho */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 uppercase tracking-wider">
-              TERRITÓRIO & CONTROLE
-            </span>
-            <span className="text-xs text-slate-400">• Base Cartográfica Territorial</span>
-          </div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight mt-1 flex items-center gap-2">
-            <Map className="w-7 h-7 text-emerald-400" />
-            Reconhecimento Geográfico — RG
-          </h1>
-          <p className="text-sm text-slate-500">
-            Base territorial viva de imóveis, setores, microáreas e designação de ACE para planejamento de ciclos.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <button
-            onClick={loadData}
-            className="px-3 py-2 bg-white hover:bg-slate-50 text-slate-700 rounded-lg text-sm font-medium border border-slate-200 flex items-center gap-2 transition shadow-xs"
-            title="Recarregar dados"
-          >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-emerald-400' : ''}`} />
-            <span>Atualizar</span>
-          </button>
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-medium flex items-center gap-2 shadow-lg shadow-emerald-900/30 transition"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Novo Imóvel (RG)</span>
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        icon={Map}
+        title="Reconhecimento Geográfico — RG"
+        subtitle="Base territorial viva de imóveis, setores, microáreas e designação de ACE para planejamento de ciclos."
+        badge={{ label: 'TERRITÓRIO & CONTROLE', tone: 'success' }}
+        actions={
+          <>
+            <button
+              onClick={loadData}
+              className="px-3 py-2 bg-white hover:bg-slate-50 text-slate-700 rounded-lg text-sm font-medium border border-slate-200 flex items-center gap-2 transition shadow-xs"
+              title="Recarregar dados"
+            >
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-emerald-400' : ''}`} />
+              <span>Atualizar</span>
+            </button>
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-medium flex items-center gap-2 shadow-lg shadow-emerald-900/30 transition"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Novo Imóvel (RG)</span>
+            </button>
+          </>
+        }
+      />
 
       {/* Cards de Indicadores Reais */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">

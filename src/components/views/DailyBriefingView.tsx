@@ -19,6 +19,7 @@ import {
   ArrowRight
 } from 'lucide-react';
 import { dailyBriefingService, DailyBriefingData } from '../../services/dailyBriefingService';
+import { PageHeader } from '../ui';
 
 export const DailyBriefingView: React.FC = () => {
   const municipalityId = '00000000-0000-0000-0000-000000000001';
@@ -57,40 +58,31 @@ export const DailyBriefingView: React.FC = () => {
   return (
     <div className="space-y-6 pb-12 print:space-y-4 print:pb-0 print:text-black">
       {/* Topo do Briefing com Ações (oculto na impressão para o PDF ser limpo) */}
-      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4 print:hidden">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-xl bg-slate-900 flex items-center justify-center text-white">
-            <FileText className="w-6 h-6 text-emerald-400" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl font-bold text-slate-900">Briefing Diário de Vigilância</h1>
-              <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[10px] font-bold">
-                Relatório Executivo Matinal
-              </span>
-            </div>
-            <p className="text-xs text-slate-500">
-              Síntese automatizada para o Secretário Municipal de Saúde e Coordenação de Endemias
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button
-            onClick={loadBriefing}
-            className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition flex items-center gap-1.5"
-          >
-            <RefreshCw className="w-3.5 h-3.5" />
-            <span>Atualizar</span>
-          </button>
-          <button
-            onClick={handlePrintPdf}
-            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs transition flex items-center gap-2"
-          >
-            <Printer className="w-4 h-4" />
-            <span>Gerar PDF do Briefing</span>
-          </button>
-        </div>
+      <div className="print:hidden">
+        <PageHeader
+          icon={FileText}
+          title="Briefing Diário de Vigilância"
+          subtitle="Síntese automatizada para o Secretário Municipal de Saúde e Coordenação de Endemias"
+          badge={{ label: 'Relatório Executivo Matinal', tone: 'info' }}
+          actions={
+            <>
+              <button
+                onClick={loadBriefing}
+                className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition flex items-center gap-1.5"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>Atualizar</span>
+              </button>
+              <button
+                onClick={handlePrintPdf}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs transition flex items-center gap-2"
+              >
+                <Printer className="w-4 h-4" />
+                <span>Gerar PDF do Briefing</span>
+              </button>
+            </>
+          }
+        />
       </div>
 
       {/* DOCUMENTO OFICIAL DO BRIEFING (Formatado para tela e impressão PDF) */}

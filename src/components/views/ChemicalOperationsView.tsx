@@ -23,6 +23,7 @@ import {
   ChemicalOperation,
 } from '../../services/chemicalOperationsService';
 import { stockService, Product } from '../../services/stockService';
+import { PageHeader } from '../ui';
 
 export const ChemicalOperationsView: React.FC = () => {
   const [operations, setOperations] = useState<ChemicalOperation[]>([]);
@@ -164,40 +165,30 @@ export const ChemicalOperationsView: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Cabeçalho */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 uppercase tracking-wider">
-              CONTROLE VETORIAL
-            </span>
-            <span className="text-xs text-slate-400">• Operações Químicas & UBV</span>
-          </div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight mt-1 flex items-center gap-2">
-            <Flame className="w-7 h-7 text-cyan-400" />
-            Controle Químico e UBV
-          </h1>
-          <p className="text-sm text-slate-500">
-            Planejamento de rotas UBV, tratamento perifocal, controle estrito de lotes e baixa automática de estoque.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <button
-            onClick={loadData}
-            className="px-3 py-2 bg-white hover:bg-slate-50 text-slate-700 rounded-lg text-sm font-medium border border-slate-200 flex items-center gap-2 transition shadow-xs"
-          >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-cyan-400' : ''}`} />
-            <span>Atualizar</span>
-          </button>
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg text-sm font-medium flex items-center gap-2 shadow-lg shadow-cyan-900/30 transition"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Nova Operação Química</span>
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        icon={Flame}
+        title="Controle Químico e UBV"
+        subtitle="Planejamento de rotas UBV, tratamento perifocal, controle estrito de lotes e baixa automática de estoque."
+        badge={{ label: 'CONTROLE VETORIAL', tone: 'info' }}
+        actions={
+          <>
+            <button
+              onClick={loadData}
+              className="px-3 py-2 bg-white hover:bg-slate-50 text-slate-700 rounded-lg text-sm font-medium border border-slate-200 flex items-center gap-2 transition shadow-xs"
+            >
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-cyan-400' : ''}`} />
+              <span>Atualizar</span>
+            </button>
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg text-sm font-medium flex items-center gap-2 shadow-lg shadow-cyan-900/30 transition"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Nova Operação Química</span>
+            </button>
+          </>
+        }
+      />
 
       {/* Tabela de Operações */}
       <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs">

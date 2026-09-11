@@ -19,6 +19,7 @@ import {
   TargetProgressStatus,
   ManagementTarget
 } from '../../services/managementTargetsService';
+import { PageHeader } from '../ui';
 
 export const ManagementTargetsView: React.FC = () => {
   const municipalityId = '00000000-0000-0000-0000-000000000001';
@@ -90,32 +91,21 @@ export const ManagementTargetsView: React.FC = () => {
   return (
     <div className="space-y-6 pb-12">
       {/* Cabeçalho */}
-      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-600">
-            <Target className="w-6 h-6" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl font-bold text-slate-900">Metas & Indicadores de Gestão Municipal</h1>
-              <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
-                Ano {currentYear}
-              </span>
-            </div>
-            <p className="text-xs text-slate-500">
-              Acompanhamento de resultados e diretrizes estratégicas de saúde pública • Vigilância por Desempenho
-            </p>
-          </div>
-        </div>
-
-        <button
-          onClick={() => setShowModal(true)}
-          className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow-xs transition flex items-center gap-1.5 self-start md:self-auto"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Cadastrar Nova Meta</span>
-        </button>
-      </div>
+      <PageHeader
+        icon={Target}
+        title="Metas & Indicadores de Gestão Municipal"
+        subtitle="Acompanhamento de resultados e diretrizes estratégicas de saúde pública • Vigilância por Desempenho"
+        badge={{ label: `Ano ${currentYear}`, tone: 'success' }}
+        actions={
+          <button
+            onClick={() => setShowModal(true)}
+            className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow-xs transition flex items-center gap-1.5"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Cadastrar Nova Meta</span>
+          </button>
+        }
+      />
 
       {/* Resumo do Painel de Metas */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

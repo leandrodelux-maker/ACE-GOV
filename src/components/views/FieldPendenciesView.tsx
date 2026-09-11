@@ -23,6 +23,7 @@ import {
   PendingVisitItem,
   PendencyIndicators,
 } from '../../services/pendencyManagementService';
+import { PageHeader } from '../ui';
 
 export const FieldPendenciesView: React.FC = () => {
   const [indicators, setIndicators] = useState<PendencyIndicators>({
@@ -131,40 +132,30 @@ export const FieldPendenciesView: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Cabeçalho */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/20 uppercase tracking-wider">
-              OPERACIONAL
-            </span>
-            <span className="text-xs text-slate-400">• Gestão de Cobertura e Desfechos</span>
-          </div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight mt-1 flex items-center gap-2">
-            <Clock className="w-7 h-7 text-rose-400" />
-            Pendências de Campo & Recuperação de Fechados
-          </h1>
-          <p className="text-sm text-slate-500">
-            Monitoramento de imóveis fechados, recusas, agendamento de retornos e recuperação automática por novas visitas.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <button
-            onClick={loadData}
-            className="px-3 py-2 bg-white hover:bg-slate-50 text-slate-700 rounded-lg text-sm font-medium border border-slate-200 flex items-center gap-2 transition shadow-xs"
-          >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-rose-400' : ''}`} />
-            <span>Atualizar</span>
-          </button>
-          <button
-            onClick={handleGenerateRecoveryRoute}
-            className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-sm font-medium flex items-center gap-2 shadow-lg shadow-rose-900/30 transition"
-          >
-            <RotateCcw className="w-4 h-4" />
-            <span>Roteiro de Recuperação</span>
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        icon={Clock}
+        title="Pendências de Campo & Recuperação de Fechados"
+        subtitle="Monitoramento de imóveis fechados, recusas, agendamento de retornos e recuperação automática por novas visitas."
+        badge={{ label: 'OPERACIONAL', tone: 'danger' }}
+        actions={
+          <>
+            <button
+              onClick={loadData}
+              className="px-3 py-2 bg-white hover:bg-slate-50 text-slate-700 rounded-lg text-sm font-medium border border-slate-200 flex items-center gap-2 transition shadow-xs"
+            >
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-rose-400' : ''}`} />
+              <span>Atualizar</span>
+            </button>
+            <button
+              onClick={handleGenerateRecoveryRoute}
+              className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-sm font-medium flex items-center gap-2 shadow-lg shadow-rose-900/30 transition"
+            >
+              <RotateCcw className="w-4 h-4" />
+              <span>Roteiro de Recuperação</span>
+            </button>
+          </>
+        }
+      />
 
       {/* Alerta de Pendências Críticas */}
       {indicators.criticalPendingCount > 0 && (
