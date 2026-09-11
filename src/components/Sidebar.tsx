@@ -52,7 +52,6 @@ import {
   Database,
 } from 'lucide-react';
 import { UserRole } from '../types';
-import { can } from '../services/rbac';
 
 export type ViewModule =
   | 'dashboard'
@@ -118,6 +117,7 @@ interface SidebarProps {
   currentView: ViewModule;
   onSelectView: (view: ViewModule) => void;
   userRole: UserRole;
+  can: (permission: string) => boolean;
   isOpen: boolean;
   onClose: () => void;
   pendingSyncCount: number;
@@ -140,6 +140,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   currentView,
   onSelectView,
   userRole,
+  can,
   isOpen,
   onClose,
   pendingSyncCount,
@@ -253,7 +254,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
       items: section.items.filter((item) => {
         if (item.allowedRoles && !item.allowedRoles.includes(userRole)) return false;
         if (!item.requiredPermission) return true;
-        return can(userRole, item.requiredPermission);
+        // requiredPermission usa slugs legados (EN); can() normaliza para PT.
+        return can(item.requiredPermission);
       }),
     }))
     .filter((section) => section.items.length > 0);
