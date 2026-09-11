@@ -20,13 +20,38 @@ import {
 } from 'lucide-react';
 import { supabase } from '../../services/supabaseClient';
 import { supabaseService } from '../../services/supabaseService';
+import { systemSettingsService } from '../../services/systemSettingsService';
 import { Neighborhood } from '../../types';
 import { PageHeader } from '../ui';
+
+const getInitialMapConfig = () => {
+  try {
+    const cached = localStorage.getItem('endemias_settings_MAPA');
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      return {
+        centerLatitude: typeof parsed.centerLatitude === 'number' ? parsed.centerLatitude : parseFloat(parsed.centerLatitude) || -29.7180,
+        centerLongitude: typeof parsed.centerLongitude === 'number' ? parsed.centerLongitude : parseFloat(parsed.centerLongitude) || -52.4280,
+        defaultZoom: typeof parsed.defaultZoom === 'number' ? parsed.defaultZoom : parseInt(parsed.defaultZoom) || 14,
+        defaultLayer: parsed.defaultLayer || 'RISK_HEATMAP',
+      };
+    }
+  } catch {}
+  return {
+    centerLatitude: -29.7180,
+    centerLongitude: -52.4280,
+    defaultZoom: 14,
+    defaultLayer: 'RISK_HEATMAP',
+  };
+};
 
 export const MapView: React.FC = () => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
   const markersLayerRef = useRef<any>(null);
+
+  // Configurações dinâmicas de centro e zoom carregadas da Central de Configurações
+  const [mapConfig, setMapConfig] = useState(getInitialMapConfig);
 
   // Layer toggles
   const [showProperties, setShowProperties] = useState(true);
@@ -88,6 +113,57 @@ export const MapView: React.FC = () => {
     };
     loadNeighs();
   }, []);
+
+  // Carregar configurações de mapa do banco PostgreSQL
+  useEffect(() => {
+    const loadMapSettings = async () => {
+      try {
+        const muni = await supabaseService.getMunicipality();
+        const cfg = await systemSettingsService.getCategorySettings('MAPA', muni?.id);
+        if (cfg) {
+          const lat = typeof cfg.centerLatitude === 'number' ? cfg.centerLatitude : parseFloat(cfg.centerLatitude) || -29.7180;
+          const lng = typeof cfg.centerLongitude === 'number' ? cfg.centerLongitude : parseFloat(cfg.centerLongitude) || -52.4280;
+          const zoom = typeof cfg.defaultZoom === 'number' ? cfg.defaultZoom : parseInt(cfg.defaultZoom) || 14;
+          const layer = cfg.defaultLayer || 'RISK_HEATMAP';
+
+          setMapConfig({
+            centerLatitude: lat,
+            centerLongitude: lng,
+            defaultZoom: zoom,
+            defaultLayer: layer,
+          });
+
+          // Se a instância do mapa já foi criada, reposiciona imediatamente
+          if (mapInstanceRef.current) {
+            mapInstanceRef.current.setView([lat, lng], zoom);
+          }
+        }
+      } catch (err) {
+        console.warn('Erro ao carregar parâmetros de mapa:', err);
+      }
+    };
+    loadMapSettings();
+  }, []);
+
+  // Centralizar mapa nas coordenadas configuradas da prefeitura
+  const handleRecenter = () => {
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.setView(
+        [mapConfig.centerLatitude, mapConfig.centerLongitude],
+        mapConfig.defaultZoom
+      );
+    }
+  };
+
+  // Se trocar o bairro filtrado, centraliza no bairro selecionado
+  useEffect(() => {
+    if (selectedNeighborhood !== 'ALL' && mapInstanceRef.current) {
+      const neigh = neighborhoodsList.find(n => n.id === selectedNeighborhood);
+      if (neigh?.latitude && neigh?.longitude) {
+        mapInstanceRef.current.setView([neigh.latitude, neigh.longitude], 15);
+      }
+    }
+  }, [selectedNeighborhood, neighborhoodsList]);
 
   // Carregar dados reais do Supabase
   const loadMapData = useCallback(async () => {
@@ -151,16 +227,15 @@ export const MapView: React.FC = () => {
     loadMapData();
   }, [loadMapData]);
 
-  // Inicializar Leaflet map
+  // Inicializar Leaflet map com as coordenadas da Central de Configurações
   useEffect(() => {
     if (!mapContainerRef.current) return;
     if (mapInstanceRef.current) return;
 
     import('leaflet').then(L => {
-      // Centro geográfico padrão (-29.7180, -52.4280)
       const map = L.map(mapContainerRef.current!, {
-        center: [-29.7180, -52.4280],
-        zoom: 14,
+        center: [mapConfig.centerLatitude, mapConfig.centerLongitude],
+        zoom: mapConfig.defaultZoom,
         zoomControl: true,
       });
 
@@ -184,7 +259,7 @@ export const MapView: React.FC = () => {
     };
   }, []);
 
-  // Re-renderizar layers quando filtros ou dados mudarem
+  // Re-renderizar layers quando filtros, dados ou coordenadas mudarem
   useEffect(() => {
     if (!mapInstanceRef.current || !markersLayerRef.current) return;
     import('leaflet').then(L => {
@@ -192,6 +267,7 @@ export const MapView: React.FC = () => {
     });
   }, [
     mapData,
+    mapConfig,
     showProperties,
     showVisits,
     showPendencies,
@@ -208,13 +284,15 @@ export const MapView: React.FC = () => {
 
   const renderLayers = (L: any, map: any, layerGroup: any) => {
     layerGroup.clearLayers();
+    const defLat = mapConfig.centerLatitude;
+    const defLng = mapConfig.centerLongitude;
 
     // 1. Círculos de Risco Territorial por Bairro
     if (showTerritoryRisk) {
       neighborhoodsList.forEach(n => {
         if (selectedRiskLevel !== 'ALL' && n.riskLevel !== selectedRiskLevel) return;
         const color = n.riskLevel === 'CRITICO' ? '#ef4444' : n.riskLevel === 'ALTO' ? '#f97316' : '#10b981';
-        const circle = L.circle([n.latitude || -29.718, n.longitude || -52.428], {
+        const circle = L.circle([n.latitude || defLat, n.longitude || defLng], {
           radius: 500,
           color: color,
           fillColor: color,
@@ -230,7 +308,7 @@ export const MapView: React.FC = () => {
     // 2. Raios de Bloqueio Epidemiológico (150m a 300m)
     if (showBlocks) {
       mapData.blocks.forEach(blk => {
-        const circle = L.circle([blk.latitude || -29.7125, blk.longitude || -52.4290], {
+        const circle = L.circle([blk.latitude || defLat, blk.longitude || defLng], {
           radius: blk.radius_meters || 150,
           color: '#ef4444',
           fillColor: '#f87171',
@@ -255,7 +333,7 @@ export const MapView: React.FC = () => {
         if (isRecurrent && !showRecurrences) return;
 
         const color = isFoci ? '#ef4444' : isRecurrent ? '#9333ea' : isClosed ? '#f59e0b' : '#3b82f6';
-        const marker = L.circleMarker([prop.latitude || -29.718, prop.longitude || -52.428], {
+        const marker = L.circleMarker([prop.latitude || defLat, prop.longitude || defLng], {
           radius: isFoci ? 8 : isRecurrent ? 7 : 5,
           fillColor: color,
           color: '#ffffff',
@@ -282,7 +360,7 @@ export const MapView: React.FC = () => {
           iconAnchor: [11, 11],
         });
 
-        const marker = L.marker([ovi.latitude || -29.718, ovi.longitude || -52.428], { icon: customIcon });
+        const marker = L.marker([ovi.latitude || defLat, ovi.longitude || defLng], { icon: customIcon });
         marker.bindTooltip(`<b>Ovitrampa ${ovi.code}</b><br/>Ovos: ${ovi.eggs_count || 0}`);
         marker.on('click', () => setSelectedItem({ type: 'OVITRAP', data: ovi }));
         marker.addTo(layerGroup);
@@ -300,7 +378,7 @@ export const MapView: React.FC = () => {
           iconAnchor: [12, 12],
         });
 
-        const marker = L.marker([pe.latitude || -29.718, pe.longitude || -52.428], { icon: customIcon });
+        const marker = L.marker([pe.latitude || defLat, pe.longitude || defLng], { icon: customIcon });
         marker.bindTooltip(`<b>PE: ${pe.name}</b><br/>Tipo: ${pe.type}`);
         marker.on('click', () => setSelectedItem({ type: 'PE', data: pe }));
         marker.addTo(layerGroup);
@@ -318,7 +396,7 @@ export const MapView: React.FC = () => {
           iconAnchor: [11, 11],
         });
 
-        const marker = L.marker([ie.latitude || -29.718, ie.longitude || -52.428], { icon: customIcon });
+        const marker = L.marker([ie.latitude || defLat, ie.longitude || defLng], { icon: customIcon });
         marker.bindTooltip(`<b>IE: ${ie.name}</b><br/>Tipo: ${ie.type}`);
         marker.on('click', () => setSelectedItem({ type: 'IE', data: ie }));
         marker.addTo(layerGroup);
@@ -348,8 +426,8 @@ export const MapView: React.FC = () => {
     if (showLiraa) {
       mapData.liraaSamples.forEach(sample => {
         const prop = sample.properties;
-        const lat = prop?.latitude || -29.715 + (Math.random() - 0.5) * 0.01;
-        const lng = prop?.longitude || -52.427 + (Math.random() - 0.5) * 0.01;
+        const lat = prop?.latitude || defLat + (Math.random() - 0.5) * 0.005;
+        const lng = prop?.longitude || defLng + (Math.random() - 0.5) * 0.005;
 
         const isPositive = sample.positive || sample.larvae_found;
         const color = isPositive ? '#dc2626' : sample.status === 'visitado' ? '#16a34a' : '#d97706';
@@ -378,6 +456,14 @@ export const MapView: React.FC = () => {
         subtitle="Camadas territoriais conectadas ao PostgreSQL, geolocalização e raio de bloqueio peridomiciliar"
         actions={
           <>
+            <button
+              onClick={handleRecenter}
+              className="px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 shadow-2xs"
+              title={`Centralizar em (${mapConfig.centerLatitude.toFixed(4)}, ${mapConfig.centerLongitude.toFixed(4)})`}
+            >
+              <Navigation className="w-3.5 h-3.5" />
+              <span>Centralizar Município</span>
+            </button>
             <select
               value={selectedNeighborhood}
               onChange={e => setSelectedNeighborhood(e.target.value)}

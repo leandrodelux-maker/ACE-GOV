@@ -29,8 +29,10 @@ import { DashboardView } from './components/views/DashboardView';
 import { AcePwaView } from './components/views/AcePwaView';
 import { MapView } from './components/views/MapView';
 import { TerritoryView } from './components/views/TerritoryView';
+import { TerritoryHubView } from './components/views/TerritoryHubView';
 import { PropertiesView } from './components/views/PropertiesView';
 import { VisitsView } from './components/views/VisitsView';
+import { QuickCreateModal } from './components/ui';
 import { PlanningView } from './components/views/PlanningView';
 import { RoutesView } from './components/views/RoutesView';
 import { OvitrapsView } from './components/views/OvitrapsView';
@@ -113,6 +115,7 @@ function AppContent() {
   const [currentView, setCurrentView] = useState<ViewModule>('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [pendingSyncCount, setPendingSyncCount] = useState<number>(0);
+  const [isQuickCreateOpen, setIsQuickCreateOpen] = useState(false);
 
   // Navegador interno e sincronização com a History API
   const navigateTo = (route: string) => {
@@ -459,7 +462,7 @@ function AppContent() {
         return <VisitsView />;
       case 'territory':
         if (!can('territory.view')) return <AccessDeniedPage onNavigate={navigateTo} />;
-        return <TerritoryView />;
+        return <TerritoryHubView onNavigate={(view) => { setCurrentView(view as ViewModule); navigateTo(view); }} />;
       case 'teams':
         if (!can('teams.view')) return <AccessDeniedPage onNavigate={navigateTo} />;
         return <TeamsView />;
@@ -602,6 +605,7 @@ function AppContent() {
         municipalityName={municipality.name}
         onLogout={handleLogout}
         onNavigate={navigateTo}
+        onOpenQuickCreate={() => setIsQuickCreateOpen(true)}
       />
 
       {/* Body Layout: Sidebar + Main Content */}
@@ -626,6 +630,16 @@ function AppContent() {
           <div className="max-w-7xl mx-auto">{renderView()}</div>
         </main>
       </div>
+
+      {/* Modal Global + Novo Cadastro (Quick Create) */}
+      <QuickCreateModal
+        isOpen={isQuickCreateOpen}
+        onClose={() => setIsQuickCreateOpen(false)}
+        onNavigate={(view) => {
+          setCurrentView(view as ViewModule);
+          navigateTo(view);
+        }}
+      />
     </div>
   );
 }

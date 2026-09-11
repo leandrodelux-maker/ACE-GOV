@@ -29,7 +29,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { supabaseService } from '../../services/supabaseService';
 import { Property, PropertyType, PropertyStatus, Neighborhood } from '../../types';
 import { TerritoryTimelineModal } from './TerritoryTimelineModal';
-import { PageHeader } from '../ui';
+import { PageHeader, Breadcrumbs } from '../ui';
 
 export const PropertiesView: React.FC = () => {
   const { can } = useAuth();
@@ -64,23 +64,54 @@ export const PropertiesView: React.FC = () => {
   // Estados do Formulário de Criação / Edição
   const [isFormOpen, setIsFormOpen] = useState<boolean>(false);
   const [editingPropertyId, setEditingPropertyId] = useState<string | null>(null);
+
+  // Hierarquia Territorial (Setores e Quadras)
+  const [allSectors, setAllSectors] = useState<any[]>([]);
+  const [allBlocks, setAllBlocks] = useState<any[]>([]);
+
+  const defaultCoords = (() => {
+    try {
+      const c = localStorage.getItem('endemias_settings_MAPA');
+      if (c) {
+        const p = JSON.parse(c);
+        return {
+          lat: Number(p.centerLatitude) || -16.54832,
+          lng: Number(p.centerLongitude) || -50.73675,
+        };
+      }
+    } catch {}
+    return { lat: -16.54832, lng: -50.73675 };
+  })();
+
   const [formData, setFormData] = useState({
     code: '',
     street: '',
     number: '',
     complement: '',
     neighborhoodId: '',
+    sectorId: '',
+    blockId: '',
     type: 'RESIDENCIA' as PropertyType,
     status: 'NORMAL' as PropertyStatus,
     residentName: '',
     residentPhone: '',
     residentsCount: 1,
-    latitude: -29.718,
-    longitude: -52.428,
+    latitude: defaultCoords.lat,
+    longitude: defaultCoords.lng,
   });
   const [formError, setFormError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // Setores disponíveis para o Bairro selecionado
+  const availableSectors = allSectors.filter(s =>
+    !formData.neighborhoodId || s.neighborhood_id === formData.neighborhoodId
+  );
+
+  // Quadras disponíveis para o Setor selecionado
+  const availableBlocks = allBlocks.filter(b =>
+    !formData.sectorId || b.sector_id === formData.sectorId
+  );
 
   // Debounce da busca
   useEffect(() => {
@@ -91,21 +122,30 @@ export const PropertiesView: React.FC = () => {
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
-  // Carregar Bairros do Município
+  // Carregar Bairros, Setores e Quadras do Município
   useEffect(() => {
-    const loadNeighborhoods = async () => {
+    const loadTerritoryHierarchy = async () => {
       const muni = await supabaseService.getMunicipality();
       if (muni) {
-        const neighs = await supabaseService.getNeighborhoods(muni.id);
+        const [neighs, hier] = await Promise.all([
+          supabaseService.getNeighborhoods(muni.id),
+          supabaseService.getTerritoryHierarchy(muni.id),
+        ]);
+
         if (neighs) {
           setNeighborhoods(neighs);
           if (neighs.length > 0 && !formData.neighborhoodId) {
             setFormData(prev => ({ ...prev, neighborhoodId: neighs[0].id }));
           }
         }
+
+        if (hier) {
+          setAllSectors(hier.sectors || []);
+          setAllBlocks(hier.blocks || []);
+        }
       }
     };
-    loadNeighborhoods();
+    loadTerritoryHierarchy();
   }, []);
 
   // Carregar Imóveis Paginados do Supabase
@@ -193,8 +233,8 @@ export const PropertiesView: React.FC = () => {
   };
 
   // Salvar Imóvel (Criação ou Atualização)
-  const handleSaveProperty = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSaveProperty = async (e: React.FormEvent, andNew: boolean = false) => {
+    if (e && e.preventDefault) e.preventDefault();
     if (!formData.street.trim() || !formData.number.trim()) {
       setFormError('Logradouro e número são campos obrigatórios.');
       return;
@@ -213,11 +253,24 @@ export const PropertiesView: React.FC = () => {
       }
 
       setTimeout(() => setSuccessMessage(null), 3500);
-      setIsFormOpen(false);
       await loadProperties();
 
-      if (selectedProperty && selectedProperty.id === editingPropertyId) {
-        setSelectedProperty(null);
+      if (andNew && !editingPropertyId) {
+        // Mantém bairro, setor e quadra para cadastrar o próximo imóvel rapidamente
+        setFormData(prev => ({
+          ...prev,
+          code: `IMV-${Math.floor(100000 + Math.random() * 900000)}`,
+          number: '',
+          complement: '',
+          residentName: '',
+          residentPhone: '',
+          residentsCount: 1,
+        }));
+      } else {
+        setIsFormOpen(false);
+        if (selectedProperty && selectedProperty.id === editingPropertyId) {
+          setSelectedProperty(null);
+        }
       }
     } catch (err: any) {
       setFormError(err.message || 'Falha ao salvar imóvel no Supabase.');
@@ -250,7 +303,15 @@ export const PropertiesView: React.FC = () => {
   const totalPages = Math.ceil(totalCount / pageSize) || 1;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
+      {/* Breadcrumbs */}
+      <Breadcrumbs
+        items={[
+          { label: 'Território', icon: MapPin },
+          { label: 'Cadastro de Imóveis', icon: Home, active: true },
+        ]}
+      />
+
       {/* Toast de Sucesso */}
       {successMessage && (
         <div className="bg-emerald-50 border border-emerald-300 p-4 rounded-xl flex items-center gap-3 text-emerald-800 text-xs font-semibold shadow-xs animate-in fade-in">
@@ -830,21 +891,31 @@ export const PropertiesView: React.FC = () => {
         propertyId={selectedProperty?.id}
       />
 
-      {/* Modal: Cadastro / Edição de Imóvel */}
+      {/* Modal: Cadastro / Edição de Imóvel Estruturado em 4 Seções */}
       {isFormOpen && (
         <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
-          <div className="bg-white w-full max-w-xl rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+          <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-150">
+            {/* Header Modal */}
             <div className="bg-slate-900 text-white p-5 flex items-center justify-between">
-              <h2 className="text-base font-bold flex items-center gap-2">
-                <Home className="w-5 h-5 text-blue-400" />
-                <span>{editingPropertyId ? 'Editar Imóvel Sanitário' : 'Novo Cadastro de Imóvel'}</span>
-              </h2>
-              <button onClick={() => setIsFormOpen(false)} className="text-slate-400 hover:text-white">
+              <div>
+                <h2 className="text-base font-bold flex items-center gap-2">
+                  <Home className="w-5 h-5 text-indigo-400" />
+                  <span>{editingPropertyId ? 'Editar Cadastro do Imóvel' : 'Novo Imóvel Sanitário'}</span>
+                </h2>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Hierarquia: Bairro → Setor → Quadra → Logradouro → Imóvel
+                </p>
+              </div>
+              <button
+                onClick={() => setIsFormOpen(false)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveProperty} className="p-6 space-y-4 text-xs">
+            {/* Formulário Dividido por Seções */}
+            <form onSubmit={handleSaveProperty} className="p-6 space-y-6 text-xs max-h-[80vh] overflow-y-auto">
               {formError && (
                 <div className="bg-rose-50 border border-rose-300 p-3 rounded-xl flex items-center gap-2 text-rose-800 font-semibold">
                   <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
@@ -852,154 +923,267 @@ export const PropertiesView: React.FC = () => {
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-600 font-semibold mb-1">Código do Imóvel</label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.code}
-                    onChange={e => setFormData({ ...formData, code: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg font-mono font-bold text-slate-800"
-                  />
+              {/* SEÇÃO 1: LOCALIZAÇÃO & AMARRAÇÃO TERRITORIAL */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 pb-1 border-b border-slate-200">
+                  <span className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 font-extrabold flex items-center justify-center text-[10px]">
+                    1
+                  </span>
+                  <h3 className="font-bold text-slate-900 text-xs uppercase tracking-wide">
+                    Localização & Vínculo Territorial
+                  </h3>
                 </div>
 
-                <div>
-                  <label className="block text-slate-600 font-semibold mb-1">Bairro *</label>
-                  <select
-                    required
-                    value={formData.neighborhoodId}
-                    onChange={e => setFormData({ ...formData, neighborhoodId: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-800 font-medium"
-                  >
-                    {neighborhoods.map(n => (
-                      <option key={n.id} value={n.id}>{n.name}</option>
-                    ))}
-                  </select>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-slate-700 font-semibold mb-1">Bairro *</label>
+                    <select
+                      required
+                      value={formData.neighborhoodId}
+                      onChange={e => {
+                        const newNeighId = e.target.value;
+                        setFormData(prev => ({
+                          ...prev,
+                          neighborhoodId: newNeighId,
+                          sectorId: '',
+                          blockId: '',
+                        }));
+                      }}
+                      className="w-full p-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-800 font-medium focus:ring-1 focus:ring-indigo-500"
+                    >
+                      <option value="">Selecione o Bairro...</option>
+                      {neighborhoods.map(n => (
+                        <option key={n.id} value={n.id}>{n.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-700 font-semibold mb-1">Setor Censitário</label>
+                    <select
+                      value={formData.sectorId || ''}
+                      onChange={e => {
+                        const newSectorId = e.target.value;
+                        setFormData(prev => ({
+                          ...prev,
+                          sectorId: newSectorId,
+                          blockId: '',
+                        }));
+                      }}
+                      className="w-full p-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-800 font-medium focus:ring-1 focus:ring-indigo-500"
+                    >
+                      <option value="">Todos / Sem setor</option>
+                      {availableSectors.map((s: any) => (
+                        <option key={s.id} value={s.id}>{s.name} ({s.code})</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-700 font-semibold mb-1">Quadra</label>
+                    <select
+                      value={formData.blockId || ''}
+                      onChange={e => setFormData(prev => ({ ...prev, blockId: e.target.value }))}
+                      className="w-full p-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-800 font-medium focus:ring-1 focus:ring-indigo-500"
+                    >
+                      <option value="">Selecione a Quadra...</option>
+                      {availableBlocks.map((b: any) => (
+                        <option key={b.id} value={b.id}>{b.code}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                  <div className="sm:col-span-2">
+                    <label className="block text-slate-700 font-semibold mb-1">Logradouro / Rua *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Ex: Rua Marechal Deodoro"
+                      value={formData.street}
+                      onChange={e => setFormData(prev => ({ ...prev, street: e.target.value }))}
+                      className="w-full p-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-800 focus:ring-1 focus:ring-indigo-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-700 font-semibold mb-1">Número *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Ex: 120"
+                      value={formData.number}
+                      onChange={e => setFormData(prev => ({ ...prev, number: e.target.value }))}
+                      className="w-full p-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-800 font-semibold focus:ring-1 focus:ring-indigo-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-700 font-semibold mb-1">Complemento</label>
+                    <input
+                      type="text"
+                      placeholder="Apto, Fundos"
+                      value={formData.complement}
+                      onChange={e => setFormData(prev => ({ ...prev, complement: e.target.value }))}
+                      className="w-full p-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-800"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  <div>
+                    <label className="block text-slate-700 font-semibold mb-1">Latitude GPS</label>
+                    <input
+                      type="number"
+                      step="any"
+                      value={formData.latitude}
+                      onChange={e => setFormData(prev => ({ ...prev, latitude: parseFloat(e.target.value) || 0 }))}
+                      className="w-full p-2 bg-slate-50 border border-slate-300 rounded-lg font-mono text-slate-800"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-700 font-semibold mb-1">Longitude GPS</label>
+                    <input
+                      type="number"
+                      step="any"
+                      value={formData.longitude}
+                      onChange={e => setFormData(prev => ({ ...prev, longitude: parseFloat(e.target.value) || 0 }))}
+                      className="w-full p-2 bg-slate-50 border border-slate-300 rounded-lg font-mono text-slate-800"
+                    />
+                  </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
-                <div className="col-span-2">
-                  <label className="block text-slate-600 font-semibold mb-1">Logradouro / Rua *</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Ex: Rua Marechal Deodoro"
-                    value={formData.street}
-                    onChange={e => setFormData({ ...formData, street: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-800"
-                  />
+              {/* SEÇÃO 2: CLASSIFICAÇÃO & TIPO */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 pb-1 border-b border-slate-200">
+                  <span className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 font-extrabold flex items-center justify-center text-[10px]">
+                    2
+                  </span>
+                  <h3 className="font-bold text-slate-900 text-xs uppercase tracking-wide">
+                    Classificação & Tipo do Imóvel
+                  </h3>
                 </div>
 
-                <div>
-                  <label className="block text-slate-600 font-semibold mb-1">Número *</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Ex: 120"
-                    value={formData.number}
-                    onChange={e => setFormData({ ...formData, number: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-800 font-semibold"
-                  />
-                </div>
-              </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-slate-700 font-semibold mb-1">Tipo de Imóvel *</label>
+                    <select
+                      value={formData.type}
+                      onChange={e => setFormData(prev => ({ ...prev, type: e.target.value as PropertyType }))}
+                      className="w-full p-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-800 font-medium"
+                    >
+                      <option value="RESIDENCIA">Residência (Casa/Apto)</option>
+                      <option value="COMERCIO">Comércio / Loja</option>
+                      <option value="TERRENO_BALDIO">Terreno Baldio</option>
+                      <option value="IMOVEL_ABANDONADO">Imóvel Abandonado</option>
+                      <option value="ESCOLA">Escola / Creche</option>
+                      <option value="ESTABELECIMENTO_SAUDE">Posto / Hospital</option>
+                      <option value="BORRACHARIA">Borracharia (PE)</option>
+                      <option value="FERRO_VELHO">Ferro Velho (PE)</option>
+                      <option value="CEMITERIO">Cemitério (PE)</option>
+                    </select>
+                  </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-600 font-semibold mb-1">Complemento</label>
-                  <input
-                    type="text"
-                    placeholder="Ex: Apto 204, Casa fundos"
-                    value={formData.complement}
-                    onChange={e => setFormData({ ...formData, complement: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-800"
-                  />
-                </div>
+                  <div>
+                    <label className="block text-slate-700 font-semibold mb-1">Situação Cadastral</label>
+                    <select
+                      value={formData.status}
+                      onChange={e => setFormData(prev => ({ ...prev, status: e.target.value as PropertyStatus }))}
+                      className="w-full p-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-800 font-medium"
+                    >
+                      <option value="NORMAL">Normal / Habitado</option>
+                      <option value="FECHADO">Fechado</option>
+                      <option value="DESABITADO">Desabitado</option>
+                      <option value="RECUSADO">Recusado</option>
+                      <option value="TEMPORADA">Temporada</option>
+                    </select>
+                  </div>
 
-                <div>
-                  <label className="block text-slate-600 font-semibold mb-1">Tipo de Imóvel</label>
-                  <select
-                    value={formData.type}
-                    onChange={e => setFormData({ ...formData, type: e.target.value as PropertyType })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-800 font-medium"
-                  >
-                    <option value="RESIDENCIA">Residência</option>
-                    <option value="COMERCIO">Comércio</option>
-                    <option value="TERRENO_BALDIO">Terreno Baldio</option>
-                    <option value="IMOVEL_ABANDONADO">Imóvel Abandonado</option>
-                    <option value="ESCOLA">Escola</option>
-                    <option value="ESTABELECIMENTO_SAUDE">Estabelecimento de Saúde</option>
-                    <option value="BORRACHARIA">Borracharia (PE)</option>
-                    <option value="FERRO_VELHO">Ferro Velho (PE)</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-600 font-semibold mb-1">Nome do Morador / Responsável</label>
-                  <input
-                    type="text"
-                    placeholder="Ex: Maria dos Santos"
-                    value={formData.residentName}
-                    onChange={e => setFormData({ ...formData, residentName: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-800"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-slate-600 font-semibold mb-1">Telefone de Contato</label>
-                  <input
-                    type="text"
-                    placeholder="Ex: (51) 98765-4321"
-                    value={formData.residentPhone}
-                    onChange={e => setFormData({ ...formData, residentPhone: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-800"
-                  />
+                  <div>
+                    <label className="block text-slate-700 font-semibold mb-1">Código do Imóvel</label>
+                    <input
+                      type="text"
+                      required
+                      value={formData.code}
+                      onChange={e => setFormData(prev => ({ ...prev, code: e.target.value }))}
+                      className="w-full p-2 bg-slate-100 border border-slate-300 rounded-lg font-mono font-bold text-slate-800"
+                    />
+                  </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-600 font-semibold mb-1">Latitude GPS</label>
-                  <input
-                    type="number"
-                    step="0.000001"
-                    value={formData.latitude}
-                    onChange={e => setFormData({ ...formData, latitude: parseFloat(e.target.value) })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg font-mono text-slate-800"
-                  />
+              {/* SEÇÃO 3: RESPONSÁVEL & CONTATOS */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 pb-1 border-b border-slate-200">
+                  <span className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 font-extrabold flex items-center justify-center text-[10px]">
+                    3
+                  </span>
+                  <h3 className="font-bold text-slate-900 text-xs uppercase tracking-wide">
+                    Responsável / Morador
+                  </h3>
                 </div>
 
-                <div>
-                  <label className="block text-slate-600 font-semibold mb-1">Longitude GPS</label>
-                  <input
-                    type="number"
-                    step="0.000001"
-                    value={formData.longitude}
-                    onChange={e => setFormData({ ...formData, longitude: parseFloat(e.target.value) })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg font-mono text-slate-800"
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="sm:col-span-2">
+                    <label className="block text-slate-700 font-semibold mb-1">Nome do Morador ou Síndico</label>
+                    <input
+                      type="text"
+                      placeholder="Ex: José da Silva"
+                      value={formData.residentName}
+                      onChange={e => setFormData(prev => ({ ...prev, residentName: e.target.value }))}
+                      className="w-full p-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-800"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-700 font-semibold mb-1">Telefone</label>
+                    <input
+                      type="text"
+                      placeholder="Ex: (64) 99999-0000"
+                      value={formData.residentPhone}
+                      onChange={e => setFormData(prev => ({ ...prev, residentPhone: e.target.value }))}
+                      className="w-full p-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-800"
+                    />
+                  </div>
                 </div>
               </div>
 
-              <div className="pt-4 flex justify-end gap-2 border-t border-slate-200">
+              {/* Botões Padronizados */}
+              <div className="pt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200">
                 <button
                   type="button"
                   onClick={() => setIsFormOpen(false)}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-xs transition"
+                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-xs transition"
                 >
                   Cancelar
                 </button>
-                <button
-                  type="submit"
-                  disabled={isSaving}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white font-semibold rounded-xl text-xs flex items-center gap-1.5 shadow-xs transition"
-                >
-                  <Save className="w-4 h-4" />
-                  <span>{isSaving ? 'Salvando...' : 'Salvar no Banco'}</span>
-                </button>
+
+                <div className="flex items-center gap-2 ml-auto">
+                  {!editingPropertyId && (
+                    <button
+                      type="button"
+                      disabled={isSaving}
+                      onClick={async e => {
+                        e.preventDefault();
+                        await handleSaveProperty(e, true);
+                      }}
+                      className="px-4 py-2.5 bg-white border border-indigo-300 text-indigo-700 hover:bg-indigo-50 font-bold rounded-xl text-xs transition disabled:opacity-60 shadow-2xs"
+                    >
+                      Salvar e Novo
+                    </button>
+                  )}
+
+                  <button
+                    type="submit"
+                    disabled={isSaving}
+                    className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white font-bold rounded-xl text-xs flex items-center gap-2 shadow-xs transition"
+                  >
+                    <Save className="w-4 h-4" />
+                    <span>{isSaving ? 'Salvando...' : 'Salvar Imóvel'}</span>
+                  </button>
+                </div>
               </div>
             </form>
           </div>

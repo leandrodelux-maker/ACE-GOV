@@ -17,16 +17,19 @@ import {
   CheckCircle2,
   AlertTriangle,
   RotateCcw,
+  Loader2,
 } from 'lucide-react';
 import { systemSettingsService, DEFAULT_SETTINGS } from '../../services/systemSettingsService';
+import { useAuth } from '../../contexts/AuthContext';
 import { PageHeader } from '../ui';
 
 export const SystemSettingsView: React.FC = () => {
+  const { municipality } = useAuth();
   const [activeTab, setActiveTab] = useState<string>('GERAL');
   const [settingsData, setSettingsData] = useState<Record<string, any>>({});
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isSaving, setIsSaving] = useState<boolean>(false);
-  const [feedbackMessage, setFeedbackMessage] = useState<string>('');
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   const tabs = [
     { id: 'GERAL', label: 'Geral & Município', icon: Building2 },
@@ -45,15 +48,20 @@ export const SystemSettingsView: React.FC = () => {
 
   useEffect(() => {
     loadTabSettings(activeTab);
-  }, [activeTab]);
+  }, [activeTab, municipality?.id]);
 
   const loadTabSettings = async (category: string) => {
     setIsLoading(true);
+    setFeedback(null);
     try {
-      const data = await systemSettingsService.getCategorySettings(category);
+      const data = await systemSettingsService.getCategorySettings(category, municipality?.id);
       setSettingsData(data);
     } catch (err) {
       console.error(`Erro ao carregar configurações de ${category}:`, err);
+      setFeedback({
+        type: 'error',
+        message: 'Não foi possível carregar as configurações do servidor. Exibindo padrões.',
+      });
     } finally {
       setIsLoading(false);
     }
@@ -66,18 +74,33 @@ export const SystemSettingsView: React.FC = () => {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
-    setFeedbackMessage('');
+    setFeedback(null);
 
     try {
-      const res = await systemSettingsService.saveCategorySettings(activeTab, settingsData);
+      const res = await systemSettingsService.saveCategorySettings(
+        activeTab,
+        settingsData,
+        municipality?.id
+      );
+
       if (res.success) {
-        setFeedbackMessage(`Configurações de "${activeTab}" salvas e aplicadas com sucesso no banco de dados!`);
-        setTimeout(() => setFeedbackMessage(''), 4000);
+        setFeedback({
+          type: 'success',
+          message: res.message,
+        });
+        setTimeout(() => setFeedback(null), 5000);
       } else {
-        alert(res.message);
+        setFeedback({
+          type: 'error',
+          message: res.message,
+        });
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Erro ao gravar configurações:', err);
+      setFeedback({
+        type: 'error',
+        message: err?.message || 'Falha inesperada ao tentar gravar no banco de dados.',
+      });
     } finally {
       setIsSaving(false);
     }
@@ -97,10 +120,20 @@ export const SystemSettingsView: React.FC = () => {
         title="Central de Configurações & Parâmetros Municipais"
         subtitle="Parametrização institucional das 12 áreas críticas do Endemias GOV persistidas no banco PostgreSQL"
         actions={
-          feedbackMessage ? (
-            <div className="p-2.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-2xs">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-              <span>{feedbackMessage}</span>
+          feedback ? (
+            <div
+              className={`p-2.5 rounded-lg text-xs font-bold flex items-center gap-2 shadow-2xs ${
+                feedback.type === 'success'
+                  ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                  : 'bg-rose-50 text-rose-800 border border-rose-200'
+              }`}
+            >
+              {feedback.type === 'success' ? (
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              ) : (
+                <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+              )}
+              <span>{feedback.message}</span>
             </div>
           ) : undefined
         }
@@ -318,8 +351,121 @@ export const SystemSettingsView: React.FC = () => {
               </div>
             )}
 
+            {/* ABA: MAPA & CAMADAS */}
+            {activeTab === 'MAPA' && (
+              <div className="space-y-5">
+                <div className="border-b pb-3">
+                  <h3 className="text-sm font-bold text-slate-900">Georreferenciamento & Cartografia Municipal</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Define o ponto central geográfico (latitude/longitude) e o nível de zoom inicial aplicados em todos os mapas operacionais do município.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">Latitude Central (Graus Decimais):</label>
+                    <input
+                      type="number"
+                      step="any"
+                      placeholder="-16.54832"
+                      value={settingsData.centerLatitude !== undefined ? settingsData.centerLatitude : ''}
+                      onChange={e => handleInputChange('centerLatitude', e.target.value === '' ? '' : Number(e.target.value))}
+                      className="w-full p-2 border border-slate-200 rounded-lg focus:ring-1 focus:ring-indigo-500 font-mono"
+                    />
+                    <span className="text-[11px] text-slate-400 mt-1 block">Ex: -16.54832 (Centro da cidade de Moiporá)</span>
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">Longitude Central (Graus Decimais):</label>
+                    <input
+                      type="number"
+                      step="any"
+                      placeholder="-50.73675"
+                      value={settingsData.centerLongitude !== undefined ? settingsData.centerLongitude : ''}
+                      onChange={e => handleInputChange('centerLongitude', e.target.value === '' ? '' : Number(e.target.value))}
+                      className="w-full p-2 border border-slate-200 rounded-lg focus:ring-1 focus:ring-indigo-500 font-mono"
+                    />
+                    <span className="text-[11px] text-slate-400 mt-1 block">Ex: -50.73675</span>
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">Zoom Inicial do Mapa (10 a 18):</label>
+                    <input
+                      type="number"
+                      min={10}
+                      max={18}
+                      value={settingsData.defaultZoom || 13}
+                      onChange={e => handleInputChange('defaultZoom', Number(e.target.value))}
+                      className="w-full p-2 border border-slate-200 rounded-lg focus:ring-1 focus:ring-indigo-500"
+                    />
+                    <span className="text-[11px] text-slate-400 mt-1 block">Recomendado: 13 ou 14 para visão municipal completa</span>
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">Camada Territorial Padrão:</label>
+                    <select
+                      value={settingsData.defaultLayer || 'RISK_HEATMAP'}
+                      onChange={e => handleInputChange('defaultLayer', e.target.value)}
+                      className="w-full p-2 border border-slate-200 rounded-lg focus:ring-1 focus:ring-indigo-500 bg-white"
+                    >
+                      <option value="RISK_HEATMAP">Mapa de Risco & Calor Entomológico</option>
+                      <option value="PROPERTIES">Imóveis, Focos e Reincidências</option>
+                      <option value="BLOCKS">Raios de Bloqueio Epidemiológico</option>
+                      <option value="OVITRAPS">Rede de Ovitrampas Censitárias</option>
+                      <option value="STRATEGIC_POINTS">Pontos Estratégicos & Imóveis Especiais</option>
+                    </select>
+                    <span className="text-[11px] text-slate-400 mt-1 block">Camada em destaque ao abrir o mapa</span>
+                  </div>
+                </div>
+
+                {/* Ações auxiliares de Georreferenciamento */}
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex flex-wrap items-center justify-between gap-3 text-xs">
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (navigator.geolocation) {
+                          navigator.geolocation.getCurrentPosition(
+                            pos => {
+                              handleInputChange('centerLatitude', Number(pos.coords.latitude.toFixed(6)));
+                              handleInputChange('centerLongitude', Number(pos.coords.longitude.toFixed(6)));
+                            },
+                            err => {
+                              alert(`Não foi possível obter a posição GPS: ${err.message}`);
+                            }
+                          );
+                        } else {
+                          alert('Geolocalização não suportada neste navegador.');
+                        }
+                      }}
+                      className="px-3 py-1.5 bg-white hover:bg-slate-100 text-indigo-700 border border-indigo-200 rounded-lg font-semibold flex items-center gap-1.5 shadow-2xs transition"
+                    >
+                      <MapPin className="w-3.5 h-3.5" />
+                      <span>Capturar Meu GPS Atual</span>
+                    </button>
+
+                    {settingsData.centerLatitude && settingsData.centerLongitude && (
+                      <a
+                        href={`https://www.openstreetmap.org/?mlat=${settingsData.centerLatitude}&mlon=${settingsData.centerLongitude}#map=${settingsData.defaultZoom || 14}/${settingsData.centerLatitude}/${settingsData.centerLongitude}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg font-semibold flex items-center gap-1.5 shadow-2xs transition"
+                      >
+                        <Map className="w-3.5 h-3.5 text-slate-500" />
+                        <span>Ver no OpenStreetMap ↗</span>
+                      </a>
+                    )}
+                  </div>
+
+                  <div className="text-slate-500 font-mono text-[11px]">
+                    Centro configurado: {settingsData.centerLatitude ?? 'N/A'}, {settingsData.centerLongitude ?? 'N/A'} (zoom: {settingsData.defaultZoom || 13})
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* DEMAIS ABAS: CAMPOS DINÂMICOS */}
-            {!['GERAL', 'CICLOS', 'LIRAA', 'RISCO'].includes(activeTab) && (
+            {!['GERAL', 'CICLOS', 'LIRAA', 'RISCO', 'MAPA'].includes(activeTab) && (
               <div className="space-y-4">
                 <h3 className="text-sm font-bold text-slate-900 border-b pb-2">Parâmetros de {activeTab}</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
@@ -366,9 +512,13 @@ export const SystemSettingsView: React.FC = () => {
               <button
                 type="submit"
                 disabled={isSaving}
-                className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-xs transition flex items-center gap-2"
+                className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold text-xs rounded-xl shadow-xs transition flex items-center gap-2"
               >
-                <Save className="w-4 h-4" />
+                {isSaving ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Save className="w-4 h-4" />
+                )}
                 <span>{isSaving ? 'Salvando no Banco...' : 'Salvar Alterações'}</span>
               </button>
             </div>

@@ -20,11 +20,12 @@ import {
   MapPin,
   Calendar,
   RefreshCw,
+  Plus,
 } from 'lucide-react';
 import { situationRoomService, SituationRoomData } from '../../services/situationRoomService';
 import { supabaseService } from '../../services/supabaseService';
 import { Neighborhood } from '../../types';
-import { PageHeader, StatCard } from '../ui';
+import { PageHeader, StatCard, Breadcrumbs } from '../ui';
 
 interface DashboardViewProps {
   onNavigate: (module: string) => void;
@@ -74,7 +75,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
   const cycleName = dashboardData?.activeCycleName || 'Ciclo Ativo 2026';
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
+      {/* Breadcrumbs de Navegação */}
+      <Breadcrumbs
+        items={[
+          { label: 'Início', onClick: () => onNavigate('dashboard') },
+          { label: 'Sala de Situação' },
+        ]}
+      />
+
       {/* Header & Filter Bar */}
       <PageHeader
         live
@@ -137,37 +146,29 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
         }
       />
 
-      {/* Primary KPI Grid (14 Indicadores Exigidos com Navegação Integrada) */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
+      {/* 8 Headline KPIs Operacionais Priorizados (Diretriz & Skill kpi-dashboard-design) */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
+        {/* KPI 1: Visitas Realizadas */}
         <StatCard
-          title="Ver cadastro de imóveis no território"
-          onClick={() => onNavigate('territory')}
-          icon={Home}
-          tone="info"
-          label="Imóveis Totais"
-          value={isLoading ? '...' : (kpis?.totalProperties || 0).toLocaleString('pt-BR')}
-          caption="Cadastrados no setor →"
-        />
-
-        <StatCard
-          title="Ver registro de visitas realizadas"
+          title="Ver registro completo de visitas domiciliares"
           onClick={() => onNavigate('visits')}
           icon={CheckCircle2}
           tone="success"
-          label="Visitados"
+          label="Visitas Realizadas"
           value={isLoading ? '...' : (kpis?.visited || 0).toLocaleString('pt-BR')}
-          caption={`${kpis?.coveragePercent || 0}% do objetivo →`}
+          caption={`${kpis?.coveragePercent || 0}% do objetivo do ciclo →`}
         />
 
+        {/* KPI 2: Imóveis Cadastrados & Cobertura */}
         <StatCard
-          title="Ver mapa georreferenciado de cobertura"
-          onClick={() => onNavigate('map')}
-          icon={PieChartIcon}
+          title="Abrir Central de Território e Imóveis"
+          onClick={() => onNavigate('territory')}
+          icon={Home}
           tone="info"
-          label="Cobertura"
-          value={isLoading ? '...' : `${kpis?.coveragePercent || 0}%`}
+          label="Imóveis no Território"
+          value={isLoading ? '...' : (kpis?.totalProperties || 0).toLocaleString('pt-BR')}
           footer={
-            <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+            <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden mt-1">
               <div
                 className={`h-full rounded-full ${
                   (kpis?.coveragePercent || 0) >= 80
@@ -182,121 +183,76 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
           }
         />
 
+        {/* KPI 3: Focos Ativos de Vetores */}
         <StatCard
-          title="Gerenciar pendências de retorno"
-          onClick={() => onNavigate('field_pendencies')}
-          icon={Clock}
-          tone="warning"
-          label="Pendências"
-          value={isLoading ? '...' : kpis?.pending || 0}
-          caption="Requerem retorno →"
-        />
-
-        <StatCard
-          title="Ver imóveis fechados para resgate"
-          onClick={() => onNavigate('field_pendencies')}
-          icon={DoorClosed}
-          tone="neutral"
-          label="Fechados"
-          value={isLoading ? '...' : kpis?.closed || 0}
-          caption="Moradores ausentes →"
-        />
-
-        <StatCard
-          title="Acessar gestão jurídica e notificações de recusa"
-          onClick={() => onNavigate('legal_sanitary')}
-          icon={UserX}
-          tone="danger"
-          label="Recusas"
-          value={isLoading ? '...' : kpis?.refusals || 0}
-          caption="Notificação compulsória →"
-        />
-
-        <StatCard
-          title="Ver focos ativos e mapa de calor"
+          title="Ver focos ativos e mapeamento de risco"
           onClick={() => onNavigate('foci_recurrence')}
           icon={Flame}
           tone="danger"
           highlighted
           pulse
-          label="Focos Ativos"
+          label="Focos Ativos de Aedes"
           value={isLoading ? '...' : kpis?.fociActive || 0}
-          caption="Aedes aegypti →"
+          caption="Aedes aegypti identificado →"
         />
 
+        {/* KPI 4: Focos Eliminados e Tratados */}
         <StatCard
-          title="Ver focos tratados e eliminados"
-          onClick={() => onNavigate('foci_recurrence')}
+          title="Ver controle vetorial e condutas adotadas"
+          onClick={() => onNavigate('vector_control')}
           icon={ShieldCheck}
           tone="success"
-          label="Eliminados"
+          label="Focos Tratados / Eliminados"
           value={isLoading ? '...' : kpis?.eliminated || 0}
-          caption="Conduta química/física →"
+          caption="Tratamento químico / mecânico →"
         />
 
+        {/* KPI 5: Pendências e Fechados */}
         <StatCard
-          title="Ver histórico de imóveis reincidentes"
-          onClick={() => onNavigate('foci_recurrence')}
-          icon={Repeat}
+          title="Ver pendências de campo e imóveis fechados para resgate"
+          onClick={() => onNavigate('field_pendencies')}
+          icon={Clock}
           tone="warning"
-          label="Reincidentes"
-          value={isLoading ? '...' : kpis?.recurrent || 0}
-          caption="≥ 2 focos registrados →"
+          label="Pendências / Fechados"
+          value={isLoading ? '...' : (kpis?.pending || 0) + (kpis?.closed || 0)}
+          caption={`${kpis?.refusals || 0} recusas registradas →`}
         />
 
+        {/* KPI 6: Ovitrampas (Rede Sentinela) */}
         <StatCard
-          title="Clique para abrir a Rede Municipal de Ovitrampas"
+          title="Abrir Rede Sentinela de Ovitrampas"
           onClick={() => onNavigate('ovitraps')}
           icon={Layers}
           tone="info"
-          label="Ovitrampas (Ovos)"
+          label="Ovitrampas Positivas (IPO)"
           value={isLoading ? '...' : `${kpis?.positiveOvitraps || 0} / ${kpis?.totalOvitraps || 0}`}
-          footer={
-            <div className="flex items-center justify-between text-[10px] text-brand-info font-medium">
-              <span>Rede sentinela</span>
-              <span className="font-bold underline">Abrir →</span>
-            </div>
-          }
+          caption={`${
+            (kpis?.totalOvitraps || 0) > 0
+              ? Math.round(((kpis?.positiveOvitraps || 0) / (kpis?.totalOvitraps || 1)) * 100)
+              : 0
+          }% positividade sentinela →`}
         />
 
+        {/* KPI 7: Pontos Estratégicos (PE) */}
         <StatCard
-          title="Ver operações de bloqueio químico/viral"
-          onClick={() => onNavigate('blocks')}
-          icon={Activity}
-          tone="danger"
-          label="Bloqueios"
-          value={isLoading ? '...' : kpis?.activeBlocks || 0}
-          caption="Dengue em contenção →"
-        />
-
-        <StatCard
-          title="Ver denúncias da comunidade no portal"
-          onClick={() => onNavigate('citizen_portal')}
-          icon={AlertCircle}
-          tone="warning"
-          label="Denúncias"
-          value={isLoading ? '...' : kpis?.openComplaints || 0}
-          caption="Aguardando vistoria →"
-        />
-
-        <StatCard
-          title="Ver Pontos Estratégicos (PE) com inspeção atrasada"
+          title="Ver monitoramento de Pontos Estratégicos"
           onClick={() => onNavigate('strategic_points')}
           icon={Crosshair}
           tone="danger"
-          label="PE Vencidos"
-          value={isLoading ? '...' : kpis?.overduePE || 0}
-          caption="> 15 dias sem vistoria →"
+          label="Pontos Estratégicos (PE)"
+          value={isLoading ? '...' : `${kpis?.overduePE || 0} pendentes`}
+          caption="Imóveis críticos quinzenais →"
         />
 
+        {/* KPI 8: Denúncias da População */}
         <StatCard
-          title="Ver equipes de campo e carga operacional"
-          onClick={() => onNavigate('teams')}
-          icon={Users}
-          tone="info"
-          label="Equipes Ativas"
-          value={isLoading ? '...' : `${kpis?.activeTeamsCount || 4} equipes`}
-          caption="Em operação de campo →"
+          title="Ver denúncias da comunidade no portal"
+          onClick={() => onNavigate('complaints')}
+          icon={AlertCircle}
+          tone="warning"
+          label="Denúncias Comunitárias"
+          value={isLoading ? '...' : kpis?.openComplaints || 0}
+          caption="Aguardando inspeção ACE →"
         />
       </div>
 

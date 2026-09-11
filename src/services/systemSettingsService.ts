@@ -1,11 +1,12 @@
 import { supabase } from './supabaseClient';
+import { db } from './storage';
 
 export interface SystemSettingsCategory {
   category: string;
   settings: Record<string, any>;
 }
 
-const DEFAULT_MUN_ID = '00000000-0000-0000-0000-000000000001';
+export const DEFAULT_MUN_ID = '00000000-0000-0000-0000-000000000001';
 
 export const DEFAULT_SETTINGS: Record<string, Record<string, any>> = {
   GERAL: {
@@ -80,33 +81,107 @@ export const DEFAULT_SETTINGS: Record<string, Record<string, any>> = {
 };
 
 export const systemSettingsService = {
-  // Obter todas as configurações de uma categoria
-  async getCategorySettings(category: string, municipalityId = DEFAULT_MUN_ID): Promise<Record<string, any>> {
+  /**
+   * Identifica o municipality_id efetivo:
+   * Prioridade: parâmetro fornecido > perfil da sessão autenticada > primeiro município ativo > DEFAULT_MUN_ID
+   */
+  async getEffectiveMunicipalityId(providedId?: string): Promise<string> {
+    if (providedId && providedId !== DEFAULT_MUN_ID) {
+      return providedId;
+    }
     try {
-      const { data, error } = await supabase
-        .from('system_settings')
-        .select('*')
-        .eq('municipality_id', municipalityId)
-        .eq('category', category);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user?.id) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('municipality_id')
+          .eq('auth_user_id', session.user.id)
+          .maybeSingle();
 
-      if (error) throw error;
-
-      const defaults = DEFAULT_SETTINGS[category] || {};
-      if (!data || data.length === 0) {
-        return defaults;
+        if (profile?.municipality_id) {
+          return profile.municipality_id;
+        }
       }
 
-      const merged = { ...defaults };
-      data.forEach(item => {
-        const key = item.key || item.setting_key;
-        const val = item.value !== undefined ? item.value : item.setting_value;
-        if (key && val !== undefined) {
-          merged[key] = val;
+      const { data: mun } = await supabase
+        .from('municipalities')
+        .select('id')
+        .eq('active', true)
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+      if (mun?.id) {
+        return mun.id;
+      }
+    } catch (e) {
+      console.warn('[systemSettingsService] Erro ao resolver município efetivo:', e);
+    }
+    return DEFAULT_MUN_ID;
+  },
+
+  // Obter todas as configurações de uma categoria
+  async getCategorySettings(category: string, municipalityId?: string): Promise<Record<string, any>> {
+    try {
+      const targetMunId = await this.getEffectiveMunicipalityId(municipalityId);
+
+      const { data, error } = await supabase
+        .from('system_settings')
+        .select('setting_key, setting_value')
+        .eq('municipality_id', targetMunId)
+        .eq('category', category);
+
+      if (error) {
+        console.warn(`[systemSettingsService] Erro ao consultar configurações no banco (${category}):`, error);
+      }
+
+      const defaults = DEFAULT_SETTINGS[category] || {};
+      const merged: Record<string, any> = { ...defaults };
+
+      // Se for categoria GERAL, sincroniza com os dados oficiais da tabela municipalities
+      if (category === 'GERAL') {
+        try {
+          const { data: munData } = await supabase
+            .from('municipalities')
+            .select('name, ibge_code, state, logo_url')
+            .eq('id', targetMunId)
+            .maybeSingle();
+
+          if (munData) {
+            if (munData.name) merged.municipalityName = munData.name;
+            if (munData.ibge_code) merged.ibgeCode = munData.ibge_code;
+            if (munData.state) merged.stateUf = munData.state;
+            if (munData.logo_url) merged.logoUrl = munData.logo_url;
+          }
+        } catch (mErr) {
+          console.warn('[systemSettingsService] Aviso ao carregar dados de municipalities:', mErr);
         }
-      });
+      }
+
+      if (data && data.length > 0) {
+        data.forEach(item => {
+          const key = item.setting_key;
+          const val = item.setting_value;
+          if (key && val !== undefined) {
+            merged[key] = val;
+          }
+        });
+      }
+
+      // Snapshot em cache local
+      try {
+        localStorage.setItem(`endemias_settings_${category}`, JSON.stringify(merged));
+      } catch {}
+
       return merged;
     } catch (err) {
       console.warn(`Fallback para configurações locais (${category}):`, err);
+      try {
+        const cached = localStorage.getItem(`endemias_settings_${category}`);
+        if (cached) {
+          return { ...(DEFAULT_SETTINGS[category] || {}), ...JSON.parse(cached) };
+        }
+      } catch {}
       return DEFAULT_SETTINGS[category] || {};
     }
   },
@@ -115,45 +190,87 @@ export const systemSettingsService = {
   async saveCategorySettings(
     category: string,
     settings: Record<string, any>,
-    municipalityId = DEFAULT_MUN_ID
+    municipalityId?: string
   ): Promise<{ success: boolean; message: string }> {
     try {
-      const entries = Object.entries(settings);
-      for (const [key, value] of entries) {
-        // Tenta buscar se já existe
-        const { data: existing } = await supabase
-          .from('system_settings')
-          .select('id')
-          .eq('municipality_id', municipalityId)
-          .eq('category', category)
-          .eq('key', key)
-          .maybeSingle();
+      const targetMunId = await this.getEffectiveMunicipalityId(municipalityId);
 
-        if (existing) {
-          await supabase
-            .from('system_settings')
-            .update({
-              value,
-              updated_at: new Date().toISOString(),
-            })
-            .eq('id', existing.id);
-        } else {
-          await supabase.from('system_settings').insert({
-            municipality_id: municipalityId,
-            category,
-            key,
-            value,
-          });
+      // 1. Se for categoria GERAL, atualiza também a tabela oficial de municipalities
+      if (category === 'GERAL') {
+        try {
+          const munUpdates: Record<string, any> = {
+            updated_at: new Date().toISOString(),
+          };
+          if (settings.municipalityName) munUpdates.name = String(settings.municipalityName).trim();
+          if (settings.ibgeCode) munUpdates.ibge_code = String(settings.ibgeCode).trim();
+          if (settings.stateUf) munUpdates.state = String(settings.stateUf).trim().toUpperCase();
+          if (settings.logoUrl !== undefined) munUpdates.logo_url = settings.logoUrl;
+
+          const { error: munErr } = await supabase
+            .from('municipalities')
+            .update(munUpdates)
+            .eq('id', targetMunId);
+
+          if (munErr) {
+            console.warn('[systemSettingsService] Aviso ao atualizar tabela municipalities:', munErr);
+          } else {
+            // Atualiza o storage local para propagar para toda a UI imediatamente
+            db.updateMunicipality({
+              name: settings.municipalityName,
+              ibgeCode: settings.ibgeCode,
+              state: settings.stateUf,
+              healthSecretaryName: settings.healthSecretaryName,
+            });
+          }
+        } catch (mErr) {
+          console.warn('[systemSettingsService] Falha ao atualizar entidade municipal:', mErr);
         }
       }
 
-      // Salvar em cache local de contingência
-      localStorage.setItem(`endemias_settings_${category}`, JSON.stringify(settings));
+      // 2. Prepara os registros para a tabela system_settings com as colunas corretas do Postgres
+      const now = new Date().toISOString();
+      const rows = Object.entries(settings).map(([key, value]) => ({
+        municipality_id: targetMunId,
+        category,
+        setting_key: key,
+        setting_value: value,
+        updated_at: now,
+      }));
 
-      return { success: true, message: `Configurações de ${category} salvas com sucesso!` };
+      // 3. Upsert atômico respeitando a chave única (municipality_id, setting_key)
+      const { error: upsertError } = await supabase
+        .from('system_settings')
+        .upsert(rows, { onConflict: 'municipality_id, setting_key' });
+
+      if (upsertError) {
+        console.error(`[systemSettingsService] Erro no upsert de ${category}:`, upsertError);
+        throw new Error(upsertError.message || 'Falha ao salvar no PostgreSQL via Supabase.');
+      }
+
+      // 4. Salvar em cache local de contingência (PWA / offline-first)
+      try {
+        localStorage.setItem(`endemias_settings_${category}`, JSON.stringify(settings));
+      } catch {}
+
+      // 5. Registra trilha de auditoria
+      try {
+        db.addAuditLog('EDICAO', 'Configurações do Sistema', `Parâmetros da categoria "${category}" atualizados.`);
+      } catch {}
+
+      return { 
+        success: true, 
+        message: `Configurações de "${category}" salvas e aplicadas com sucesso no banco de dados!` 
+      };
     } catch (err: any) {
       console.error(`Erro ao salvar configurações de ${category}:`, err);
-      return { success: false, message: err.message || 'Falha ao gravar no banco.' };
+      // Salva localmente em caso de emergência para não perder o trabalho do operador
+      try {
+        localStorage.setItem(`endemias_settings_${category}`, JSON.stringify(settings));
+      } catch {}
+      return { 
+        success: false, 
+        message: err.message || 'Falha ao gravar no banco de dados. Verifique a conexão ou permissões.' 
+      };
     }
   },
 };

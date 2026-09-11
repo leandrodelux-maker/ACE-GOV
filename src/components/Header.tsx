@@ -14,6 +14,7 @@ import {
   AlertTriangle,
   LogOut,
   Search,
+  Plus,
 } from 'lucide-react';
 import { User, UserRole } from '../types';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
@@ -36,6 +37,7 @@ interface HeaderProps {
   municipalityName: string;
   onLogout?: () => void;
   onNavigate?: (module: string) => void;
+  onOpenQuickCreate?: () => void;
 }
 
 const ROLES_LIST: { role: UserRole; label: string; badgeColor: string }[] = [
@@ -66,6 +68,7 @@ export const Header: React.FC<HeaderProps> = ({
   municipalityName,
   onLogout,
   onNavigate,
+  onOpenQuickCreate,
 }) => {
   const canImpersonate = realRole === 'SUPER_ADMIN' || realRole === 'MUNICIPAL_ADMIN';
   const isOnline = useOnlineStatus();
@@ -133,8 +136,20 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
         </div>
 
-        {/* Right: Actions, Sync, Notifications & Role Switcher */}
+        {/* Right: Actions, Quick Create, Sync, Notifications & Role Switcher */}
         <div className="flex items-center gap-2 sm:gap-3">
+          {/* Botão de Destaque Global: + Novo Cadastro */}
+          {onOpenQuickCreate && (
+            <button
+              onClick={onOpenQuickCreate}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-md shadow-emerald-950/30 transition transform active:scale-95 cursor-pointer"
+              title="Abertura rápida de novo cadastro (Imóvel, Denúncia, Visita, etc.)"
+            >
+              <Plus className="w-4 h-4" />
+              <span className="hidden sm:inline">Novo Cadastro</span>
+            </button>
+          )}
+
           {/* Botão de Busca Mobile */}
           <button
             onClick={() => setSearchModalOpen(true)}

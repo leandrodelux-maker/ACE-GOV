@@ -1083,5 +1083,134 @@ export const supabaseService = {
       return false;
     }
   },
+
+  /**
+   * Métricas consolidadas da Central de Território (Cards rápidos)
+   */
+  async getTerritoryMetrics(municipalityId: string): Promise<{
+    neighborhoodsCount: number;
+    sectorsCount: number;
+    blocksCount: number;
+    propertiesCount: number;
+    microareasCount: number;
+    teamsCount: number;
+    agentsCount: number;
+    strategicPointsCount: number;
+    specialPropertiesCount: number;
+  }> {
+    try {
+      const [
+        nRes,
+        sRes,
+        bRes,
+        pRes,
+        mRes,
+        tRes,
+        aRes,
+        peRes,
+        ieRes,
+      ] = await Promise.all([
+        supabase.from('neighborhoods').select('id', { count: 'exact', head: true }).eq('municipality_id', municipalityId),
+        supabase.from('sectors').select('id', { count: 'exact', head: true }).eq('municipality_id', municipalityId),
+        supabase.from('blocks').select('id', { count: 'exact', head: true }).eq('municipality_id', municipalityId),
+        supabase.from('properties').select('id', { count: 'exact', head: true }).eq('municipality_id', municipalityId).is('deleted_at', null),
+        supabase.from('microareas').select('id', { count: 'exact', head: true }).eq('municipality_id', municipalityId),
+        supabase.from('teams').select('id', { count: 'exact', head: true }).eq('municipality_id', municipalityId),
+        supabase.from('agents').select('id', { count: 'exact', head: true }).eq('municipality_id', municipalityId).eq('active', true),
+        supabase.from('strategic_points').select('id', { count: 'exact', head: true }).eq('municipality_id', municipalityId),
+        supabase.from('special_properties').select('id', { count: 'exact', head: true }).eq('municipality_id', municipalityId),
+      ]);
+
+      return {
+        neighborhoodsCount: nRes.count || 0,
+        sectorsCount: sRes.count || 0,
+        blocksCount: bRes.count || 0,
+        propertiesCount: pRes.count || 0,
+        microareasCount: mRes.count || 0,
+        teamsCount: tRes.count || 0,
+        agentsCount: aRes.count || 0,
+        strategicPointsCount: peRes.count || 0,
+        specialPropertiesCount: ieRes.count || 0,
+      };
+    } catch (err) {
+      console.error('Erro ao buscar métricas territoriais:', err);
+      return {
+        neighborhoodsCount: 0,
+        sectorsCount: 0,
+        blocksCount: 0,
+        propertiesCount: 0,
+        microareasCount: 0,
+        teamsCount: 0,
+        agentsCount: 0,
+        strategicPointsCount: 0,
+        specialPropertiesCount: 0,
+      };
+    }
+  },
+
+  /**
+   * Buscar Setores com dados do Bairro e contagem de quadras
+   */
+  async getSectorsWithDetails(municipalityId: string, neighborhoodId?: string): Promise<any[]> {
+    try {
+      let query = supabase
+        .from('sectors')
+        .select('*, neighborhoods(name)')
+        .eq('municipality_id', municipalityId)
+        .order('name');
+
+      if (neighborhoodId && neighborhoodId !== 'ALL') {
+        query = query.eq('neighborhood_id', neighborhoodId);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      return data || [];
+    } catch {
+      return [];
+    }
+  },
+
+  /**
+   * Buscar Quadras com dados do Setor
+   */
+  async getBlocksWithDetails(municipalityId: string, sectorId?: string): Promise<any[]> {
+    try {
+      let query = supabase
+        .from('blocks')
+        .select('*, sectors(name, code, neighborhood_id, neighborhoods(name))')
+        .eq('municipality_id', municipalityId)
+        .order('code');
+
+      if (sectorId && sectorId !== 'ALL') {
+        query = query.eq('sector_id', sectorId);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      return data || [];
+    } catch {
+      return [];
+    }
+  },
+
+  /**
+   * Buscar Microáreas detalhadas
+   */
+  async getMicroareasWithDetails(municipalityId: string): Promise<any[]> {
+    try {
+      const { data, error } = await supabase
+        .from('microareas')
+        .select('*, sectors(name, neighborhoods(name)), agents(employee_number, profiles(full_name))')
+        .eq('municipality_id', municipalityId)
+        .order('name');
+
+      if (error) throw error;
+      return data || [];
+    } catch {
+      return [];
+    }
+  },
 };
+
 

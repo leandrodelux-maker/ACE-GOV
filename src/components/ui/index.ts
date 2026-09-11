@@ -1,6 +1,10 @@
 export { Card } from './Card';
 export { PageHeader } from './PageHeader';
 export { StatCard } from './StatCard';
+export { Breadcrumbs } from './Breadcrumbs';
+export { QuickCreateModal } from './QuickCreateModal';
 export type { CardProps } from './Card';
 export type { PageHeaderProps, BadgeTone } from './PageHeader';
 export type { StatCardProps, StatTone } from './StatCard';
+export type { BreadcrumbItem } from './Breadcrumbs';
+export type { QuickCreateEntity } from './QuickCreateModal';

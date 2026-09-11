@@ -63,6 +63,34 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
       const term = searchTerm.toLowerCase();
       const found: SearchResultItem[] = [];
 
+      // 0. Módulos e Atalhos do Sistema
+      const SYSTEM_MODULES = [
+        { name: 'Central de Território', desc: 'Bairros, Setores, Quadras e Microáreas', module: 'territory', icon: MapPin },
+        { name: 'Cadastro de Imóveis', desc: 'Gestão completa de imóveis e cadastros', module: 'properties', icon: Home },
+        { name: 'Sala de Situação', desc: 'Dashboard e monitoramento de indicadores', module: 'dashboard', icon: Activity },
+        { name: 'PWA do Agente (ACE)', desc: 'Modo de campo para agentes e supervisores', module: 'ace_pwa', icon: Users },
+        { name: 'Visitas Domiciliares', desc: 'Registro e histórico de inspeções', module: 'visits', icon: Home },
+        { name: 'Pendências de Campo', desc: 'Imóveis fechados, desabitados e recusas', module: 'field_pendencies', icon: AlertTriangle },
+        { name: 'Mapa Municipal', desc: 'Visualização geográfica de imóveis e focos', module: 'map', icon: MapPin },
+        { name: 'Ovitrampas (Ovos)', desc: 'Rede sentinela de armadilhas', module: 'ovitraps', icon: Flame },
+        { name: 'LIRAa / LIA', desc: 'Levantamento Rápido de Índices de Infestação', module: 'liraa', icon: Activity },
+        { name: 'Central de Configurações', desc: 'Parâmetros municipais, mapas e alertas', module: 'system_settings', icon: Shield },
+        { name: 'Central de Relatórios', desc: 'Boletins epidemiológicos oficiais SUS', module: 'reports', icon: FileText },
+        { name: 'Usuários e Permissões', desc: 'Controle de acessos e perfis', module: 'admin_users', icon: Users },
+      ];
+
+      SYSTEM_MODULES.forEach(m => {
+        if (m.name.toLowerCase().includes(term) || m.desc.toLowerCase().includes(term) || m.module.includes(term)) {
+          found.push({
+            category: 'NAVEGAÇÃO / MÓDULO',
+            title: m.name,
+            subtitle: m.desc,
+            module: m.module,
+            icon: m.icon,
+          });
+        }
+      });
+
       // 1. Imóveis
       try {
         const properties = db.getProperties();
