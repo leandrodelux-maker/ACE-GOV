@@ -21,6 +21,7 @@ import {
 import { supabase } from '../../services/supabaseClient';
 import { supabaseService } from '../../services/supabaseService';
 import { Neighborhood } from '../../types';
+import { PageHeader } from '../ui';
 
 export const MapView: React.FC = () => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -371,52 +372,46 @@ export const MapView: React.FC = () => {
   return (
     <div className="space-y-4">
       {/* Top Controls & Layer Selector */}
-      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-base font-bold text-slate-900 flex items-center gap-2">
-            <Layers className="w-5 h-5 text-blue-600" />
-            <span>Mapa Municipal de Endemias & Vigilância Espacial</span>
-          </h1>
-          <p className="text-xs text-slate-500">
-            Camadas territoriais conectadas ao PostgreSQL, geolocalização e raio de bloqueio peridomiciliar
-          </p>
-        </div>
+      <PageHeader
+        icon={Layers}
+        title="Mapa Municipal de Endemias & Vigilância Espacial"
+        subtitle="Camadas territoriais conectadas ao PostgreSQL, geolocalização e raio de bloqueio peridomiciliar"
+        actions={
+          <>
+            <select
+              value={selectedNeighborhood}
+              onChange={e => setSelectedNeighborhood(e.target.value)}
+              className="bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200 font-medium text-slate-700 outline-none cursor-pointer text-xs"
+            >
+              <option value="ALL">Todos os Bairros</option>
+              {neighborhoodsList.map(n => (
+                <option key={n.id} value={n.id}>{n.name}</option>
+              ))}
+            </select>
 
-        {/* Filtros de Território e Risco */}
-        <div className="flex flex-wrap items-center gap-2 text-xs">
-          <select
-            value={selectedNeighborhood}
-            onChange={e => setSelectedNeighborhood(e.target.value)}
-            className="bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200 font-medium text-slate-700 outline-none cursor-pointer"
-          >
-            <option value="ALL">Todos os Bairros</option>
-            {neighborhoodsList.map(n => (
-              <option key={n.id} value={n.id}>{n.name}</option>
-            ))}
-          </select>
+            <select
+              value={selectedRiskLevel}
+              onChange={e => setSelectedRiskLevel(e.target.value)}
+              className="bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200 font-medium text-slate-700 outline-none cursor-pointer text-xs"
+            >
+              <option value="ALL">Todos os Níveis de Risco</option>
+              <option value="CRITICO">Risco Crítico</option>
+              <option value="ALTO">Risco Alto</option>
+              <option value="ATENCAO">Atenção</option>
+              <option value="BAIXO">Baixo Risco</option>
+            </select>
 
-          <select
-            value={selectedRiskLevel}
-            onChange={e => setSelectedRiskLevel(e.target.value)}
-            className="bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200 font-medium text-slate-700 outline-none cursor-pointer"
-          >
-            <option value="ALL">Todos os Níveis de Risco</option>
-            <option value="CRITICO">Risco Crítico</option>
-            <option value="ALTO">Risco Alto</option>
-            <option value="ATENCAO">Atenção</option>
-            <option value="BAIXO">Baixo Risco</option>
-          </select>
-
-          <button
-            onClick={loadMapData}
-            disabled={isLoading}
-            className="p-1.5 text-slate-500 hover:text-slate-800 rounded-lg hover:bg-slate-100 transition"
-            title="Atualizar dados do mapa"
-          >
-            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-blue-600' : ''}`} />
-          </button>
-        </div>
-      </div>
+            <button
+              onClick={loadMapData}
+              disabled={isLoading}
+              className="p-1.5 text-slate-500 hover:text-slate-800 rounded-lg hover:bg-slate-100 transition"
+              title="Atualizar dados do mapa"
+            >
+              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-blue-600' : ''}`} />
+            </button>
+          </>
+        }
+      />
 
       {/* Camadas Ativáveis */}
       <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-wrap items-center gap-2 text-xs font-semibold">

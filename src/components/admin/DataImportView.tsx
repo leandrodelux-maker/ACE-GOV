@@ -17,6 +17,7 @@ import {
   HelpCircle,
 } from 'lucide-react';
 import { dataImportService, ImportJobRecord } from '../../services/dataImportService';
+import { PageHeader } from '../ui';
 
 export const DataImportView: React.FC = () => {
   const [currentStep, setCurrentStep] = useState<number>(1);
@@ -128,25 +129,20 @@ export const DataImportView: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header Institucional */}
-      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-base font-bold text-slate-900 flex items-center gap-2">
-            <Upload className="w-5 h-5 text-indigo-600" />
-            <span>Central de Importação e Carga Segura de Dados Municipais</span>
-          </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Carga massiva de Imóveis, Bairros, Quadras, ACEs e Armadilhas com validação prévia e prevenção de duplicidade
-          </p>
-        </div>
-
-        <button
-          onClick={loadRecentJobs}
-          className="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition"
-          title="Atualizar histórico"
-        >
-          <RefreshCw className="w-4 h-4" />
-        </button>
-      </div>
+      <PageHeader
+        icon={Upload}
+        title="Central de Importação e Carga Segura de Dados Municipais"
+        subtitle="Carga massiva de Imóveis, Bairros, Quadras, ACEs e Armadilhas com validação prévia e prevenção de duplicidade"
+        actions={
+          <button
+            onClick={loadRecentJobs}
+            className="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition"
+            title="Atualizar histórico"
+          >
+            <RefreshCw className="w-4 h-4" />
+          </button>
+        }
+      />
 
       {/* Barra de Progresso dos 7 Passos */}
       <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs overflow-x-auto">

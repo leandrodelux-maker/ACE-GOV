@@ -13,6 +13,7 @@ import {
   X,
 } from 'lucide-react';
 import { errorLoggingService, SystemErrorLog } from '../../services/errorLoggingService';
+import { PageHeader } from '../ui';
 
 export const ErrorLogsView: React.FC = () => {
   const [logs, setLogs] = useState<SystemErrorLog[]>([]);
@@ -63,30 +64,21 @@ export const ErrorLogsView: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Top Header */}
-      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase bg-red-100 text-red-700">
-              Acesso Exclusivo Superadmin
-            </span>
-          </div>
-          <h1 className="text-base font-bold text-slate-900 flex items-center gap-2 mt-1">
-            <AlertTriangle className="w-5 h-5 text-rose-600" />
-            <span>Central de Tratamento & Log Centralizado de Erros</span>
-          </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Rastreamento de exceções com Correlation/Request ID, sem exposição de senhas, tokens ou dados sensíveis
-          </p>
-        </div>
-
-        <button
-          onClick={loadLogs}
-          className="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition"
-          title="Recarregar logs"
-        >
-          <RefreshCw className="w-4 h-4" />
-        </button>
-      </div>
+      <PageHeader
+        icon={AlertTriangle}
+        title="Central de Tratamento & Log Centralizado de Erros"
+        subtitle="Rastreamento de exceções com Correlation/Request ID, sem exposição de senhas, tokens ou dados sensíveis"
+        badge={{ label: 'ACESSO EXCLUSIVO SUPERADMIN', tone: 'danger' }}
+        actions={
+          <button
+            onClick={loadLogs}
+            className="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition"
+            title="Recarregar logs"
+          >
+            <RefreshCw className="w-4 h-4" />
+          </button>
+        }
+      />
 
       {/* Barra de Filtros */}
       <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs">

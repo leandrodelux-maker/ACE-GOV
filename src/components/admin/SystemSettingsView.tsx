@@ -19,6 +19,7 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import { systemSettingsService, DEFAULT_SETTINGS } from '../../services/systemSettingsService';
+import { PageHeader } from '../ui';
 
 export const SystemSettingsView: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('GERAL');
@@ -91,24 +92,19 @@ export const SystemSettingsView: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Top Header */}
-      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-base font-bold text-slate-900 flex items-center gap-2">
-            <Settings className="w-5 h-5 text-indigo-600" />
-            <span>Central de Configurações & Parâmetros Municipais</span>
-          </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Parametrização institucional das 12 áreas críticas do Endemias GOV persistidas no banco PostgreSQL
-          </p>
-        </div>
-
-        {feedbackMessage && (
-          <div className="p-2.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-2xs">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-            <span>{feedbackMessage}</span>
-          </div>
-        )}
-      </div>
+      <PageHeader
+        icon={Settings}
+        title="Central de Configurações & Parâmetros Municipais"
+        subtitle="Parametrização institucional das 12 áreas críticas do Endemias GOV persistidas no banco PostgreSQL"
+        actions={
+          feedbackMessage ? (
+            <div className="p-2.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-2xs">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+              <span>{feedbackMessage}</span>
+            </div>
+          ) : undefined
+        }
+      />
 
       {/* Navegação das 12 Abas */}
       <div className="bg-white p-2 rounded-xl border border-slate-200 shadow-xs overflow-x-auto">

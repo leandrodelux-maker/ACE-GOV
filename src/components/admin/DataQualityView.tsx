@@ -12,6 +12,7 @@ import {
   Check,
 } from 'lucide-react';
 import { dataQualityService, DataQualityReport, DataQualityIssue } from '../../services/dataQualityService';
+import { PageHeader } from '../ui';
 
 export const DataQualityView: React.FC = () => {
   const [report, setReport] = useState<DataQualityReport | null>(null);
@@ -51,26 +52,21 @@ export const DataQualityView: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Top Header */}
-      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-base font-bold text-slate-900 flex items-center gap-2">
-            <ShieldCheck className="w-5 h-5 text-indigo-600" />
-            <span>Módulo de Qualidade e Integridade dos Dados Sanitários</span>
-          </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Diagnóstico contínuo da higidez cadastral: prevenção de duplicidades, coordenadas faltantes e inconsistências operacionais
-          </p>
-        </div>
-
-        <button
-          onClick={runAudit}
-          disabled={loading}
-          className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs shadow-xs transition flex items-center gap-1.5"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-          <span>{loading ? 'Auditando Base...' : 'Recalcular Indicador'}</span>
-        </button>
-      </div>
+      <PageHeader
+        icon={ShieldCheck}
+        title="Módulo de Qualidade e Integridade dos Dados Sanitários"
+        subtitle="Diagnóstico contínuo da higidez cadastral: prevenção de duplicidades, coordenadas faltantes e inconsistências operacionais"
+        actions={
+          <button
+            onClick={runAudit}
+            disabled={loading}
+            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs shadow-xs transition flex items-center gap-1.5"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+            <span>{loading ? 'Auditando Base...' : 'Recalcular Indicador'}</span>
+          </button>
+        }
+      />
 
       {actionSuccess && (
         <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs font-bold text-emerald-800 flex items-center gap-2">
