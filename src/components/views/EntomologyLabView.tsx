@@ -27,6 +27,7 @@ import {
   CollectionType,
   SampleStatus,
 } from '../../services/entomologyService';
+import { PageHeader } from '../ui';
 
 interface EntomologyLabViewProps {
   municipalityId?: string;
@@ -195,31 +196,20 @@ export const EntomologyLabView: React.FC<EntomologyLabViewProps> = ({ municipali
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white dark:bg-slate-800 p-6 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
-        <div>
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
-              <FlaskConical className="w-6 h-6" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
-                Laboratório Entomológico
-              </h1>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                Triagem, microscopia taxonômica, identificação de vetores e emissão de laudos oficiais
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <button
-          onClick={() => setIsCreateOpen(true)}
-          className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
-        >
-          <Plus className="w-4 h-4" />
-          Nova Amostra
-        </button>
-      </div>
+      <PageHeader
+        icon={FlaskConical}
+        title="Laboratório Entomológico"
+        subtitle="Triagem, microscopia taxonômica, identificação de vetores e emissão de laudos oficiais"
+        actions={
+          <button
+            onClick={() => setIsCreateOpen(true)}
+            className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
+          >
+            <Plus className="w-4 h-4" />
+            Nova Amostra
+          </button>
+        }
+      />
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">

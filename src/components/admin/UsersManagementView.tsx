@@ -19,6 +19,7 @@ import { db } from '../../services/storage';
 import { User, UserRole } from '../../types';
 import { ROLES_REGISTRY } from '../../services/rbac';
 import { useAuth } from '../../contexts/AuthContext';
+import { PageHeader } from '../ui';
 
 export const UsersManagementView: React.FC = () => {
   const { user: currentUser } = useAuth();
@@ -177,25 +178,20 @@ export const UsersManagementView: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Cabeçalho */}
-      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-            <Users className="w-5 h-5 text-indigo-600" />
-            <span>Gestão de Usuários e Operadores Municipais</span>
-          </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Cadastro de servidores SUS, atribuição de perfis RBAC e equipes de trabalho
-          </p>
-        </div>
-
-        <button
-          onClick={handleOpenNewUser}
-          className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 transition shadow-sm flex items-center gap-2 cursor-pointer self-start sm:self-auto"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Novo Usuário</span>
-        </button>
-      </div>
+      <PageHeader
+        icon={Users}
+        title="Gestão de Usuários e Operadores Municipais"
+        subtitle="Cadastro de servidores SUS, atribuição de perfis RBAC e equipes de trabalho"
+        actions={
+          <button
+            onClick={handleOpenNewUser}
+            className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 transition shadow-sm flex items-center gap-2 cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Novo Usuário</span>
+          </button>
+        }
+      />
 
       {feedbackMessage && (
         <div className="p-3.5 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-800 text-xs flex items-center gap-2 animate-in fade-in">

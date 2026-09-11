@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { qrCodeService, QrEntityType } from '../../services/qrCodeService';
 import { supabase } from '../../services/supabaseClient';
+import { PageHeader } from '../ui';
 
 interface LabelGeneratorViewProps {
   municipalityId?: string;
@@ -224,41 +225,32 @@ export const LabelGeneratorView: React.FC<LabelGeneratorViewProps> = ({ municipa
   return (
     <div className="space-y-6">
       {/* Header com estilo institucional */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white dark:bg-slate-800 p-6 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm print:hidden">
-        <div>
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-lg bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300">
-              <QrCode className="w-6 h-6" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
-                Central de QR Code & Gerador de Etiquetas
-              </h1>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                Identificação segura e sem exposição de dados pessoais para imóveis, armadilhas, equipamentos e amostras
-              </p>
-            </div>
-          </div>
-        </div>
+      <div className="print:hidden">
+        <PageHeader
+          icon={QrCode}
+          title="Central de QR Code & Gerador de Etiquetas"
+          subtitle="Identificação segura e sem exposição de dados pessoais para imóveis, armadilhas, equipamentos e amostras"
+          actions={
+            <>
+              <button
+                onClick={() => setScannerOpen(true)}
+                className="flex items-center gap-2 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg text-sm font-medium transition-colors"
+              >
+                <Camera className="w-4 h-4" />
+                Escanear / Testar QR
+              </button>
 
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setScannerOpen(true)}
-            className="flex items-center gap-2 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-white rounded-lg text-sm font-medium transition-colors"
-          >
-            <Camera className="w-4 h-4" />
-            Escanear / Testar QR
-          </button>
-
-          <button
-            onClick={handlePrint}
-            disabled={selectedItems.length === 0}
-            className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
-          >
-            <Printer className="w-4 h-4" />
-            Imprimir ({selectedItems.length})
-          </button>
-        </div>
+              <button
+                onClick={handlePrint}
+                disabled={selectedItems.length === 0}
+                className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
+              >
+                <Printer className="w-4 h-4" />
+                Imprimir ({selectedItems.length})
+              </button>
+            </>
+          }
+        />
       </div>
 
       {/* Seletor de Categoria e Opções de Formato */}

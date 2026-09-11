@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { PageHeader } from '../ui';
 import {
   Activity,
   CheckCircle2,
@@ -361,27 +362,14 @@ export const DatabaseHealthView: React.FC = () => {
       {/* ================================================== */}
       {/* 1. CABEÇALHO TÉCNICO PROFISSIONAL */}
       {/* ================================================== */}
-      <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-xs">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2 mb-1.5">
-              <span className="text-xs font-bold px-2.5 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200 uppercase tracking-wider flex items-center gap-1">
-                <Database className="w-3.5 h-3.5" />
-                CENTRAL DE INTEGRIDADE DO SISTEMA
-              </span>
-              <span className="text-xs font-mono text-slate-400">• v2.4.0 (Build 2026.09)</span>
-            </div>
-            <h1 className="text-2xl font-black text-slate-900 tracking-tight">
-              CENTRAL DE INTEGRIDADE DO SISTEMA
-            </h1>
-            <p className="text-sm text-slate-500 mt-1">
-              Monitore a conexão entre páginas, banco de dados, APIs e funcionalidades do Endemias GOV.
-            </p>
-          </div>
-
-          {/* Metadados dinâmicos e Status Geral */}
-          <div className="flex flex-wrap items-center gap-4 text-xs">
-            <div className="bg-slate-50 border border-slate-200 rounded-lg p-2.5">
+      <PageHeader
+        icon={Database}
+        title="Central de Integridade do Sistema"
+        subtitle="Monitore a conexão entre páginas, banco de dados, APIs e funcionalidades do Endemias GOV."
+        badge={{ label: 'v2.4.0 (Build 2026.09)', tone: 'info' }}
+        actions={
+          <>
+            <div className="bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-xs">
               <span className="text-slate-500 block text-[10px] uppercase tracking-wider font-semibold">
                 Última auditoria
               </span>
@@ -398,14 +386,14 @@ export const DatabaseHealthView: React.FC = () => {
               </strong>
             </div>
 
-            <div className="bg-slate-50 border border-slate-200 rounded-lg p-2.5">
+            <div className="bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-xs">
               <span className="text-slate-500 block text-[10px] uppercase tracking-wider font-semibold">
                 Duração
               </span>
               <strong className="text-slate-800 font-mono">{auditDuration}</strong>
             </div>
 
-            <div className="bg-slate-50 border border-slate-200 rounded-lg p-2.5">
+            <div className="bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-xs">
               <span className="text-slate-500 block text-[10px] uppercase tracking-wider font-semibold">
                 Status Geral
               </span>
@@ -428,13 +416,15 @@ export const DatabaseHealthView: React.FC = () => {
                 </span>
               )}
             </div>
-          </div>
-        </div>
+          </>
+        }
+      />
 
-        {/* ================================================== */}
-        {/* 2. AÇÕES DO TOPO */}
-        {/* ================================================== */}
-        <div className="flex flex-wrap items-center justify-between gap-3 mt-5 pt-4 border-t border-slate-100">
+      {/* ================================================== */}
+      {/* 2. AÇÕES DO TOPO */}
+      {/* ================================================== */}
+      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={executeAudit}

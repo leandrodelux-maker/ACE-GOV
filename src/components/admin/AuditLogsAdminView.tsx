@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { db } from '../../services/storage';
 import { AuditLog } from '../../types';
+import { PageHeader } from '../ui';
 
 export const AuditLogsAdminView: React.FC = () => {
   const [logs, setLogs] = useState<AuditLog[]>(db.getAuditLogs());
@@ -74,21 +75,16 @@ export const AuditLogsAdminView: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Cabeçalho */}
-      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-            <ShieldAlert className="w-5 h-5 text-indigo-600" />
-            <span>Trilha de Auditoria, Conformidade e Segurança (LGPD)</span>
-          </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Registro cronológico imutável de todas as ações administrativas, alterações de estado e acessos
-          </p>
-        </div>
-
-        <div className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-slate-100 text-slate-700">
-          {filteredLogs.length} eventos auditados
-        </div>
-      </div>
+      <PageHeader
+        icon={ShieldAlert}
+        title="Trilha de Auditoria, Conformidade e Segurança (LGPD)"
+        subtitle="Registro cronológico imutável de todas as ações administrativas, alterações de estado e acessos"
+        actions={
+          <div className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-slate-100 text-slate-700">
+            {filteredLogs.length} eventos auditados
+          </div>
+        }
+      />
 
       {/* Barra de Filtros */}
       <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-wrap items-center justify-between gap-3">
