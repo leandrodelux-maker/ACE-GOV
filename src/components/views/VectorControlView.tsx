@@ -23,6 +23,7 @@ import {
 } from '../../services/vectorControlService';
 import { stockService, Product } from '../../services/stockService';
 import { db } from '../../services/storage';
+import { PageHeader } from '../ui';
 
 export const VectorControlView: React.FC = () => {
   const [operations, setOperations] = useState<VectorControlOperation[]>([]);
@@ -115,30 +116,21 @@ export const VectorControlView: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Top Header */}
-      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-base font-bold text-slate-900 flex items-center gap-2">
-              <Crosshair className="w-5 h-5 text-rose-600" />
-              <span>Tratamento, Bloqueio Químico & Controle Vetorial</span>
-            </h1>
-            <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-rose-100 text-rose-800">
-              RESPOSTA RÁPIDA
-            </span>
-          </div>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Tratamento focal, perifocal, nebulização UBV costal/veicular e bloqueio de transmissão viral com consumo integrado ao estoque FEFO
-          </p>
-        </div>
-
-        <button
-          onClick={() => setShowNewOpModal(true)}
-          className="px-3.5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold shadow-xs transition flex items-center gap-1.5"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Disparar Operação de Campo</span>
-        </button>
-      </div>
+      <PageHeader
+        icon={Crosshair}
+        title="Tratamento, Bloqueio Químico & Controle Vetorial"
+        subtitle="Tratamento focal, perifocal, nebulização UBV costal/veicular e bloqueio de transmissão viral com consumo integrado ao estoque FEFO"
+        badge={{ label: 'RESPOSTA RÁPIDA', tone: 'danger' }}
+        actions={
+          <button
+            onClick={() => setShowNewOpModal(true)}
+            className="px-3.5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold shadow-xs transition flex items-center gap-1.5"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Disparar Operação de Campo</span>
+          </button>
+        }
+      />
 
       {/* Operações List */}
       <div className="space-y-4">

@@ -25,6 +25,7 @@ import {
   ApprovedOperationalPlan,
 } from '../../services/planningAssistantService';
 import { epidemiologicalWeekService } from '../../services/epidemiologicalWeekService';
+import { PageHeader } from '../ui';
 
 export const PlanningView: React.FC = () => {
   const [suggestions, setSuggestions] = useState<PlanningSuggestion[]>([]);
@@ -115,24 +116,17 @@ export const PlanningView: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header Institucional */}
-      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-base font-bold text-slate-900 flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-indigo-600" />
-            <span>Assistente de Planejamento de Campo & Governança Operacional</span>
-          </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Cruzamento heurístico de risco epidemiológico: Focos Ativos, Notificações Sinan, Pendências e PEs com validação humana
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2">
+      <PageHeader
+        icon={Sparkles}
+        title="Assistente de Planejamento de Campo & Governança Operacional"
+        subtitle="Cruzamento heurístico de risco epidemiológico: Focos Ativos, Notificações Sinan, Pendências e PEs com validação humana"
+        actions={
           <div className="bg-indigo-50 text-indigo-800 font-bold px-3 py-1.5 rounded-lg border border-indigo-200 text-xs flex items-center gap-1.5">
             <Calendar className="w-4 h-4 text-indigo-600" />
             <span>SE {currentSE.week}/{currentSE.year}</span>
           </div>
-        </div>
-      </div>
+        }
+      />
 
       {/* Alerta de Sucesso */}
       {successMessage && (

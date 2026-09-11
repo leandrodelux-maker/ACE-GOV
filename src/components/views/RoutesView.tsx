@@ -24,6 +24,7 @@ import { db } from '../../services/storage';
 import { supabaseService } from '../../services/supabaseService';
 import { supabase } from '../../services/supabaseClient';
 import { Property } from '../../types';
+import { PageHeader } from '../ui';
 
 interface RoutesViewProps {
   onNavigate: (module: string) => void;
@@ -237,66 +238,60 @@ export const RoutesView: React.FC<RoutesViewProps> = ({ onNavigate }) => {
   return (
     <div className="space-y-6">
       {/* Header Banner */}
-      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-base font-bold text-slate-900 flex items-center gap-2">
-            <Navigation className="w-5 h-5 text-emerald-600" />
-            <span>Minha Rota Otimizada — Setor 01 (Vila Nova)</span>
-          </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Ordenação sequencial inteligente por gravidade de risco e menor trajeto com suporte 100% offline
-          </p>
-        </div>
-
-        {/* Indicador de Conexão & Ações Globais */}
-        <div className="flex flex-wrap items-center gap-2 text-xs">
-          <div
-            className={`px-3 py-1.5 rounded-lg border flex items-center gap-1.5 font-bold ${
-              isOnline
-                ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                : 'bg-amber-50 text-amber-800 border-amber-200'
-            }`}
-          >
-            {isOnline ? <Wifi className="w-3.5 h-3.5 text-emerald-600" /> : <WifiOff className="w-3.5 h-3.5 text-amber-600" />}
-            <span>{isOnline ? 'Online (Sincronizado)' : 'Modo Offline Ativo'}</span>
-          </div>
-
-          <button
-            onClick={handleReorganizeRoute}
-            className="px-3 py-1.5 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 font-semibold flex items-center gap-1.5 shadow-2xs"
-            title="Reordenar imóveis restantes por menor distância"
-          >
-            <Shuffle className="w-3.5 h-3.5 text-slate-500" />
-            <span>Reorganizar Rota</span>
-          </button>
-
-          <button
-            onClick={() => onNavigate('map')}
-            className="px-3 py-1.5 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 font-semibold flex items-center gap-1.5 shadow-2xs"
-          >
-            <Map className="w-3.5 h-3.5 text-slate-500" />
-            <span>Abrir no Mapa</span>
-          </button>
-
-          {!isRouteActive ? (
-            <button
-              onClick={handleStartRoute}
-              className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex items-center gap-1.5 shadow-xs transition"
+      <PageHeader
+        icon={Navigation}
+        title="Minha Rota Otimizada — Setor 01 (Vila Nova)"
+        subtitle="Ordenação sequencial inteligente por gravidade de risco e menor trajeto com suporte 100% offline"
+        actions={
+          <>
+            <div
+              className={`px-3 py-1.5 rounded-lg border flex items-center gap-1.5 font-bold text-xs ${
+                isOnline
+                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                  : 'bg-amber-50 text-amber-800 border-amber-200'
+              }`}
             >
-              <Play className="w-3.5 h-3.5" />
-              <span>Iniciar Rota</span>
-            </button>
-          ) : (
+              {isOnline ? <Wifi className="w-3.5 h-3.5 text-emerald-600" /> : <WifiOff className="w-3.5 h-3.5 text-amber-600" />}
+              <span>{isOnline ? 'Online (Sincronizado)' : 'Modo Offline Ativo'}</span>
+            </div>
+
             <button
-              onClick={handleResetRoute}
-              className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg"
-              title="Reiniciar rota"
+              onClick={handleReorganizeRoute}
+              className="px-3 py-1.5 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 font-semibold flex items-center gap-1.5 shadow-2xs text-xs"
+              title="Reordenar imóveis restantes por menor distância"
             >
-              <RotateCcw className="w-4 h-4" />
+              <Shuffle className="w-3.5 h-3.5 text-slate-500" />
+              <span>Reorganizar Rota</span>
             </button>
-          )}
-        </div>
-      </div>
+
+            <button
+              onClick={() => onNavigate('map')}
+              className="px-3 py-1.5 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 font-semibold flex items-center gap-1.5 shadow-2xs text-xs"
+            >
+              <Map className="w-3.5 h-3.5 text-slate-500" />
+              <span>Abrir no Mapa</span>
+            </button>
+
+            {!isRouteActive ? (
+              <button
+                onClick={handleStartRoute}
+                className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex items-center gap-1.5 shadow-xs transition text-xs"
+              >
+                <Play className="w-3.5 h-3.5" />
+                <span>Iniciar Rota</span>
+              </button>
+            ) : (
+              <button
+                onClick={handleResetRoute}
+                className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg"
+                title="Reiniciar rota"
+              >
+                <RotateCcw className="w-4 h-4" />
+              </button>
+            )}
+          </>
+        }
+      />
 
       {/* Barra de Progresso do Dia */}
       <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs space-y-2">
