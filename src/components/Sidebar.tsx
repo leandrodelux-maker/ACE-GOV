@@ -123,17 +123,25 @@ interface SidebarProps {
   pendingSyncCount: number;
 }
 
+interface NavItem {
+  id: ViewModule;
+  label: string;
+  icon: React.ElementType;
+  badge?: string;
+  highlight?: boolean;
+  requiredPermission?: string;
+  allowedRoles?: UserRole[];
+}
+
+interface NavGroup {
+  /** Subtítulo opcional dentro da seção — usado para dividir seções com muitos itens */
+  label?: string;
+  items: NavItem[];
+}
+
 interface NavSection {
   title: string;
-  items: {
-    id: ViewModule;
-    label: string;
-    icon: React.ElementType;
-    badge?: string;
-    highlight?: boolean;
-    requiredPermission?: string;
-    allowedRoles?: UserRole[];
-  }[];
+  groups: NavGroup[];
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -148,7 +156,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const sections: NavSection[] = [
     {
       title: 'OPERACIONAL DE CAMPO',
-      items: [
+      groups: [{ items: [
         {
           id: 'ace_pwa',
           label: 'PWA do Agente (ACE)',
@@ -170,95 +178,144 @@ export const Sidebar: React.FC<SidebarProps> = ({
         { id: 'visits', label: 'Visitas Domiciliares', icon: CheckSquare, requiredPermission: 'visits.view' },
         { id: 'field_pendencies', label: 'Pendências de Campo', icon: Clock, badge: 'Fechados', highlight: true, requiredPermission: 'visits.view' },
         { id: 'planning', label: 'Planejamento de Campo', icon: Calendar, requiredPermission: 'field_planning.view' },
-      ],
+      ] }],
     },
     {
       title: 'VIGILÂNCIA & INTELIGÊNCIA',
-      items: [
-        { id: 'daily_briefing', label: 'Briefing Diário', icon: FileText, highlight: true, badge: 'Matinal', requiredPermission: 'reports.view' },
-        { id: 'command_center', label: 'Centro de Comando', icon: Radio, highlight: true, badge: 'Cockpit', requiredPermission: 'dashboard.view' },
-        { id: 'dashboard', label: 'Sala de Situação', icon: LayoutDashboard, requiredPermission: 'dashboard.view' },
-        { id: 'ovitraps', label: 'Ovitrampas (Ovos)', icon: Layers, highlight: true, badge: 'Sentinela', requiredPermission: 'ovitraps.view' },
-        { id: 'historical_analysis', label: 'Análise Histórica', icon: BarChart2, requiredPermission: 'dashboard.view' },
-        { id: 'entomology_lab', label: 'Laboratório Entomológico', icon: FlaskConical, requiredPermission: 'dashboard.view' },
-        { id: 'liraa', label: 'LIRAa / LIA', icon: PieChart, requiredPermission: 'dashboard.view' },
-        { id: 'executive', label: 'Painel do Secretário', icon: Crown, requiredPermission: 'reports.view' },
-        { id: 'tv_mode', label: 'Central TV / Telão', icon: Monitor, requiredPermission: 'dashboard.view' },
-        { id: 'map', label: 'Mapa Municipal', icon: Map, requiredPermission: 'maps.view' },
-        { id: 'risk_engine', label: 'Motor de Risco (0-100)', icon: ShieldAlert, requiredPermission: 'risk_engine.view' },
-        { id: 'ai_assistant', label: 'Assistente IA Endemias', icon: Sparkles, requiredPermission: 'ai_assistant.use' },
+      groups: [
+        {
+          label: 'Painéis',
+          items: [
+            { id: 'daily_briefing', label: 'Briefing Diário', icon: FileText, highlight: true, badge: 'Matinal', requiredPermission: 'reports.view' },
+            { id: 'command_center', label: 'Centro de Comando', icon: Radio, highlight: true, badge: 'Cockpit', requiredPermission: 'dashboard.view' },
+            { id: 'dashboard', label: 'Sala de Situação', icon: LayoutDashboard, requiredPermission: 'dashboard.view' },
+            { id: 'tv_mode', label: 'Central TV / Telão', icon: Monitor, requiredPermission: 'dashboard.view' },
+            { id: 'executive', label: 'Painel do Secretário', icon: Crown, requiredPermission: 'reports.view' },
+          ],
+        },
+        {
+          label: 'Análise & Risco',
+          items: [
+            { id: 'historical_analysis', label: 'Análise Histórica', icon: BarChart2, requiredPermission: 'dashboard.view' },
+            { id: 'liraa', label: 'LIRAa / LIA', icon: PieChart, requiredPermission: 'dashboard.view' },
+            { id: 'risk_engine', label: 'Motor de Risco (0-100)', icon: ShieldAlert, requiredPermission: 'risk_engine.view' },
+            { id: 'ai_assistant', label: 'Assistente IA Endemias', icon: Sparkles, requiredPermission: 'ai_assistant.use' },
+            { id: 'map', label: 'Mapa Municipal', icon: Map, requiredPermission: 'maps.view' },
+          ],
+        },
+        {
+          label: 'Vigilância Entomológica',
+          items: [
+            { id: 'ovitraps', label: 'Ovitrampas (Ovos)', icon: Layers, highlight: true, badge: 'Sentinela', requiredPermission: 'ovitraps.view' },
+            { id: 'entomology_lab', label: 'Laboratório Entomológico', icon: FlaskConical, requiredPermission: 'dashboard.view' },
+          ],
+        },
       ],
     },
     {
       title: 'TERRITÓRIO & CONTROLE',
-      items: [
+      groups: [{ items: [
         { id: 'geographic_reconnaissance', label: 'Reconhecimento Geográfico (RG)', icon: Map, highlight: true, badge: 'Base', requiredPermission: 'territory.view' },
         { id: 'territory', label: 'Território Municipal', icon: MapPin, requiredPermission: 'territory.view' },
         { id: 'properties', label: 'Cadastro de Imóveis', icon: Home, requiredPermission: 'properties.view' },
         { id: 'foci_recurrence', label: 'Focos e Reincidências', icon: Flame, requiredPermission: 'outbreaks.view' },
         { id: 'strategic_points', label: 'Pontos Estratégicos (PE)', icon: Crosshair, requiredPermission: 'strategic_points.view' },
         { id: 'special_properties', label: 'Imóveis Especiais (IE)', icon: Building2, requiredPermission: 'special_properties.view' },
-      ],
+      ] }],
     },
     {
       title: 'EPIDEMIOLOGIA & CIDADÃO',
-      items: [
+      groups: [{ items: [
         { id: 'epidemiology', label: 'Bloqueios Epidêmicos', icon: Activity, requiredPermission: 'epidemiology.view' },
         { id: 'complaints', label: 'Portal de Denúncias', icon: AlertCircle, requiredPermission: 'complaints.view' },
         { id: 'public_portal', label: 'Portal Cidadão (Público)', icon: Globe, requiredPermission: 'reports.view' },
         { id: 'referrals', label: 'Encaminhamentos', icon: Send, requiredPermission: 'complaints.view' },
         { id: 'transparency', label: 'Endemias em Números', icon: Eye, requiredPermission: 'reports.view' },
-      ],
+      ] }],
     },
     {
       title: 'GESTÃO OPERACIONAL & LOGÍSTICA',
-      items: [
-        { id: 'management_targets', label: 'Metas e Indicadores', icon: Target, requiredPermission: 'reports.view' },
-        { id: 'work_orders', label: 'Ordens de Serviço (OS)', icon: ClipboardList, requiredPermission: 'visits.view' },
-        { id: 'trainings', label: 'Capacitações & Cursos', icon: GraduationCap, requiredPermission: 'teams.view' },
-        { id: 'documents', label: 'Central de Documentos', icon: FileText, requiredPermission: 'reports.view' },
-        { id: 'productivity', label: 'Produtividade ACE', icon: TrendingUp, requiredPermission: 'teams.view' },
-        { id: 'stock', label: 'Estoque e Insumos', icon: Boxes, requiredPermission: 'teams.view' },
-        { id: 'teams', label: 'Equipes & Carga ACE', icon: Users, requiredPermission: 'teams.view' },
-        { id: 'supplies', label: 'Insumos & Larvicidas', icon: Package, requiredPermission: 'teams.view' },
-        { id: 'equipments', label: 'Equipamentos & UBV', icon: Wrench, requiredPermission: 'teams.view' },
-        { id: 'cycles', label: 'Ciclos (LIRAa / LIA)', icon: Clock, requiredPermission: 'cycles.view' },
-        { id: 'reports', label: 'Central de Relatórios', icon: FileText, requiredPermission: 'reports.view' },
-        { id: 'alerts', label: 'Central de Alertas', icon: Bell, requiredPermission: 'dashboard.view' },
+      groups: [
+        {
+          label: 'Pessoas & Desempenho',
+          items: [
+            { id: 'teams', label: 'Equipes & Carga ACE', icon: Users, requiredPermission: 'teams.view' },
+            { id: 'productivity', label: 'Produtividade ACE', icon: TrendingUp, requiredPermission: 'teams.view' },
+            { id: 'trainings', label: 'Capacitações & Cursos', icon: GraduationCap, requiredPermission: 'teams.view' },
+            { id: 'management_targets', label: 'Metas e Indicadores', icon: Target, requiredPermission: 'reports.view' },
+          ],
+        },
+        {
+          label: 'Logística & Insumos',
+          items: [
+            { id: 'stock', label: 'Estoque e Insumos', icon: Boxes, requiredPermission: 'teams.view' },
+            { id: 'supplies', label: 'Insumos & Larvicidas', icon: Package, requiredPermission: 'teams.view' },
+            { id: 'equipments', label: 'Equipamentos & UBV', icon: Wrench, requiredPermission: 'teams.view' },
+          ],
+        },
+        {
+          label: 'Processos',
+          items: [
+            { id: 'work_orders', label: 'Ordens de Serviço (OS)', icon: ClipboardList, requiredPermission: 'visits.view' },
+            { id: 'cycles', label: 'Ciclos (LIRAa / LIA)', icon: Clock, requiredPermission: 'cycles.view' },
+            { id: 'documents', label: 'Central de Documentos', icon: FileText, requiredPermission: 'reports.view' },
+            { id: 'reports', label: 'Central de Relatórios', icon: FileText, requiredPermission: 'reports.view' },
+            { id: 'alerts', label: 'Central de Alertas', icon: Bell, requiredPermission: 'dashboard.view' },
+          ],
+        },
       ],
     },
     {
       title: 'ADMINISTRAÇÃO',
-      items: [
-        { id: 'admin_users', label: 'Usuários', icon: UserCheck, requiredPermission: 'users.view' },
-        { id: 'admin_roles', label: 'Perfis e Permissões', icon: KeyRound, requiredPermission: 'roles.view' },
-        { id: 'communication', label: 'Comunicação Operacional', icon: MessageSquare, requiredPermission: 'settings.manage' },
-        { id: 'multi_disease', label: 'Módulos de Endemias', icon: Layers, requiredPermission: 'settings.manage' },
-        { id: 'labels', label: 'Gerador de Etiquetas (QR)', icon: QrCode, requiredPermission: 'settings.view' },
-        { id: 'integrations', label: 'Central de Integrações', icon: Server, requiredPermission: 'settings.manage' },
-        { id: 'system_settings', label: 'Central de Configurações', icon: Settings, requiredPermission: 'settings.manage' },
-        { id: 'data_import', label: 'Importação de Dados', icon: Upload, requiredPermission: 'settings.manage' },
-        { id: 'data_quality', label: 'Qualidade dos Dados', icon: ShieldCheck, requiredPermission: 'settings.view' },
-        { id: 'admin_audit', label: 'Auditoria', icon: FileSearch, requiredPermission: 'audit.view' },
-        { id: 'database_health', label: 'Integridade do Sistema', icon: Database, highlight: true, badge: 'Banco', allowedRoles: ['SUPER_ADMIN', 'MUNICIPAL_ADMIN'] },
-        { id: 'system_health', label: 'Saúde do Sistema', icon: HeartPulse, requiredPermission: 'settings.view' },
-        { id: 'system_errors', label: 'Logs de Erros', icon: AlertTriangle, allowedRoles: ['SUPER_ADMIN'] },
+      groups: [
+        {
+          label: 'Acesso & Segurança',
+          items: [
+            { id: 'admin_users', label: 'Usuários', icon: UserCheck, requiredPermission: 'users.view' },
+            { id: 'admin_roles', label: 'Perfis e Permissões', icon: KeyRound, requiredPermission: 'roles.view' },
+            { id: 'admin_audit', label: 'Auditoria', icon: FileSearch, requiredPermission: 'audit.view' },
+          ],
+        },
+        {
+          label: 'Configuração',
+          items: [
+            { id: 'communication', label: 'Comunicação Operacional', icon: MessageSquare, requiredPermission: 'settings.manage' },
+            { id: 'multi_disease', label: 'Módulos de Endemias', icon: Layers, requiredPermission: 'settings.manage' },
+            { id: 'labels', label: 'Gerador de Etiquetas (QR)', icon: QrCode, requiredPermission: 'settings.view' },
+            { id: 'integrations', label: 'Central de Integrações', icon: Server, requiredPermission: 'settings.manage' },
+            { id: 'system_settings', label: 'Central de Configurações', icon: Settings, requiredPermission: 'settings.manage' },
+            { id: 'data_import', label: 'Importação de Dados', icon: Upload, requiredPermission: 'settings.manage' },
+            { id: 'data_quality', label: 'Qualidade dos Dados', icon: ShieldCheck, requiredPermission: 'settings.view' },
+          ],
+        },
+        {
+          label: 'Saúde da Plataforma',
+          items: [
+            { id: 'database_health', label: 'Integridade do Sistema', icon: Database, highlight: true, badge: 'Banco', allowedRoles: ['SUPER_ADMIN', 'MUNICIPAL_ADMIN'] },
+            { id: 'system_health', label: 'Saúde do Sistema', icon: HeartPulse, requiredPermission: 'settings.view' },
+            { id: 'system_errors', label: 'Logs de Erros', icon: AlertTriangle, allowedRoles: ['SUPER_ADMIN'] },
+          ],
+        },
       ],
     },
   ];
 
   // Filtragem estrita de segurança visual via can(userRole, permission) e allowedRoles
+  const filterItem = (item: NavItem) => {
+    if (item.allowedRoles && !item.allowedRoles.includes(userRole)) return false;
+    if (!item.requiredPermission) return true;
+    // requiredPermission usa slugs legados (EN); can() normaliza para PT.
+    return can(item.requiredPermission);
+  };
+
   const filteredSections = sections
     .map((section) => ({
       ...section,
-      items: section.items.filter((item) => {
-        if (item.allowedRoles && !item.allowedRoles.includes(userRole)) return false;
-        if (!item.requiredPermission) return true;
-        // requiredPermission usa slugs legados (EN); can() normaliza para PT.
-        return can(item.requiredPermission);
-      }),
+      groups: section.groups
+        .map((group) => ({ ...group, items: group.items.filter(filterItem) }))
+        .filter((group) => group.items.length > 0),
     }))
-    .filter((section) => section.items.length > 0);
+    .filter((section) => section.groups.length > 0);
 
   return (
     <>
@@ -294,43 +351,54 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <p className="px-3 mb-2 text-[10px] font-bold tracking-wider text-slate-400 uppercase">
                 {section.title}
               </p>
-              <div className="space-y-0.5">
-                {section.items.map(item => {
-                  const Icon = item.icon;
-                  const isActive = currentView === item.id;
-                  return (
-                    <button
-                      key={item.id}
-                      onClick={() => {
-                        onSelectView(item.id);
-                        onClose();
-                      }}
-                      className={`w-full flex items-center justify-between px-3 py-2 rounded-lg font-medium transition text-left ${
-                        isActive
-                          ? 'bg-sky-600 text-white shadow-sm'
-                          : item.highlight
-                          ? 'bg-emerald-950/40 text-emerald-300 hover:bg-emerald-900/60 border border-emerald-800/40'
-                          : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2.5 truncate">
-                        <Icon className={`w-4 h-4 flex-shrink-0 ${isActive ? 'text-white' : item.highlight ? 'text-emerald-400' : 'text-slate-400'}`} />
-                        <span className="truncate">{item.label}</span>
-                      </div>
-                      {item.badge && (
-                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${
-                          isActive
-                            ? 'bg-sky-700 text-white'
-                            : item.highlight
-                            ? 'bg-emerald-600 text-white'
-                            : 'bg-slate-800 text-slate-400'
-                        }`}>
-                          {item.badge}
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
+              <div className="space-y-3">
+                {section.groups.map((group, groupIndex) => (
+                  <div key={group.label || groupIndex}>
+                    {group.label && (
+                      <p className="px-3 mb-1 text-[9.5px] font-semibold tracking-wide text-slate-500">
+                        {group.label}
+                      </p>
+                    )}
+                    <div className="space-y-0.5">
+                      {group.items.map(item => {
+                        const Icon = item.icon;
+                        const isActive = currentView === item.id;
+                        return (
+                          <button
+                            key={item.id}
+                            onClick={() => {
+                              onSelectView(item.id);
+                              onClose();
+                            }}
+                            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg font-medium transition text-left ${
+                              isActive
+                                ? 'bg-sky-600 text-white shadow-sm'
+                                : item.highlight
+                                ? 'bg-emerald-950/40 text-emerald-300 hover:bg-emerald-900/60 border border-emerald-800/40'
+                                : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5 truncate">
+                              <Icon className={`w-4 h-4 flex-shrink-0 ${isActive ? 'text-white' : item.highlight ? 'text-emerald-400' : 'text-slate-400'}`} />
+                              <span className="truncate">{item.label}</span>
+                            </div>
+                            {item.badge && (
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${
+                                isActive
+                                  ? 'bg-sky-700 text-white'
+                                  : item.highlight
+                                  ? 'bg-emerald-600 text-white'
+                                  : 'bg-slate-800 text-slate-400'
+                              }`}>
+                                {item.badge}
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           ))}

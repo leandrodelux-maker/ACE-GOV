@@ -1,1 +1,45 @@
 @import "tailwindcss";
+
+/*
+ * Sistema Visual Endemias — tokens do design aprovado.
+ * Aditivo: nenhuma classe/cor Tailwind existente (sky-600, slate-200, etc.)
+ * é redefinida aqui. Isto só acrescenta novos tokens (bg-brand-*, rounded-card,
+ * rounded-control) para uso em telas migradas progressivamente.
+ */
+@theme {
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Azul institucional já declarado como theme-color do PWA (index.html) */
+  --color-brand-primary: #03487a;
+  --color-brand-primary-hover: #0b5fa0;
+  --color-brand-primary-tint: #e6eef5;
+
+  /* Semântica fixa: nunca decorativa, sempre o mesmo significado em todo módulo */
+  --color-brand-success: #059669;
+  --color-brand-success-tint: #e3f5ee;
+
+  --color-brand-warning: #d97706;
+  --color-brand-warning-tint: #fbead2;
+
+  --color-brand-danger: #dc2626;
+  --color-brand-danger-tint: #fbe3e1;
+
+  --color-brand-info: #0284c7;
+  --color-brand-info-tint: #e2f1f9;
+
+  --radius-control: 0.5rem;  /* botões, inputs, badges */
+  --radius-card: 0.75rem;    /* cards, painéis, modais */
+}
+
+@layer base {
+  body {
+    font-family: var(--font-sans);
+  }
+
+  /* Dado rastreável (códigos, protocolos, coordenadas) — nunca texto corrido */
+  .font-data {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+}
