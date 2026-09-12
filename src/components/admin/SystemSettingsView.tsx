@@ -18,14 +18,20 @@ import {
   AlertTriangle,
   RotateCcw,
   Loader2,
+  Layers,
 } from 'lucide-react';
 import { systemSettingsService, DEFAULT_SETTINGS } from '../../services/systemSettingsService';
 import { useAuth } from '../../contexts/AuthContext';
 import { PageHeader } from '../ui';
+import { MultiDiseaseSettingsView } from '../views/MultiDiseaseSettingsView';
 
-export const SystemSettingsView: React.FC = () => {
+interface SystemSettingsViewProps {
+  initialTab?: string;
+}
+
+export const SystemSettingsView: React.FC<SystemSettingsViewProps> = ({ initialTab = 'GERAL' }) => {
   const { municipality } = useAuth();
-  const [activeTab, setActiveTab] = useState<string>('GERAL');
+  const [activeTab, setActiveTab] = useState<string>(initialTab);
   const [settingsData, setSettingsData] = useState<Record<string, any>>({});
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isSaving, setIsSaving] = useState<boolean>(false);
@@ -44,9 +50,15 @@ export const SystemSettingsView: React.FC = () => {
     { id: 'RELATORIOS', label: 'Relatórios Oficiais', icon: FileText },
     { id: 'INTEGRACOES', label: 'Integrações (Sinan/e-SUS)', icon: Share2 },
     { id: 'SISTEMA', label: 'Sistema & Auditoria', icon: Cpu },
+    { id: 'MULTI_DISEASE', label: 'Módulos de Endemias', icon: Layers },
   ];
 
   useEffect(() => {
+    // Módulos de Endemias gerencia seu próprio carregamento/gravação — não usa o formulário genérico de parâmetros.
+    if (activeTab === 'MULTI_DISEASE') {
+      setIsLoading(false);
+      return;
+    }
     loadTabSettings(activeTab);
   }, [activeTab, municipality?.id]);
 
@@ -118,7 +130,7 @@ export const SystemSettingsView: React.FC = () => {
       <PageHeader
         icon={Settings}
         title="Central de Configurações & Parâmetros Municipais"
-        subtitle="Parametrização institucional das 12 áreas críticas do Endemias GOV persistidas no banco PostgreSQL"
+        subtitle="Parametrização institucional das 13 áreas críticas do Endemias GOV persistidas no banco PostgreSQL"
         actions={
           feedback ? (
             <div
@@ -141,7 +153,7 @@ export const SystemSettingsView: React.FC = () => {
 
       {/* Navegação das 12 Abas */}
       <div className="bg-white p-2 rounded-xl border border-slate-200 shadow-xs overflow-x-auto">
-        <div className="flex items-center gap-1 min-w-[960px]">
+        <div className="flex items-center gap-1 min-w-[1040px]">
           {tabs.map(tab => {
             const Icon = tab.icon;
             const isSelected = activeTab === tab.id;
@@ -163,7 +175,11 @@ export const SystemSettingsView: React.FC = () => {
         </div>
       </div>
 
+      {/* ABA: MÓDULOS DE ENDEMIAS (gerencia seu próprio estado, fora do formulário genérico) */}
+      {activeTab === 'MULTI_DISEASE' && <MultiDiseaseSettingsView />}
+
       {/* FORMULÁRIO DE CONFIGURAÇÕES DA ABA ATIVA */}
+      {activeTab !== 'MULTI_DISEASE' && (
       <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-6">
         {isLoading ? (
           <div className="text-center py-12 text-xs text-slate-500">Carregando configurações...</div>
@@ -525,6 +541,7 @@ export const SystemSettingsView: React.FC = () => {
           </form>
         )}
       </div>
+      )}
     </div>
   );
 };

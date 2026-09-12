@@ -19,10 +19,8 @@ import { RolesPermissionsView } from './components/admin/RolesPermissionsView';
 import { UsersManagementView } from './components/admin/UsersManagementView';
 import { AuditLogsAdminView } from './components/admin/AuditLogsAdminView';
 import { DataImportView } from './components/admin/DataImportView';
-import { DataQualityView } from './components/admin/DataQualityView';
 import { SystemSettingsView } from './components/admin/SystemSettingsView';
-import { ErrorLogsView } from './components/admin/ErrorLogsView';
-import { DatabaseHealthView } from './components/admin/DatabaseHealthView';
+import { SystemHealthHubView } from './components/admin/SystemHealthHubView';
 
 // Views Internas do Sistema
 import { DashboardView } from './components/views/DashboardView';
@@ -35,41 +33,32 @@ import { VisitsView } from './components/views/VisitsView';
 import { QuickCreateModal } from './components/ui';
 import { PlanningView } from './components/views/PlanningView';
 import { RoutesView } from './components/views/RoutesView';
-import { OvitrapsView } from './components/views/OvitrapsView';
-import { StrategicPointsView } from './components/views/StrategicPointsView';
-import { SpecialPropertiesView } from './components/views/SpecialPropertiesView';
+import { OvitrapsLabHubView } from './components/views/OvitrapsLabHubView';
 import { FociAndRecurrenceView } from './components/views/FociAndRecurrenceView';
 import { EpidemiologyView } from './components/views/EpidemiologyView';
-import { CitizenPortalView } from './components/views/CitizenPortalView';
-import { TeamsView } from './components/views/TeamsView';
-import { SuppliesView } from './components/views/SuppliesView';
+import { TeamsProductivityHubView } from './components/views/TeamsProductivityHubView';
+import { StockSuppliesHubView } from './components/views/StockSuppliesHubView';
+import { ComplaintsReferralsHubView } from './components/views/ComplaintsReferralsHubView';
 import { EquipmentView } from './components/views/EquipmentView';
 import { RiskEngineView } from './components/views/RiskEngineView';
 import { ExecutiveDashboardView } from './components/views/ExecutiveDashboardView';
 import { OperationsRoomView } from './components/views/OperationsRoomView';
 import { AlertsView } from './components/views/AlertsView';
-import { ReportsView } from './components/views/ReportsView';
 import { CyclesView } from './components/views/CyclesView';
 import { AiAssistantView } from './components/views/AiAssistantView';
 import { TransparencyPortalView } from './components/views/TransparencyPortalView';
-import { ReferralsView } from './components/views/ReferralsView';
 import { AuditLogsView } from './components/views/AuditLogsView';
 import { AdministrationView } from './components/views/AdministrationView';
-import { SystemHealthView } from './components/views/SystemHealthView';
 import { LiraaView } from './components/views/LiraaView';
-import { StockView } from './components/views/StockView';
 import { VectorControlView } from './components/views/VectorControlView';
-import { AgentProductivityView } from './components/views/AgentProductivityView';
-import { EntomologyLabView } from './components/views/EntomologyLabView';
 import { LabelGeneratorView } from './components/views/LabelGeneratorView';
 import { WorkOrdersView } from './components/views/WorkOrdersView';
 import { SupervisorMobileView } from './components/views/SupervisorMobileView';
-import { DocumentsCenterView } from './components/views/DocumentsCenterView';
+import { DocumentsReportsHubView } from './components/views/DocumentsReportsHubView';
 import { IntegrationsView } from './components/views/IntegrationsView';
 import { CommandCenterView } from './components/views/CommandCenterView';
 import { CommunicationAdminView } from './components/views/CommunicationAdminView';
 import { TrainingsView } from './components/views/TrainingsView';
-import { MultiDiseaseSettingsView } from './components/views/MultiDiseaseSettingsView';
 import { PublicPortalView } from './components/public/PublicPortalView';
 import { PublicComplaintFormView } from './components/public/PublicComplaintFormView';
 import { PublicComplaintTrackingView } from './components/public/PublicComplaintTrackingView';
@@ -426,11 +415,11 @@ function AppContent() {
       case 'liraa':
         return <LiraaView />;
       case 'stock':
-        return <StockView />;
+        return <StockSuppliesHubView initialTab="estoque" />;
       case 'vector_control':
         return <VectorControlView />;
       case 'productivity':
-        return <AgentProductivityView />;
+        return <TeamsProductivityHubView initialTab="produtividade" />;
       case 'ace_pwa':
         return <AcePwaView onNavigate={(view) => { setCurrentView(view as ViewModule); navigateTo(view); }} />;
       case 'routes':
@@ -465,22 +454,22 @@ function AppContent() {
         return <TerritoryHubView onNavigate={(view) => { setCurrentView(view as ViewModule); navigateTo(view); }} />;
       case 'teams':
         if (!can('teams.view')) return <AccessDeniedPage onNavigate={navigateTo} />;
-        return <TeamsView />;
+        return <TeamsProductivityHubView initialTab="equipes" />;
       case 'cycles':
         if (!can('cycles.view')) return <AccessDeniedPage onNavigate={navigateTo} />;
         return <CyclesView />;
       case 'ovitraps':
         if (!can('ovitraps.view')) return <AccessDeniedPage onNavigate={navigateTo} />;
-        return <OvitrapsView onNavigate={navigateTo} />;
+        return <OvitrapsLabHubView initialTab="ovos" onNavigate={navigateTo} municipalityId={municipality?.id} />;
       case 'strategic_points':
         if (!can('strategic_points.view')) return <AccessDeniedPage onNavigate={navigateTo} />;
-        return <StrategicPointsView />;
+        return <TerritoryHubView initialTab="strategic_points" onNavigate={(view) => { setCurrentView(view as ViewModule); navigateTo(view); }} />;
       case 'special_properties':
         if (!can('special_properties.view')) return <AccessDeniedPage onNavigate={navigateTo} />;
-        return <SpecialPropertiesView />;
+        return <TerritoryHubView initialTab="special_properties" onNavigate={(view) => { setCurrentView(view as ViewModule); navigateTo(view); }} />;
       case 'complaints':
         if (!can('complaints.view')) return <AccessDeniedPage onNavigate={navigateTo} />;
-        return <CitizenPortalView />;
+        return <ComplaintsReferralsHubView initialTab="denuncias" />;
       case 'epidemiology':
         if (!can('epidemiology.view')) return <AccessDeniedPage onNavigate={navigateTo} />;
         return <EpidemiologyView />;
@@ -488,7 +477,7 @@ function AppContent() {
         if (!can('outbreaks.view')) return <AccessDeniedPage onNavigate={navigateTo} />;
         return <FociAndRecurrenceView />;
       case 'supplies':
-        return <SuppliesView />;
+        return <StockSuppliesHubView initialTab="quimicos" />;
       case 'equipments':
         return <EquipmentView />;
       case 'risk_engine':
@@ -507,28 +496,28 @@ function AppContent() {
       case 'transparency':
         return <TransparencyPortalView />;
       case 'referrals':
-        return <ReferralsView />;
+        return <ComplaintsReferralsHubView initialTab="encaminhamentos" />;
       case 'reports':
         if (!can('reports.view')) return <AccessDeniedPage onNavigate={navigateTo} />;
-        return <ReportsView />;
+        return <DocumentsReportsHubView initialTab="relatorios" municipalityId={municipality?.id} />;
       case 'system_health':
-        return <SystemHealthView />;
+        return <SystemHealthHubView initialTab="saude" />;
       case 'database_health':
         if (!hasRole('SUPER_ADMIN') && !hasRole('MUNICIPAL_ADMIN')) return <AccessDeniedPage onNavigate={navigateTo} />;
-        return <DatabaseHealthView />;
+        return <SystemHealthHubView initialTab="integridade" />;
       case 'data_import':
         if (!can('settings.manage')) return <AccessDeniedPage onNavigate={navigateTo} />;
         return <DataImportView />;
       case 'data_quality':
-        return <DataQualityView />;
+        return <SystemHealthHubView initialTab="qualidade" />;
       case 'system_settings':
         if (!can('settings.manage')) return <AccessDeniedPage onNavigate={navigateTo} />;
         return <SystemSettingsView />;
       case 'system_errors':
         if (!hasRole('SUPER_ADMIN')) return <AccessDeniedPage onNavigate={navigateTo} />;
-        return <ErrorLogsView />;
+        return <SystemHealthHubView initialTab="erros" />;
       case 'entomology_lab':
-        return <EntomologyLabView municipalityId={municipality?.id} />;
+        return <OvitrapsLabHubView initialTab="laboratorio" onNavigate={navigateTo} municipalityId={municipality?.id} />;
       case 'labels':
         return <LabelGeneratorView municipalityId={municipality?.id} />;
       case 'work_orders':
@@ -536,7 +525,7 @@ function AppContent() {
       case 'supervisor_mobile':
         return <SupervisorMobileView municipalityId={municipality?.id} />;
       case 'documents':
-        return <DocumentsCenterView municipalityId={municipality?.id} />;
+        return <DocumentsReportsHubView initialTab="documentos" municipalityId={municipality?.id} />;
       case 'integrations':
         if (!can('settings.manage')) return <AccessDeniedPage onNavigate={navigateTo} />;
         return <IntegrationsView municipalityId={municipality?.id} />;
@@ -551,7 +540,7 @@ function AppContent() {
         return <CommunicationAdminView />;
       case 'multi_disease':
         if (!can('settings.manage')) return <AccessDeniedPage onNavigate={navigateTo} />;
-        return <MultiDiseaseSettingsView />;
+        return <SystemSettingsView initialTab="MULTI_DISEASE" />;
       case 'public_portal':
         return (
           <PublicPortalView

@@ -25,17 +25,21 @@ import { supabase } from '../../services/supabaseClient';
 import { Neighborhood, Municipality } from '../../types';
 import { PageHeader, Breadcrumbs } from '../ui';
 import { QuickCreateModal, QuickCreateEntity } from '../ui/QuickCreateModal';
+import { StrategicPointsView } from './StrategicPointsView';
+import { SpecialPropertiesView } from './SpecialPropertiesView';
+
+export type TerritoryHubTab = 'overview' | 'neighborhoods' | 'sectors' | 'blocks' | 'microareas' | 'strategic_points' | 'special_properties';
 
 interface TerritoryHubViewProps {
   onNavigate: (module: string, action?: string) => void;
-  initialTab?: 'overview' | 'neighborhoods' | 'sectors' | 'blocks' | 'microareas';
+  initialTab?: TerritoryHubTab;
 }
 
 export const TerritoryHubView: React.FC<TerritoryHubViewProps> = ({
   onNavigate,
   initialTab = 'overview',
 }) => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'neighborhoods' | 'sectors' | 'blocks' | 'microareas'>(initialTab);
+  const [activeTab, setActiveTab] = useState<TerritoryHubTab>(initialTab);
   const [municipality, setMunicipality] = useState<Municipality | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -326,6 +330,30 @@ export const TerritoryHubView: React.FC<TerritoryHubViewProps> = ({
         >
           <Layers className="w-4 h-4" />
           <span>Microáreas ({metrics.microareasCount})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('strategic_points')}
+          className={`pb-3 px-4 border-b-2 transition flex items-center gap-2 whitespace-nowrap ${
+            activeTab === 'strategic_points'
+              ? 'border-indigo-600 text-indigo-600'
+              : 'border-transparent text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <Crosshair className="w-4 h-4" />
+          <span>Pontos Estratégicos</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('special_properties')}
+          className={`pb-3 px-4 border-b-2 transition flex items-center gap-2 whitespace-nowrap ${
+            activeTab === 'special_properties'
+              ? 'border-indigo-600 text-indigo-600'
+              : 'border-transparent text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <Building2 className="w-4 h-4" />
+          <span>Imóveis Especiais</span>
         </button>
 
         <button
@@ -674,6 +702,12 @@ export const TerritoryHubView: React.FC<TerritoryHubViewProps> = ({
           </div>
         </div>
       )}
+
+      {/* CONTEÚDO DA ABA: PONTOS ESTRATÉGICOS */}
+      {activeTab === 'strategic_points' && <StrategicPointsView />}
+
+      {/* CONTEÚDO DA ABA: IMÓVEIS ESPECIAIS */}
+      {activeTab === 'special_properties' && <SpecialPropertiesView />}
 
       {/* Modal de Criação Rápida */}
       <QuickCreateModal
