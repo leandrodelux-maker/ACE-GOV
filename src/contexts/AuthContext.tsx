@@ -35,15 +35,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [impersonatedRole, setImpersonatedRole] = useState<UserRole | null>(null);
 
-  // Restauração inicial da sessão
+  // Restauração inicial da sessão (com timeout de resiliência de 6s)
   useEffect(() => {
     let active = true;
     (async () => {
       try {
-        const s = await authService.getSession();
+        const timeoutPromise = new Promise<null>((_, reject) =>
+          setTimeout(() => reject(new Error('timeout_restauracao')), 6000)
+        );
+        const s = await Promise.race([authService.getSession(), timeoutPromise]);
         if (active) setSession(s);
       } catch (e) {
-        console.error('Falha ao restaurar sessão:', e);
+        console.warn('Falha ou timeout ao restaurar sessão inicial:', e);
         if (active) setSession(null);
       } finally {
         if (active) setIsLoading(false);
