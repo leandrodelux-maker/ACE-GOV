@@ -77,14 +77,13 @@ export interface EquipmentAlert {
   dueDate?: string;
 }
 
-const DEFAULT_MUN_ID = '00000000-0000-0000-0000-000000000001';
 
 export const equipmentService = {
   /**
    * Buscar todos os equipamentos com detalhes dos responsáveis e filtros
    */
   async getEquipments(
-    municipalityId = DEFAULT_MUN_ID,
+    municipalityId: string,
     filters?: { category?: string; status?: string; search?: string }
   ): Promise<EquipmentItem[]> {
     try {
@@ -151,7 +150,7 @@ export const equipmentService = {
   /**
    * Buscar alertas operacionais de equipamentos
    */
-  async getEquipmentAlerts(municipalityId = DEFAULT_MUN_ID): Promise<EquipmentAlert[]> {
+  async getEquipmentAlerts(municipalityId: string): Promise<EquipmentAlert[]> {
     try {
       const items = await this.getEquipments(municipalityId);
       const alerts: EquipmentAlert[] = [];
@@ -213,7 +212,7 @@ export const equipmentService = {
    */
   async saveEquipment(
     item: Partial<EquipmentItem>,
-    municipalityId = DEFAULT_MUN_ID
+    municipalityId: string
   ): Promise<{ success: boolean; data?: EquipmentItem; error?: string }> {
     try {
       const now = new Date().toISOString();

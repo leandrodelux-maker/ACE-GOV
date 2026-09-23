@@ -24,10 +24,11 @@ import {
   OperationalEvent
 } from '../../services/communicationService';
 import { PageHeader } from '../ui';
+import { useMunicipalityId } from '../../contexts/AuthContext';
 
 export const CommunicationAdminView: React.FC = () => {
-  const municipalityId = '00000000-0000-0000-0000-000000000001';
-  const [activeTab, setActiveTab] = useState<'DISPATCH' | 'TEMPLATES' | 'LOGS' | 'SETTINGS'>('DISPATCH');
+  const municipalityId = useMunicipalityId();
+    const [activeTab, setActiveTab] = useState<'DISPATCH' | 'TEMPLATES' | 'LOGS' | 'SETTINGS'>('DISPATCH');
   const [templates, setTemplates] = useState<MessageTemplate[]>([]);
   const [logs, setLogs] = useState<MessageLog[]>([]);
   const [loading, setLoading] = useState(false);
@@ -107,8 +108,8 @@ export const CommunicationAdminView: React.FC = () => {
       setDispatchStatus({
         success: result.success,
         message: result.success
-          ? `Mensagem transmitida com sucesso para o ${targetRole.toUpperCase()}! (Ref: ${result.providerRef || 'WPP-OK'})`
-          : `Falha no envio da mensagem.`
+          ? `Mensagem enviada para o ${targetRole.toUpperCase()} (Ref: ${result.providerRef}).`
+          : result.error || 'Falha no envio da mensagem.'
       });
 
       // Recarregar logs

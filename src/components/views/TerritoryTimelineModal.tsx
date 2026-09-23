@@ -19,7 +19,7 @@ interface TerritoryTimelineModalProps {
   onClose: () => void;
   propertyId?: string;
   neighborhoodId?: string;
-  municipalityId?: string;
+  municipalityId: string;
 }
 
 export const TerritoryTimelineModal: React.FC<TerritoryTimelineModalProps> = ({
@@ -27,7 +27,7 @@ export const TerritoryTimelineModal: React.FC<TerritoryTimelineModalProps> = ({
   onClose,
   propertyId,
   neighborhoodId,
-  municipalityId = '00000000-0000-0000-0000-000000000001'
+  municipalityId
 }) => {
   const [history, setHistory] = useState<TerritoryHistoryResult | null>(null);
   const [loading, setLoading] = useState(false);

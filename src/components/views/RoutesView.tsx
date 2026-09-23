@@ -25,6 +25,7 @@ import { supabaseService } from '../../services/supabaseService';
 import { supabase } from '../../services/supabaseClient';
 import { Property } from '../../types';
 import { PageHeader } from '../ui';
+import { useMunicipalityId } from '../../contexts/AuthContext';
 
 interface RoutesViewProps {
   onNavigate: (module: string) => void;
@@ -43,6 +44,7 @@ interface RouteItem extends Property {
 const STORAGE_ROUTE_KEY = 'endemias_ace_optimized_route';
 
 export const RoutesView: React.FC<RoutesViewProps> = ({ onNavigate }) => {
+  const municipalityId = useMunicipalityId();
   const [routeList, setRouteList] = useState<RouteItem[]>([]);
   const [isRouteActive, setIsRouteActive] = useState<boolean>(false);
   const [skipModalItem, setSkipModalItem] = useState<RouteItem | null>(null);
@@ -84,7 +86,7 @@ export const RoutesView: React.FC<RoutesViewProps> = ({ onNavigate }) => {
     // Inicialização da rota inteligente: tentar buscar imóveis do Supabase
     let rawProperties: Property[] = [];
     try {
-      const res = await supabaseService.getPropertiesPaginated({ page: 1, pageSize: 40 });
+      const res = await supabaseService.getPropertiesPaginated({ municipalityId, page: 1, pageSize: 40 });
       if (res.properties && res.properties.length > 0) {
         rawProperties = res.properties;
       }
@@ -240,7 +242,7 @@ export const RoutesView: React.FC<RoutesViewProps> = ({ onNavigate }) => {
       {/* Header Banner */}
       <PageHeader
         icon={Navigation}
-        title="Minha Rota Otimizada — Setor 01 (Vila Nova)"
+        title="Minha Rota Otimizada"
         subtitle="Ordenação sequencial inteligente por gravidade de risco e menor trajeto com suporte 100% offline"
         actions={
           <>

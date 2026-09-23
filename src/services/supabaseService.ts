@@ -1,3 +1,4 @@
+import { requireMunicipalityId } from './municipalityScope';
 import { supabase } from './supabaseClient';
 import {
   Municipality,
@@ -15,102 +16,109 @@ import {
 /**
  * Serviço de integração e substituição progressiva de dados mockados por dados reais do Supabase/PostgreSQL
  */
+/** Coordenada opcional: vazio/ inválido => null (nunca 0 nem posição padrão). */
+function toNullableCoord(v: unknown): number | null {
+  if (v === '' || v === null || v === undefined) return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
 export const supabaseService = {
   /**
-   * Buscar Município Ativo
+   * ID do cadastro de agente (tabela agents) do perfil autenticado.
+   * visits/ovitrap_installations/ovitrap_collections.agent_id referenciam agents(id),
+   * não profiles(id). Guardado no aparelho para uso offline. null = perfil sem cadastro de agente.
    */
-  async getMunicipality(): Promise<Municipality | null> {
+  async getAgentIdForProfile(profileId: string, municipalityId: string): Promise<string | null> {
+    const cacheKey = `endemias_agent_id_${profileId}`;
     try {
       const { data, error } = await supabase
-        .from('municipalities')
-        .select('*')
+        .from('agents')
+        .select('id')
+        .eq('profile_id', profileId)
+        .eq('municipality_id', requireMunicipalityId(municipalityId))
         .eq('active', true)
-        .order('created_at', { ascending: true })
         .limit(1)
         .maybeSingle();
-
-      if (error || !data) return null;
-
-      return {
-        id: data.id,
-        name: data.name,
-        state: data.state,
-        ibgeCode: data.ibge_code,
-        coatOfArmsUrl: data.logo_url,
-        healthSecretaryName: 'Dr. Fernando Albuquerque',
-        healthSecretaryPhone: '(51) 3715-1234',
-        coordinatorName: 'Dra. Vanessa Lima',
-        coordinatorPhone: '(51) 99876-5432',
-        address: 'Rua Ernesto Alves, 1017 - Centro',
-        totalProperties: 12450,
-        totalAgents: 38,
-        totalSupervisors: 4,
-        settings: {
-          riskWeights: {
-            recentFoci: 30,
-            recurrence: 25,
-            ovitraps: 15,
-            pendingVisits: 10,
-            closedProperties: 5,
-            complaints: 5,
-            strategicPoints: 5,
-            epidemiologicalEvents: 5,
-            lowCoverage: 10,
-          },
-          recurrenceThresholdDays: 60,
-          recurrenceThresholdCount: 2,
-        },
-      };
+      if (!error) {
+        try {
+          if (data?.id) localStorage.setItem(cacheKey, data.id);
+          else localStorage.removeItem(cacheKey);
+        } catch {
+          /* armazenamento indisponível */
+        }
+        return data?.id ?? null;
+      }
+    } catch {
+      /* sem conexão: usa o cache */
+    }
+    try {
+      return localStorage.getItem(cacheKey);
     } catch {
       return null;
     }
   },
 
   /**
-   * Buscar Bairros Reais do Banco
+   * Bairros do município com contagens REAIS (imóveis, focos, setores, quadras).
+   * Indicadores sem fonte no banco (risco, cobertura, responsáveis) ficam ausentes
+   * — a interface deve exibir "Sem dados" nesses casos. Retorna null em erro.
    */
   async getNeighborhoods(municipalityId: string): Promise<Neighborhood[] | null> {
     try {
-      const { data, error } = await supabase
-        .from('neighborhoods')
-        .select('*')
-        .eq('municipality_id', municipalityId);
+      const munId = requireMunicipalityId(municipalityId);
+      const [neighRes, propsRes, sectorsRes, blocksRes] = await Promise.all([
+        supabase.from('neighborhoods').select('*').eq('municipality_id', munId).order('name'),
+        supabase
+          .from('properties')
+          .select('neighborhood_id, status')
+          .eq('municipality_id', munId)
+          .is('deleted_at', null),
+        supabase.from('sectors').select('id, neighborhood_id').eq('municipality_id', munId),
+        supabase.from('blocks').select('id, sector_id').eq('municipality_id', munId),
+      ]);
 
-      if (error || !data || data.length === 0) return null;
+      if (neighRes.error || !neighRes.data) return null;
 
-      return data.map((n: any) => ({
-        id: n.id,
-        municipalityId: n.municipality_id,
-        zoneId: n.zone_id || '',
-        name: n.name,
-        estimatedPopulation: n.population || 8000,
-        totalProperties: 1200,
-        totalSectors: 3,
-        totalBlocks: 24,
-        responsibleAgents: ['Carlos Eduardo Santos', 'Mariana Souza'],
-        coveragePercentage: 68.5,
-        fociCount: 4,
-        pendingVisitsCount: 12,
-        riskScore: 45,
-        riskLevel: 'ATENCAO',
-        latitude: -29.718,
-        longitude: -52.428,
-      }));
+      const props = propsRes.data || [];
+      const sectors = sectorsRes.data || [];
+      const blocks = blocksRes.data || [];
+      const sectorNeighborhood = new Map(sectors.map((sc: any) => [sc.id, sc.neighborhood_id]));
+
+      return neighRes.data.map((n: any) => {
+        const neighProps = props.filter((p: any) => p.neighborhood_id === n.id);
+        return {
+          id: n.id,
+          municipalityId: n.municipality_id,
+          zoneId: n.zone_id || '',
+          name: n.name,
+          estimatedPopulation: typeof n.population === 'number' && n.population > 0 ? n.population : undefined,
+          totalProperties: propsRes.error ? undefined : neighProps.length,
+          totalSectors: sectorsRes.error ? undefined : sectors.filter((sc: any) => sc.neighborhood_id === n.id).length,
+          totalBlocks: blocksRes.error
+            ? undefined
+            : blocks.filter((b: any) => sectorNeighborhood.get(b.sector_id) === n.id).length,
+          responsibleAgents: [],
+          fociCount: propsRes.error ? undefined : neighProps.filter((p: any) => p.status === 'FOCO').length,
+        } as Neighborhood;
+      });
     } catch {
       return null;
     }
   },
 
   /**
-   * Buscar Ciclo Ativo
+   * Ciclo de campo em andamento. Apenas campos existentes no banco; progresso
+   * (visitados, focos, cobertura) deve ser calculado a partir das visitas.
    */
   async getActiveCycle(municipalityId: string): Promise<FieldCycle | null> {
     try {
       const { data, error } = await supabase
         .from('field_cycles')
         .select('*')
-        .eq('municipality_id', municipalityId)
+        .eq('municipality_id', requireMunicipalityId(municipalityId))
         .eq('status', 'EM_ANDAMENTO')
+        .order('start_date', { ascending: false })
         .limit(1)
         .maybeSingle();
 
@@ -124,15 +132,9 @@ export const supabaseService = {
         number: data.cycle_number,
         startDate: data.start_date,
         endDate: data.end_date,
-        goalPercentage: 100,
-        currentCoveragePercentage: 71.4,
-        totalTargetProperties: data.target_properties || 2800,
-        visitedProperties: 1998,
-        fociCount: 28,
-        closedCount: 114,
-        refusalCount: 18,
+        totalTargetProperties: data.target_properties ?? undefined,
         status: data.status,
-      };
+      } as FieldCycle;
     } catch {
       return null;
     }
@@ -265,6 +267,7 @@ export const supabaseService = {
    * Buscar Imóveis com Paginação Server-Side, Filtros e Ordenação
    */
   async getPropertiesPaginated(options: {
+    municipalityId: string;
     page: number;
     pageSize: number;
     searchTerm?: string;
@@ -295,6 +298,7 @@ export const supabaseService = {
         .select('*, neighborhoods(name), sectors(name, code), microareas(name, code), blocks(code)', {
           count: 'exact',
         })
+        .eq('municipality_id', requireMunicipalityId(options.municipalityId))
         .is('deleted_at', null);
 
       if (neighborhoodId && neighborhoodId !== 'ALL') {
@@ -352,8 +356,8 @@ export const supabaseService = {
         residentPhone: p.resident_phone || '',
         residentsCount: p.residents_count || 1,
         riskScore: p.risk_score || 0,
-        latitude: p.latitude || -29.718,
-        longitude: p.longitude || -52.428,
+        latitude: p.latitude ?? null,
+        longitude: p.longitude ?? null,
         lastVisitAt: p.last_visit_at,
         createdAt: p.created_at,
         updatedAt: p.updated_at,
@@ -378,7 +382,7 @@ export const supabaseService = {
       const { data, error } = await supabase
         .from('properties')
         .insert({
-          municipality_id: propertyData.municipalityId || '00000000-0000-0000-0000-000000000001',
+          municipality_id: requireMunicipalityId(propertyData.municipalityId),
           neighborhood_id: propertyData.neighborhoodId,
           sector_id: propertyData.sectorId || null,
           microarea_id: propertyData.microareaId || null,
@@ -390,8 +394,8 @@ export const supabaseService = {
           complement: propertyData.complement || null,
           reference: propertyData.reference || null,
           postal_code: propertyData.postalCode || null,
-          latitude: propertyData.latitude || -29.718,
-          longitude: propertyData.longitude || -52.428,
+          latitude: toNullableCoord(propertyData.latitude),
+          longitude: toNullableCoord(propertyData.longitude),
           resident_name: propertyData.residentName || null,
           resident_phone: propertyData.residentPhone || null,
           residents_count: propertyData.residentsCount || 1,
@@ -509,21 +513,21 @@ export const supabaseService = {
   /**
    * Buscar Visitas Reais com Filtros e Relacionamentos
    */
-  async getVisits(options?: {
-    municipalityId?: string;
+  async getVisits(options: {
+    municipalityId: string;
     cycleId?: string;
     searchTerm?: string;
     situation?: string;
     limit?: number;
   }): Promise<Visit[]> {
     try {
+      const municipalityId = requireMunicipalityId(options.municipalityId);
       const {
-        municipalityId = '00000000-0000-0000-0000-000000000001',
         cycleId,
         searchTerm = '',
         situation = 'ALL',
         limit = 100,
-      } = options || {};
+      } = options;
 
       let query = supabase
         .from('visits')
@@ -582,22 +586,22 @@ export const supabaseService = {
           municipalityId: v.municipality_id,
           cycleId: v.cycle_id,
           propertyId: v.property_id,
-          propertyCode: v.properties?.property_code || 'IMV-000',
+          propertyCode: v.properties?.property_code || 'Sem código',
           propertyAddress: `${street}, ${num}`,
           propertyType: (v.properties?.property_type || 'RESIDENCIA') as any,
           neighborhood: neighborhood,
-          agentId: v.agent_id || '00000000-0000-0000-0000-000000000001',
-          agentName: v.agents?.full_name || 'Agente de Campo',
+          agentId: v.agent_id || '',
+          agentName: v.agents?.full_name || 'Agente não informado',
           date: v.visit_date,
-          time: v.started_at ? new Date(v.started_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '08:30',
+          time: v.started_at ? new Date(v.started_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '—',
           situation: (v.result || 'TRABALHADO') as any,
           inspections: inspections,
           totalDepositsInspected: inspections.reduce((acc: number, i: any) => acc + (i.quantity || 1), 0),
           fociFound: hasFoci,
           fociEliminated: hasEliminated,
           conduct: v.notes || (hasFoci ? 'Foco detectado e tratado com larvicida' : 'Inspeção peridomiciliar de rotina normal'),
-          latitude: v.latitude || -29.718,
-          longitude: v.longitude || -52.428,
+          latitude: v.latitude ?? null,
+          longitude: v.longitude ?? null,
           syncStatus: (v.offline_created ? 'PENDING' : 'SYNCED') as any,
           createdAt: v.created_at,
         };
@@ -778,23 +782,41 @@ export const supabaseService = {
 
       if (error || !data) return [];
 
-      return data.map((d: any) => ({
-        id: d.id,
-        municipalityId: d.municipality_id,
-        name: d.name,
-        year: d.year,
-        number: d.cycle_number,
-        startDate: d.start_date,
-        endDate: d.end_date,
-        goalPercentage: 100,
-        currentCoveragePercentage: d.status === 'CONCLUIDO' ? 100 : 71.4,
-        totalTargetProperties: d.target_properties || 2800,
-        visitedProperties: d.status === 'CONCLUIDO' ? (d.target_properties || 2800) : 1998,
-        fociCount: 24,
-        closedCount: 92,
-        refusalCount: 14,
-        status: d.status,
-      }));
+      // Progresso calculado a partir das visitas registradas em cada ciclo
+      const { data: visits } = await supabase
+        .from('visits')
+        .select('cycle_id, property_id, result, visit_deposits(positive)')
+        .eq('municipality_id', municipalityId)
+        .is('deleted_at', null);
+      const byCycle = new Map<string, any[]>();
+      (visits || []).forEach((v: any) => {
+        if (!byCycle.has(v.cycle_id)) byCycle.set(v.cycle_id, []);
+        byCycle.get(v.cycle_id)!.push(v);
+      });
+      const res = (v: any) => String(v.result ?? '').toUpperCase();
+
+      return data.map((d: any) => {
+        const cv = byCycle.get(d.id) || [];
+        const visited = new Set(cv.filter((v) => res(v) === 'TRABALHADO').map((v) => v.property_id)).size;
+        const target = typeof d.target_properties === 'number' && d.target_properties > 0 ? d.target_properties : undefined;
+        return {
+          id: d.id,
+          municipalityId: d.municipality_id,
+          name: d.name,
+          year: d.year,
+          number: d.cycle_number,
+          startDate: d.start_date,
+          endDate: d.end_date,
+          goalPercentage: undefined,
+          currentCoveragePercentage: target ? Math.round((visited / target) * 1000) / 10 : undefined,
+          totalTargetProperties: target,
+          visitedProperties: visited,
+          fociCount: cv.reduce((acc, v) => acc + (v.visit_deposits || []).filter((dep: any) => dep.positive).length, 0),
+          closedCount: cv.filter((v) => res(v) === 'FECHADO').length,
+          refusalCount: cv.filter((v) => res(v) === 'RECUSADO').length,
+          status: d.status,
+        } as FieldCycle;
+      });
     } catch {
       return [];
     }
@@ -836,16 +858,16 @@ export const supabaseService = {
           code: t.code,
           qrCode: t.code,
           municipalityId: t.municipality_id,
-          neighborhood: t.neighborhoods?.name || 'Centro',
-          sector: 'Setor 01',
-          address: t.address || 'Logradouro da Armadilha',
-          latitude: t.latitude || -29.718,
-          longitude: t.longitude || -52.428,
-          installationDate: t.installed_at || '2026-01-10',
-          responsibleAgentId: t.agent_id || '00000000-0000-0000-0000-000000000001',
-          responsibleAgentName: 'Carlos Eduardo Silva',
+          neighborhood: t.neighborhoods?.name || 'Bairro não informado',
+          sector: '',
+          address: t.address || '',
+          latitude: (t.latitude ?? null) as any,
+          longitude: (t.longitude ?? null) as any,
+          installationDate: t.installed_at || '',
+          responsibleAgentId: t.agent_id || '',
+          responsibleAgentName: '',
           status: (t.status || 'ATIVA') as any,
-          lastCollectionDate: t.last_reading_at || '2026-02-15',
+          lastCollectionDate: t.last_reading_at || '',
           lastEggCount: eggs,
           isPositive: isPos,
           consecutiveGrowth: false,
@@ -883,30 +905,31 @@ export const supabaseService = {
       if (error || !data) return [];
 
       return data.map((sp: any) => {
-        const lastVisit = sp.last_inspection_at ? new Date(sp.last_inspection_at) : new Date(Date.now() - 14 * 86400000);
-        const daysSince = Math.floor((Date.now() - lastVisit.getTime()) / 86400000);
-        const isDue = daysSince > 15;
+        // Sem inspeção registrada => vistoria vencida (nunca uma data inventada)
+        const lastVisit = sp.last_inspection_at ? new Date(sp.last_inspection_at) : null;
+        const daysSince = lastVisit ? Math.floor((Date.now() - lastVisit.getTime()) / 86400000) : null;
+        const isDue = daysSince === null || daysSince > 15;
 
         return {
           id: sp.id,
           municipalityId: sp.municipality_id,
           name: sp.name,
           type: (sp.type || 'FERRO_VELHO') as any,
-          contactName: sp.responsible_person || 'Gerente Responsável',
-          contactPhone: sp.responsible_phone || '(51) 98765-0000',
-          address: sp.address || 'Av. das Indústrias, 450',
-          neighborhood: sp.neighborhoods?.name || 'Centro',
-          latitude: sp.latitude || -29.718,
-          longitude: sp.longitude || -52.428,
+          contactName: sp.responsible_person || '',
+          contactPhone: sp.responsible_phone || '',
+          address: sp.address || '',
+          neighborhood: sp.neighborhoods?.name || 'Bairro não informado',
+          latitude: (sp.latitude ?? null) as any,
+          longitude: (sp.longitude ?? null) as any,
           inspectionFrequencyDays: 15,
-          responsibleAgentId: sp.agent_id || '00000000-0000-0000-0000-000000000001',
-          responsibleAgentName: 'Carlos Eduardo Silva',
+          responsibleAgentId: sp.agent_id || '',
+          responsibleAgentName: '',
           riskLevel: isDue ? 'ALTO' : ((sp.risk_level || 'MEDIO') as any),
-          lastInspectionDate: sp.last_inspection_at || '2026-02-18',
-          nextInspectionDate: new Date(lastVisit.getTime() + 15 * 86400000).toISOString().split('T')[0],
+          lastInspectionDate: sp.last_inspection_at || '',
+          nextInspectionDate: lastVisit ? new Date(lastVisit.getTime() + 15 * 86400000).toISOString().split('T')[0] : '',
           isInspectionOverdue: isDue,
-          totalInspections: 12,
-          fociHistoryCount: sp.last_inspection_result === 'POSITIVO' ? 2 : 0,
+          totalInspections: (sp.total_inspections ?? undefined) as any,
+          fociHistoryCount: (sp.foci_history_count ?? undefined) as any,
         };
       });
     } catch {
@@ -931,13 +954,13 @@ export const supabaseService = {
         municipalityId: ip.municipality_id,
         name: ip.name,
         type: (ip.type || 'HOSPITAL_UBS') as any,
-        address: ip.address || 'Rua Central, 100',
-        neighborhood: ip.neighborhoods?.name || 'Centro',
-        responsiblePerson: ip.responsible_person || 'Administração',
-        contactPhone: ip.contact_phone || '(51) 3715-0000',
-        latitude: ip.latitude || -29.718,
-        longitude: ip.longitude || -52.428,
-        lastInspectionDate: ip.last_inspection_at || '2026-02-10',
+        address: ip.address || '',
+        neighborhood: ip.neighborhoods?.name || 'Bairro não informado',
+        responsiblePerson: ip.responsible_person || '',
+        contactPhone: ip.contact_phone || '',
+        latitude: (ip.latitude ?? null) as any,
+        longitude: (ip.longitude ?? null) as any,
+        lastInspectionDate: ip.last_inspection_at || '',
         fociCount: 0,
       }));
     } catch {

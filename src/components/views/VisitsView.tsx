@@ -17,13 +17,15 @@ import {
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth, useMunicipalityId } from '../../contexts/AuthContext';
 import { supabaseService } from '../../services/supabaseService';
 import { Visit, FieldCycle } from '../../types';
 import { visitOfficialService, CONDUCT_OPTIONS } from '../../services/visitOfficialService';
 import { PageHeader } from '../ui';
 
 export const VisitsView: React.FC = () => {
+  const { municipality: sessionMunicipality } = useAuth();
+  const municipalityId = useMunicipalityId();
   const { user, can } = useAuth();
 
   const [visits, setVisits] = useState<Visit[]>([]);
@@ -67,8 +69,8 @@ export const VisitsView: React.FC = () => {
   const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const muni = await supabaseService.getMunicipality();
-      const muniId = muni?.id || '00000000-0000-0000-0000-000000000001';
+      const muni = sessionMunicipality;
+      const muniId = municipalityId;
 
       const [cycle, visitsList, propsData] = await Promise.all([
         supabaseService.getActiveCycle(muniId),
@@ -78,7 +80,7 @@ export const VisitsView: React.FC = () => {
           situation: filterSituation,
           limit: 100,
         }),
-        supabaseService.getPropertiesPaginated({ page: 1, pageSize: 50 }),
+        supabaseService.getPropertiesPaginated({ municipalityId, page: 1, pageSize: 50 }),
       ]);
 
       setActiveCycle(cycle);
@@ -130,9 +132,9 @@ export const VisitsView: React.FC = () => {
     setErrorToast(null);
 
     try {
-      const muni = await supabaseService.getMunicipality();
-      const muniId = muni?.id || '00000000-0000-0000-0000-000000000001';
-      const cycleId = activeCycle?.id || '00000000-0000-0000-0000-000000000001';
+      const muni = sessionMunicipality;
+      const muniId = municipalityId;
+      const cycleId = municipalityId;
 
       // Filtrar depósitos com quantidade > 0
       const activeDeposits = formData.deposits
@@ -164,7 +166,7 @@ export const VisitsView: React.FC = () => {
         municipality_id: muniId,
         cycle_id: cycleId,
         property_id: formData.propertyId,
-        agent_id: user?.id || '00000000-0000-0000-0000-000000000001',
+        agent_id: municipalityId,
         visit_date: formData.visitDate,
         started_at: startedAt,
         finished_at: finishedAt,

@@ -252,7 +252,7 @@ export const DatabaseHealthView: React.FC = () => {
   };
 
   // Cálculos de Health Score
-  const totalPages = pages.length || 58;
+  const totalPages = pages.length;
   const functionalCount = summary?.functionalCount ?? pages.filter((p) => p.status === 'FUNCIONAL').length;
   const partialCount = summary?.partialCount ?? pages.filter((p) => p.status === 'PARCIAL').length;
   const errorCount = summary?.errorCount ?? pages.filter((p) => p.status === 'ERRO').length;
@@ -698,7 +698,7 @@ export const DatabaseHealthView: React.FC = () => {
             <span>Conectado</span>
           </div>
           <span className="text-[10px] text-slate-400 font-mono block mt-0.5">
-            Latência: {summary?.averageLatencyMs ?? 697}ms
+            Latência: {summary?.averageLatencyMs !== undefined ? `${summary.averageLatencyMs}ms` : '—'}
           </span>
         </div>
 
@@ -1310,7 +1310,7 @@ export const DatabaseHealthView: React.FC = () => {
               </div>
               <div>
                 <span className="text-slate-500 block">Latência Registrada:</span>
-                <strong className="text-slate-900 font-mono">{selectedPage.latencyMs ?? 697} ms</strong>
+                <strong className="text-slate-900 font-mono">{selectedPage.latencyMs !== undefined ? `${selectedPage.latencyMs} ms` : '—'}</strong>
               </div>
             </div>
 

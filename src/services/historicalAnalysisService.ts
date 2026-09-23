@@ -55,7 +55,6 @@ export interface ComparativeAnalysisResult {
   series: TrendDataPoint[];
 }
 
-const DEFAULT_MUN_ID = '00000000-0000-0000-0000-000000000001';
 
 export const historicalAnalysisService = {
   /**
@@ -102,8 +101,8 @@ export const historicalAnalysisService = {
   async getComparativeAnalysis(
     indicatorKey: HistoricalIndicatorKey,
     mode: '2026_vs_2025' | 'ciclo_atual_vs_anterior' | 'ultimas_4semanas_vs_anteriores',
-    neighborhoodId?: string,
-    municipalityId = DEFAULT_MUN_ID
+    neighborhoodId: string | undefined,
+    municipalityId: string
   ): Promise<ComparativeAnalysisResult> {
     const meta = HISTORICAL_INDICATORS.find(i => i.key === indicatorKey) || HISTORICAL_INDICATORS[0];
 

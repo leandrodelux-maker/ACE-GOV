@@ -3,8 +3,11 @@ import { Clock, Calendar, CheckCircle2, AlertCircle, RefreshCw, Layers, Plus } f
 import { supabaseService } from '../../services/supabaseService';
 import { FieldCycle } from '../../types';
 import { PageHeader } from '../ui';
+import { useAuth, useMunicipalityId } from '../../contexts/AuthContext';
 
 export const CyclesView: React.FC = () => {
+  const { municipality: sessionMunicipality } = useAuth();
+  const municipalityId = useMunicipalityId();
   const [cycles, setCycles] = useState<FieldCycle[]>([]);
   const [activeCycle, setActiveCycle] = useState<FieldCycle | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -12,8 +15,8 @@ export const CyclesView: React.FC = () => {
   const loadCycles = async () => {
     setIsLoading(true);
     try {
-      const muni = await supabaseService.getMunicipality();
-      const muniId = muni?.id || '00000000-0000-0000-0000-000000000001';
+      const muni = sessionMunicipality;
+      const muniId = municipalityId;
 
       const [allCycles, current] = await Promise.all([
         supabaseService.getCycles(muniId),
@@ -81,32 +84,32 @@ export const CyclesView: React.FC = () => {
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-50 p-4 rounded-xl text-center text-xs">
                 <div>
-                  <span className="text-slate-500 font-semibold">Meta de Cobertura</span>
-                  <p className="text-xl font-extrabold text-blue-700 mt-1">{activeCycle.goalPercentage}%</p>
+                  <span className="text-slate-500 font-semibold">Imóveis Trabalhados</span>
+                  <p className="text-xl font-extrabold text-blue-700 mt-1">{(activeCycle.visitedProperties ?? 0).toLocaleString('pt-BR')}</p>
                 </div>
                 <div>
                   <span className="text-slate-500 font-semibold">Cobertura Atual</span>
-                  <p className="text-xl font-extrabold text-emerald-700 mt-1">{activeCycle.currentCoveragePercentage}%</p>
+                  <p className="text-xl font-extrabold text-emerald-700 mt-1">{activeCycle.currentCoveragePercentage !== undefined ? `${activeCycle.currentCoveragePercentage}%` : '—'}</p>
                 </div>
                 <div>
                   <span className="text-slate-500 font-semibold">Imóveis Alvo</span>
-                  <p className="text-xl font-extrabold text-slate-800 mt-1">{activeCycle.totalTargetProperties.toLocaleString('pt-BR')}</p>
+                  <p className="text-xl font-extrabold text-slate-800 mt-1">{activeCycle.totalTargetProperties !== undefined ? activeCycle.totalTargetProperties.toLocaleString('pt-BR') : 'Não definido'}</p>
                 </div>
                 <div>
                   <span className="text-slate-500 font-semibold">Focos no Ciclo</span>
-                  <p className="text-xl font-extrabold text-rose-700 mt-1">{activeCycle.fociCount}</p>
+                  <p className="text-xl font-extrabold text-rose-700 mt-1">{activeCycle.fociCount ?? 0}</p>
                 </div>
               </div>
 
               <div className="space-y-1 pt-2">
                 <div className="flex justify-between text-xs font-semibold text-slate-700">
                   <span>Progresso da Cobertura Municipal</span>
-                  <span>{activeCycle.currentCoveragePercentage}% de {activeCycle.goalPercentage}%</span>
+                  <span>{activeCycle.currentCoveragePercentage !== undefined ? `${activeCycle.currentCoveragePercentage}% dos imóveis-alvo` : 'Sem meta de imóveis definida para o ciclo'}</span>
                 </div>
                 <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
                   <div
                     className="h-full bg-emerald-600 rounded-full transition-all duration-500"
-                    style={{ width: `${Math.min(100, activeCycle.currentCoveragePercentage)}%` }}
+                    style={{ width: `${Math.min(100, activeCycle.currentCoveragePercentage ?? 0)}%` }}
                   />
                 </div>
               </div>
@@ -141,9 +144,9 @@ export const CyclesView: React.FC = () => {
                       <td className="py-3 px-4 text-slate-600">
                         {new Date(c.startDate).toLocaleDateString('pt-BR')} a {new Date(c.endDate).toLocaleDateString('pt-BR')}
                       </td>
-                      <td className="py-3 px-4 text-slate-700 font-semibold">{c.totalTargetProperties}</td>
+                      <td className="py-3 px-4 text-slate-700 font-semibold">{c.totalTargetProperties ?? '—'}</td>
                       <td className="py-3 px-4">
-                        <span className="font-bold text-blue-700">{c.currentCoveragePercentage}%</span>
+                        <span className="font-bold text-blue-700">{c.currentCoveragePercentage !== undefined ? `${c.currentCoveragePercentage}%` : '—'}</span>
                       </td>
                       <td className="py-3 px-4 text-right">
                         <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${

@@ -24,7 +24,8 @@ import {
   Wifi,
   WifiOff,
 } from 'lucide-react';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth, useMunicipalityId } from '../../contexts/AuthContext';
+import { enqueueVisit, readQueue, syncQueue as syncOfflineQueue, QueuedVisit } from '../../services/offlineVisitQueue';
 import { supabaseService } from '../../services/supabaseService';
 import { Property, VisitSituation, DepositCategory, DepositInspection, Visit } from '../../types';
 import { qrCodeService } from '../../services/qrCodeService';
@@ -40,6 +41,7 @@ interface AcePwaViewProps {
 
 export const AcePwaView: React.FC<AcePwaViewProps> = ({ onNavigate }) => {
   const { user } = useAuth();
+  const municipalityId = useMunicipalityId();
 
   // Detecção de status de conexão em tempo real
   const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
@@ -54,19 +56,18 @@ export const AcePwaView: React.FC<AcePwaViewProps> = ({ onNavigate }) => {
     };
   }, []);
 
-  // Fila Offline (sync_queue) no localStorage
-  const [syncQueue, setSyncQueue] = useState<any[]>(() => {
-    try {
-      const saved = localStorage.getItem('endemias_sync_queue');
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
+  // Fila Offline (sync_queue) no localStorage — ver services/offlineVisitQueue
+  const [syncQueue, setSyncQueue] = useState<QueuedVisit[]>(() => readQueue());
 
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [isDownloading, setIsDownloading] = useState<boolean>(false);
-  const [offlineDownloaded, setOfflineDownloaded] = useState<boolean>(true);
+  const [offlineDownloaded, setOfflineDownloaded] = useState<boolean>(() => {
+    try {
+      return !!localStorage.getItem('endemias_cached_properties');
+    } catch {
+      return false;
+    }
+  });
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // Imóveis do ACE
@@ -75,7 +76,6 @@ export const AcePwaView: React.FC<AcePwaViewProps> = ({ onNavigate }) => {
 
   // Estatísticas diárias
   const [dailyStats, setDailyStats] = useState({
-    target: 25,
     completed: 0,
     fociCount: 0,
   });
@@ -118,6 +118,7 @@ export const AcePwaView: React.FC<AcePwaViewProps> = ({ onNavigate }) => {
     setIsLoadingProps(true);
     try {
       const res = await supabaseService.getPropertiesPaginated({
+        municipalityId,
         page: 1,
         pageSize: 30,
       });
@@ -125,6 +126,7 @@ export const AcePwaView: React.FC<AcePwaViewProps> = ({ onNavigate }) => {
       if (res.properties.length > 0) {
         setMyProperties(res.properties);
         localStorage.setItem('endemias_cached_properties', JSON.stringify(res.properties));
+        setOfflineDownloaded(true);
       } else {
         // Fallback do cache local
         const cached = localStorage.getItem('endemias_cached_properties');
@@ -136,18 +138,18 @@ export const AcePwaView: React.FC<AcePwaViewProps> = ({ onNavigate }) => {
     } finally {
       setIsLoadingProps(false);
     }
-  }, []);
+  }, [municipalityId]);
 
   const loadOvitrapsPwa = useCallback(async () => {
     try {
-      const res = await ovitrapService.getOvitraps();
+      const res = await ovitrapService.getOvitraps(municipalityId);
       setMyOvitraps(res.ovitraps);
       localStorage.setItem('endemias_cached_ovitraps', JSON.stringify(res.ovitraps));
     } catch {
       const cached = localStorage.getItem('endemias_cached_ovitraps');
       if (cached) setMyOvitraps(JSON.parse(cached));
     }
-  }, []);
+  }, [municipalityId]);
 
   useEffect(() => {
     loadMyProperties();
@@ -169,14 +171,14 @@ export const AcePwaView: React.FC<AcePwaViewProps> = ({ onNavigate }) => {
 
     async function loadOrders() {
       try {
-        const orders = await workOrderService.getWorkOrders();
+        const orders = await workOrderService.getWorkOrders(municipalityId);
         setMyWorkOrders(orders);
       } catch (err) {
         console.warn('Erro ao carregar OS no PWA:', err);
       }
     }
     loadOrders();
-  }, [loadMyProperties, loadOvitrapsPwa]);
+  }, [loadMyProperties, loadOvitrapsPwa, municipalityId]);
 
   const handleCapturePhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -198,63 +200,48 @@ export const AcePwaView: React.FC<AcePwaViewProps> = ({ onNavigate }) => {
         setIsQrScannerOpen(false);
         handleStartVisit(matched);
       } else {
-        alert(`Imóvel identificado (${parsed.code}), iniciando vistoria.`);
-        setIsQrScannerOpen(false);
-        handleStartVisit({
-          id: parsed.id,
-          code: parsed.code,
-          address: 'Imóvel Identificado via QR Code',
-          neighborhood: 'Setor de Campo',
-        });
+        alert(`Imóvel ${parsed.code} não está na sua lista de trabalho carregada neste aparelho. Atualize a lista ou localize o imóvel manualmente.`);
       }
     } else {
-      alert('QR Code lido com sucesso! Abrindo cadastro do imóvel...');
-      setIsQrScannerOpen(false);
-      if (myProperties.length > 0) handleStartVisit(myProperties[0]);
+      alert('QR Code não reconhecido como etiqueta de imóvel. Nenhuma vistoria foi iniciada.');
     }
   };
 
-  // Salvar fila no localStorage
-  const saveSyncQueue = (queue: any[]) => {
-    setSyncQueue(queue);
-    localStorage.setItem('endemias_sync_queue', JSON.stringify(queue));
+  // Enfileirar visita (sem sobrescrever itens adicionados em paralelo)
+  const queueVisit = (visit: QueuedVisit) => {
+    try {
+      setSyncQueue(enqueueVisit(visit));
+      return true;
+    } catch (err: any) {
+      alert(err?.message || 'Não foi possível guardar a visita no aparelho.');
+      return false;
+    }
   };
 
   // Sincronizar Fila com o Supabase
   const handleSyncNow = async () => {
-    if (syncQueue.length === 0 || isSyncing) return;
+    if (syncQueue.length === 0 || isSyncing || !user?.id) return;
     setIsSyncing(true);
 
     try {
-      const muni = await supabaseService.getMunicipality();
-      const muniId = muni?.id || '00000000-0000-0000-0000-000000000001';
-      const cycle = await supabaseService.getActiveCycle(muniId);
-      const cycleId = cycle?.id || '00000000-0000-0000-0000-000000000001';
+      const cycle = await supabaseService.getActiveCycle(municipalityId);
+      const agentId = await supabaseService.getAgentIdForProfile(user!.id, municipalityId);
+      const summary = await syncOfflineQueue(
+        async (item) =>
+          agentId
+            ? visitOfficialService.submitOfficialVisit({ ...item, agent_id: agentId } as any)
+            : { success: false, message: 'Perfil sem vínculo com cadastro de agente (ACE).' },
+        { municipalityId, cycleId: cycle?.id ?? null }
+      );
+      setSyncQueue(summary.remaining);
 
-      let successCount = 0;
-      const remaining: any[] = [];
-
-      for (const item of syncQueue) {
-        try {
-          const res = await visitOfficialService.submitOfficialVisit({
-            ...item,
-            municipality_id: muniId,
-            cycle_id: cycleId,
-          });
-
-          if (res.success) {
-            successCount++;
-          } else {
-            remaining.push({ ...item, status: 'erro', retryCount: (item.retryCount || 0) + 1 });
-          }
-        } catch {
-          remaining.push({ ...item, status: 'erro', retryCount: (item.retryCount || 0) + 1 });
-        }
-      }
-
-      saveSyncQueue(remaining);
-      setSuccessMessage(`${successCount} vistoria(s) sincronizada(s) com sucesso no banco de dados!`);
-      setTimeout(() => setSuccessMessage(null), 4000);
+      const parts = [`${summary.synced} vistoria(s) sincronizada(s)`];
+      if (summary.failed > 0) parts.push(`${summary.failed} com erro permanecem na fila`);
+      if (summary.skippedReason) parts.push(summary.skippedReason);
+      if (!cycle) parts.push('não há ciclo de campo em andamento');
+      if (!agentId) parts.push('seu perfil não está vinculado a um cadastro de agente (ACE) — procure a coordenação');
+      setSuccessMessage(parts.join(' — ') + '.');
+      setTimeout(() => setSuccessMessage(null), 5000);
       await loadMyProperties();
     } catch (err: any) {
       alert(`Falha durante sincronização: ${err.message || 'Erro de conexão'}`);
@@ -263,15 +250,24 @@ export const AcePwaView: React.FC<AcePwaViewProps> = ({ onNavigate }) => {
     }
   };
 
-  // Baixar Área Offline
-  const handleDownloadOffline = () => {
+  // Baixar Área Offline: recarrega e guarda no aparelho imóveis e ovitrampas da lista do ACE
+  const handleDownloadOffline = async () => {
     setIsDownloading(true);
-    setTimeout(() => {
+    try {
+      await Promise.all([loadMyProperties(), loadOvitrapsPwa()]);
+      const hasCache = !!localStorage.getItem('endemias_cached_properties');
+      setOfflineDownloaded(hasCache);
+      setSuccessMessage(
+        hasCache
+          ? 'Lista de imóveis e ovitrampas salva no aparelho para uso offline.'
+          : 'Não foi possível baixar a lista: sem imóveis retornados pelo servidor.'
+      );
+    } catch {
+      setSuccessMessage('Não foi possível baixar os dados agora. Tente novamente com conexão.');
+    } finally {
       setIsDownloading(false);
-      setOfflineDownloaded(true);
-      setSuccessMessage('Base de imóveis e mapas do setor baixados com sucesso no dispositivo!');
-      setTimeout(() => setSuccessMessage(null), 3500);
-    }, 1200);
+      setTimeout(() => setSuccessMessage(null), 4000);
+    }
   };
 
   // Iniciar Visita
@@ -289,13 +285,14 @@ export const AcePwaView: React.FC<AcePwaViewProps> = ({ onNavigate }) => {
           setGpsLoading(false);
         },
         () => {
-          setGpsLocation({ lat: property.latitude || -29.718, lng: property.longitude || -52.428 });
+          // Sem GPS: usa a coordenada cadastrada do imóvel, se houver (nunca coordenada fixa)
+          setGpsLocation(property.latitude && property.longitude ? { lat: property.latitude, lng: property.longitude } : null);
           setGpsLoading(false);
         },
         { timeout: 4000 }
       );
     } else {
-      setGpsLocation({ lat: property.latitude || -29.718, lng: property.longitude || -52.428 });
+      setGpsLocation(property.latitude && property.longitude ? { lat: property.latitude, lng: property.longitude } : null);
       setGpsLoading(false);
     }
   };
@@ -325,6 +322,10 @@ export const AcePwaView: React.FC<AcePwaViewProps> = ({ onNavigate }) => {
   // Finalizar Visita (Online ou Fila Offline)
   const handleFinalizeVisit = async () => {
     if (!selectedProperty) return;
+    if (!user?.id) {
+      alert('Sessão sem identificação do agente. Entre novamente para registrar a visita.');
+      return;
+    }
     setIsFinishing(true);
 
     const fociFound = inspections.some(i => i.isFoci || i.hasLarvae);
@@ -333,14 +334,15 @@ export const AcePwaView: React.FC<AcePwaViewProps> = ({ onNavigate }) => {
     const visitPayload = {
       id: clientGeneratedVisitId,
       property_id: selectedProperty.id,
-      agent_id: user?.id || '00000000-0000-0000-0000-000000000001',
+      municipality_id: municipalityId,
+      agent_id: user.id,
       visit_date: new Date().toISOString().split('T')[0],
       started_at: new Date().toISOString(),
       finished_at: new Date().toISOString(),
       visit_type: 'rotina',
       result: visitSituation.toLowerCase() as any,
-      latitude: gpsLocation?.lat || selectedProperty.latitude,
-      longitude: gpsLocation?.lng || selectedProperty.longitude,
+      latitude: gpsLocation?.lat ?? selectedProperty.latitude ?? null,
+      longitude: gpsLocation?.lng ?? selectedProperty.longitude ?? null,
       residents_present: visitSituation === 'TRABALHADO',
       notes: conductNotes || (fociFound ? 'Foco detectado e tratado com larvicida.' : 'Inspeção concluída sem focos.'),
       deposits: inspections.map(i => ({
@@ -366,29 +368,36 @@ export const AcePwaView: React.FC<AcePwaViewProps> = ({ onNavigate }) => {
 
     if (isOnline) {
       try {
-        const muni = await supabaseService.getMunicipality();
-        const muniId = muni?.id || '00000000-0000-0000-0000-000000000001';
-        const cycle = await supabaseService.getActiveCycle(muniId);
-        const cycleId = cycle?.id || '00000000-0000-0000-0000-000000000001';
-
-        const res = await visitOfficialService.submitOfficialVisit({
-          ...visitPayload,
-          municipality_id: muniId,
-          cycle_id: cycleId,
-        });
-
-        if (res.success) {
-          setSuccessMessage(`Visita ao imóvel ${selectedProperty.code} registrada diretamente no banco de dados!`);
+        const [cycle, agentId] = await Promise.all([
+          supabaseService.getActiveCycle(municipalityId),
+          supabaseService.getAgentIdForProfile(user.id, municipalityId),
+        ]);
+        if (!cycle) {
+          queueVisit(visitPayload as QueuedVisit);
+          setSuccessMessage('Não há ciclo de campo em andamento. Visita guardada no aparelho até a abertura do ciclo.');
+        } else if (!agentId) {
+          queueVisit(visitPayload as QueuedVisit);
+          setSuccessMessage('Seu perfil não está vinculado a um cadastro de agente (ACE). Visita guardada no aparelho — procure a coordenação.');
         } else {
-          saveSyncQueue([...syncQueue, { ...visitPayload, status: 'pendente', retryCount: 0 }]);
-          setSuccessMessage(`Falha de conexão. Visita guardada com segurança na fila offline.`);
+          const res = await visitOfficialService.submitOfficialVisit({
+            ...visitPayload,
+            agent_id: agentId,
+            cycle_id: cycle.id,
+          } as any);
+
+          if (res.success) {
+            setSuccessMessage(`Visita ao imóvel ${selectedProperty.code} registrada no banco de dados.`);
+          } else {
+            queueVisit(visitPayload as QueuedVisit);
+            setSuccessMessage(`Não foi possível registrar agora (${res.message}). Visita guardada na fila offline.`);
+          }
         }
       } catch {
-        saveSyncQueue([...syncQueue, { ...visitPayload, status: 'pendente', retryCount: 0 }]);
-        setSuccessMessage(`Falha de conexão. Visita guardada com segurança na fila offline.`);
+        queueVisit(visitPayload as QueuedVisit);
+        setSuccessMessage(`Falha de conexão. Visita guardada na fila offline.`);
       }
     } else {
-      saveSyncQueue([...syncQueue, { ...visitPayload, status: 'pendente', retryCount: 0 }]);
+      queueVisit(visitPayload as QueuedVisit);
       setSuccessMessage(`Modo offline ativo. Visita guardada no dispositivo e pronta para sincronizar.`);
     }
 
@@ -403,6 +412,7 @@ export const AcePwaView: React.FC<AcePwaViewProps> = ({ onNavigate }) => {
     if (visitPhotos.length > 0) {
       for (const photoData of visitPhotos) {
         fieldEvidenceService.saveEvidence({
+          municipalityId,
           entityType: 'visita',
           entityId: selectedProperty.id,
           fileDataUrl: photoData,
@@ -518,21 +528,21 @@ export const AcePwaView: React.FC<AcePwaViewProps> = ({ onNavigate }) => {
       {/* Cards de Desempenho Diário */}
       <div className="grid grid-cols-3 gap-2 text-center">
         <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs">
-          <p className="text-xs text-slate-500 font-medium">Meta Hoje</p>
-          <p className="text-xl font-extrabold text-blue-700">{dailyStats.target}</p>
+          <p className="text-xs text-slate-500 font-medium">Na lista</p>
+          <p className="text-xl font-extrabold text-blue-700">{myProperties.length}</p>
           <span className="text-[10px] text-slate-400">imóveis</span>
         </div>
         <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs">
           <p className="text-xs text-slate-500 font-medium">Realizadas</p>
           <p className="text-xl font-extrabold text-emerald-700">{dailyStats.completed}</p>
           <span className="text-[10px] text-emerald-700 font-medium">
-            {Math.round((dailyStats.completed / dailyStats.target) * 100)}% feito
+            {myProperties.length > 0 ? `${Math.min(100, Math.round((dailyStats.completed / myProperties.length) * 100))}% da lista` : 'nesta sessão'}
           </span>
         </div>
         <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs">
           <p className="text-xs text-slate-500 font-medium">Focos</p>
           <p className="text-xl font-extrabold text-rose-700">{dailyStats.fociCount}</p>
-          <span className="text-[10px] text-rose-700 font-medium">eliminados</span>
+          <span className="text-[10px] text-rose-700 font-medium">encontrados</span>
         </div>
       </div>
 
@@ -825,12 +835,17 @@ export const AcePwaView: React.FC<AcePwaViewProps> = ({ onNavigate }) => {
               <button
                 onClick={async () => {
                   const trap = selectedPwaOvitrap;
-                  if (!trap) return;
+                  if (!trap || !user?.id) return;
 
+                  const agentId = await supabaseService.getAgentIdForProfile(user.id, municipalityId);
+                  if (!agentId) {
+                    alert('Seu perfil não está vinculado a um cadastro de agente (ACE). Procure a coordenação para registrar ações de ovitrampa.');
+                    return;
+                  }
                   if (!isOnline) {
                     ovitrapService.queueOfflineAction(pwaOviAction, {
                       ovitrapId: trap.id,
-                      agentId: user?.id,
+                      agentId,
                       paddleCode: pwaPaddleCode,
                       notes: pwaOviNotes,
                       actionDate: new Date().toISOString(),
@@ -838,23 +853,23 @@ export const AcePwaView: React.FC<AcePwaViewProps> = ({ onNavigate }) => {
                     setSuccessMessage(`Ação de ovitrampa guardada offline. Sincronizará quando conectar.`);
                   } else {
                     if (pwaOviAction === 'INSTALL') {
-                      await ovitrapService.installOvitrap({
+                      const res = await ovitrapService.installOvitrap({
                         ovitrapId: trap.id,
-                        agentId: user?.id || '00000000-0000-0000-0000-000000000001',
+                        agentId,
                         paddleCode: pwaPaddleCode,
                         notes: pwaOviNotes,
                       });
-                      setSuccessMessage(`Ovitrampa ${trap.code} instalada com sucesso!`);
+                      setSuccessMessage(res.success ? `Ovitrampa ${trap.code} instalada.` : `Instalação não registrada: ${res.error || "erro desconhecido"}`);
                     } else {
-                      await ovitrapService.registerCollection({
+                      const res = await ovitrapService.registerCollection({
                         ovitrapId: trap.id,
-                        agentId: user?.id || '00000000-0000-0000-0000-000000000001',
+                        agentId,
                         status: 'coleta_realizada',
                         paddleReplaced: true,
                         paddleCode: pwaPaddleCode,
                         notes: pwaOviNotes,
                       });
-                      setSuccessMessage(`Coleta da ovitrampa ${trap.code} registrada com sucesso!`);
+                      setSuccessMessage(res.success ? `Coleta da ovitrampa ${trap.code} registrada.` : `Coleta não registrada: ${res.error || "erro desconhecido"}`);
                     }
                     await loadOvitrapsPwa();
                   }

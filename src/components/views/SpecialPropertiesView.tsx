@@ -3,8 +3,11 @@ import { Building2, Plus, ShieldCheck, Users, MapPin, AlertCircle, Phone, Calend
 import { supabaseService } from '../../services/supabaseService';
 import { SpecialProperty } from '../../types';
 import { PageHeader } from '../ui';
+import { useAuth, useMunicipalityId } from '../../contexts/AuthContext';
 
 export const SpecialPropertiesView: React.FC = () => {
+  const { municipality: sessionMunicipality } = useAuth();
+  const municipalityId = useMunicipalityId();
   const [properties, setProperties] = useState<SpecialProperty[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [inspectingId, setInspectingId] = useState<string | null>(null);
@@ -12,8 +15,8 @@ export const SpecialPropertiesView: React.FC = () => {
   const loadSpecialProperties = useCallback(async () => {
     setIsLoading(true);
     try {
-      const muni = await supabaseService.getMunicipality();
-      const muniId = muni?.id || '00000000-0000-0000-0000-000000000001';
+      const muni = sessionMunicipality;
+      const muniId = municipalityId;
 
       const data = await supabaseService.getSpecialProperties(muniId);
       setProperties(data);

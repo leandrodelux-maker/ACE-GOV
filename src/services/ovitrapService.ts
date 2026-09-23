@@ -1,5 +1,6 @@
 import { supabase } from './supabaseClient';
 import { alertsService } from './alertsService';
+import { requireMunicipalityId } from './municipalityScope';
 
 export type OvitrapStatus =
   | 'Disponivel'
@@ -245,7 +246,6 @@ export interface CollectionRoutePoint {
   longitude: number;
 }
 
-const DEFAULT_MUN_ID = '00000000-0000-0000-0000-000000000001';
 
 /**
  * Cálculo centralizado oficial do Índice de Positividade de Ovitrampas (IPO)
@@ -285,7 +285,7 @@ export const ovitrapService = {
   /**
    * Gera o próximo código único oficial de ovitrampa (ex: OVI-0001)
    */
-  async generateNextCode(municipalityId = DEFAULT_MUN_ID): Promise<string> {
+  async generateNextCode(municipalityId: string): Promise<string> {
     try {
       const { data, error } = await supabase
         .from('ovitraps')
@@ -311,7 +311,7 @@ export const ovitrapService = {
   /**
    * Buscar configurações municipais de ovitrampas
    */
-  async getSettings(municipalityId = DEFAULT_MUN_ID): Promise<OvitrapSettings> {
+  async getSettings(municipalityId: string): Promise<OvitrapSettings> {
     try {
       const { data, error } = await supabase
         .from('ovitrap_settings')
@@ -402,7 +402,7 @@ export const ovitrapService = {
    * Listar todos os pontos de ovitrampas com indicadores agregados reais
    */
   async getOvitraps(
-    municipalityId = DEFAULT_MUN_ID,
+    municipalityId: string,
     filters?: OvitrapFilter
   ): Promise<{
     ovitraps: OvitrapPoint[];
@@ -474,8 +474,8 @@ export const ovitrapService = {
           number: t.number || '',
           address: t.address || t.street || 'Logradouro não informado',
           referencePoint: t.reference_point || t.reference || '',
-          latitude: t.latitude || -29.718,
-          longitude: t.longitude || -52.428,
+          latitude: t.latitude ?? null,
+          longitude: t.longitude ?? null,
           locationType: t.location_type || 'Residencial',
           responsibleName: t.responsible_name || '',
           responsiblePhone: t.responsible_phone || '',
@@ -608,7 +608,7 @@ export const ovitrapService = {
    * 1. Cadastrar Novo Ponto Sentinela de Ovitrampa
    */
   async createPoint(params: {
-    municipalityId?: string;
+    municipalityId: string;
     code?: string;
     name?: string;
     neighborhoodId: string;
@@ -631,7 +631,7 @@ export const ovitrapService = {
     collectionIntervalDays?: number;
   }): Promise<{ success: boolean; data?: any; error?: string }> {
     try {
-      const muniId = params.municipalityId || DEFAULT_MUN_ID;
+      const muniId = requireMunicipalityId(params.municipalityId);
       const code = params.code || (await this.generateNextCode(muniId));
 
       const { data, error } = await supabase
@@ -919,8 +919,13 @@ export const ovitrapService = {
 
       const resultStatus = requiresReview ? 'Invalida' : isPos ? 'Positiva' : 'Negativa';
 
-      if (colId) {
-        await supabase.from('ovitrap_results').insert({
+      // Sem coleta não há material para o resultado: não marca a armadilha como analisada.
+      if (!colId) {
+        return { success: false, error: 'Nenhuma coleta registrada para esta ovitrampa. Registre a coleta antes do resultado.' };
+      }
+
+      {
+        const { error: resultError } = await supabase.from('ovitrap_results').insert({
           collection_id: colId,
           ovitrap_id: params.ovitrapId,
           eggs_count: params.eggsCount,
@@ -935,6 +940,7 @@ export const ovitrapService = {
             ? `[NECESSITA REVISÃO - Divergência 1ª leitura (${params.eggsCount}) vs 2ª leitura (${params.secondReadCount})]. ${params.notes || ''}`
             : params.notes || null,
         });
+        if (resultError) throw resultError;
 
         await supabase
           .from('ovitrap_collections')
@@ -947,7 +953,7 @@ export const ovitrapService = {
           .eq('id', colId);
       }
 
-      await supabase
+      const { data: trapUpdated, error: trapError } = await supabase
         .from('ovitraps')
         .update({
           status: 'Resultado disponivel',
@@ -957,12 +963,16 @@ export const ovitrapService = {
           is_positive: isPos,
           updated_at: new Date().toISOString(),
         })
-        .eq('id', params.ovitrapId);
+        .eq('id', params.ovitrapId)
+        .select('municipality_id')
+        .maybeSingle();
+      if (trapError) throw trapError;
 
-      // Alerta operacional inteligente para densidades relevantes
-      if (params.eggsCount >= 80) {
+      // Alerta operacional para densidades relevantes — no município DA ovitrampa
+      if (params.eggsCount >= 80 && trapUpdated?.municipality_id) {
         try {
           await alertsService.createAlert({
+            municipalityId: trapUpdated.municipality_id,
             title: `Densidade Elevada de Ovos (${params.eggsCount} ovos)`,
             description: `Ovitrampa registrou densidade de ${params.eggsCount} ovos de Aedes aegypti, exigindo vistoria focal no quadrante.`,
             type: 'outbreak',
@@ -1066,7 +1076,7 @@ export const ovitrapService = {
   /**
    * Agenda Inteligente (Hoje, Amanhã, Próximos 7 Dias, Vencidas, Sem Programação)
    */
-  async getAgenda(municipalityId = DEFAULT_MUN_ID): Promise<{
+  async getAgenda(municipalityId: string): Promise<{
     today: OvitrapPoint[];
     tomorrow: OvitrapPoint[];
     next7Days: OvitrapPoint[];
@@ -1111,7 +1121,7 @@ export const ovitrapService = {
   /**
    * Cobertura da Rede de Ovitrampas (Identifica Bairros/Setores sem ovitrampa ou vazios)
    */
-  async getNetworkCoverageAnalysis(municipalityId = DEFAULT_MUN_ID): Promise<NetworkCoverageItem[]> {
+  async getNetworkCoverageAnalysis(municipalityId: string): Promise<NetworkCoverageItem[]> {
     try {
       const [{ data: neighborhoods }, { data: sectors }, { ovitraps }] = await Promise.all([
         supabase.from('neighborhoods').select('id, name, municipality_id').eq('municipality_id', municipalityId),
@@ -1164,7 +1174,7 @@ export const ovitrapService = {
   /**
    * Sugerir Novos Pontos Sentinela (Motor de Recomendação)
    */
-  async suggestNewPoints(municipalityId = DEFAULT_MUN_ID): Promise<SuggestedPoint[]> {
+  async suggestNewPoints(municipalityId: string): Promise<SuggestedPoint[]> {
     try {
       const coverage = await this.getNetworkCoverageAnalysis(municipalityId);
       const suggestions: SuggestedPoint[] = [];
@@ -1200,7 +1210,7 @@ export const ovitrapService = {
    * Detectar Positividade Persistente (ex: ovitrampa positiva por 2+ ciclos consecutivos)
    */
   async detectPersistentPositivity(
-    municipalityId = DEFAULT_MUN_ID,
+    municipalityId: string,
     minConsecutiveCycles = 2
   ): Promise<PersistentPointItem[]> {
     try {
@@ -1254,7 +1264,7 @@ export const ovitrapService = {
    * Tendência Temporal de Ovos e Positividade
    */
   async getTemporalTrends(
-    municipalityId = DEFAULT_MUN_ID,
+    municipalityId: string,
     groupBy: 'week' | 'fortnight' | 'month' | 'cycle' = 'week'
   ): Promise<{
     period: string;
@@ -1312,7 +1322,7 @@ export const ovitrapService = {
   /**
    * Cruzamentos de Inteligência (Focos, Casos, Cobertura, LIRAa)
    */
-  async getIntegratedCrossings(municipalityId = DEFAULT_MUN_ID): Promise<CrossingItem[]> {
+  async getIntegratedCrossings(municipalityId: string): Promise<CrossingItem[]> {
     try {
       const { ovitraps } = await this.getOvitraps(municipalityId);
       const sectorMap = new Map<string, {
@@ -1367,7 +1377,7 @@ export const ovitrapService = {
   /**
    * Detectar Inconsistências Operacionais
    */
-  async detectInconsistencies(municipalityId = DEFAULT_MUN_ID): Promise<InconsistencyItem[]> {
+  async detectInconsistencies(municipalityId: string): Promise<InconsistencyItem[]> {
     try {
       const { ovitraps } = await this.getOvitraps(municipalityId);
       const list: InconsistencyItem[] = [];
@@ -1450,7 +1460,7 @@ export const ovitrapService = {
   /**
    * Indicadores de Ovitrampas Agregados por Bairro
    */
-  async getNeighborhoodIndicators(municipalityId = DEFAULT_MUN_ID): Promise<
+  async getNeighborhoodIndicators(municipalityId: string): Promise<
     {
       neighborhoodId: string;
       neighborhoodName: string;

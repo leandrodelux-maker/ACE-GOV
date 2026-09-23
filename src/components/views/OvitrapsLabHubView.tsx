@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Layers, FlaskConical } from 'lucide-react';
 import { TabSwitcher } from '../ui';
+import { useHubTab } from '../../hooks/useHubTab';
 import { OvitrapsView } from './OvitrapsView';
 import { EntomologyLabView } from './EntomologyLabView';
 
@@ -8,6 +9,7 @@ export type OvitrapsLabTab = 'ovos' | 'laboratorio';
 
 interface OvitrapsLabHubViewProps {
   initialTab?: OvitrapsLabTab;
+  onTabChange?: (tab: OvitrapsLabTab) => void;
   onNavigate: (view: string) => void;
   municipalityId?: string;
 }
@@ -17,8 +19,8 @@ interface OvitrapsLabHubViewProps {
  * material coletado nas Ovitrampas (identificação de ovos/larvas), então as
  * duas telas passam a viver num único item de menu.
  */
-export const OvitrapsLabHubView: React.FC<OvitrapsLabHubViewProps> = ({ initialTab = 'ovos', onNavigate, municipalityId }) => {
-  const [activeTab, setActiveTab] = useState<OvitrapsLabTab>(initialTab);
+export const OvitrapsLabHubView: React.FC<OvitrapsLabHubViewProps> = ({ initialTab = 'ovos', onTabChange, onNavigate, municipalityId }) => {
+  const [activeTab, setActiveTab] = useHubTab<OvitrapsLabTab>(initialTab as OvitrapsLabTab, onTabChange);
 
   return (
     <div className="space-y-4">

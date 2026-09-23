@@ -35,7 +35,7 @@ export const riskEngineService = {
   /**
    * Buscar pesos vigentes na tabela risk_settings
    */
-  async getSettings(municipalityId = '00000000-0000-0000-0000-000000000001'): Promise<RiskSettings> {
+  async getSettings(municipalityId: string): Promise<RiskSettings> {
     try {
       const { data, error } = await supabase
         .from('risk_settings')

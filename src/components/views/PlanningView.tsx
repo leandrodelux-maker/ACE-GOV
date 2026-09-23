@@ -26,8 +26,11 @@ import {
 } from '../../services/planningAssistantService';
 import { epidemiologicalWeekService } from '../../services/epidemiologicalWeekService';
 import { PageHeader } from '../ui';
+import { useMunicipalityId, useAuth } from '../../contexts/AuthContext';
 
 export const PlanningView: React.FC = () => {
+  const { user: sessionUser } = useAuth();
+  const municipalityId = useMunicipalityId();
   const [suggestions, setSuggestions] = useState<PlanningSuggestion[]>([]);
   const [history, setHistory] = useState<ApprovedOperationalPlan[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -45,7 +48,7 @@ export const PlanningView: React.FC = () => {
   }, []);
 
   const loadHistory = async () => {
-    const list = await planningAssistantService.getPlansHistory();
+    const list = await planningAssistantService.getPlansHistory(municipalityId);
     setHistory(list);
   };
 
@@ -53,7 +56,7 @@ export const PlanningView: React.FC = () => {
     setIsGenerating(true);
     setSuccessMessage('');
     try {
-      const sugs = await planningAssistantService.generateSuggestedPlan();
+      const sugs = await planningAssistantService.generateSuggestedPlan(municipalityId);
       setSuggestions(sugs);
     } catch (err) {
       console.error('Erro ao gerar planejamento:', err);
@@ -83,7 +86,8 @@ export const PlanningView: React.FC = () => {
       const res = await planningAssistantService.approveAndSavePlan(
         suggestions,
         targetDate,
-        'Coordenador Geral de Endemias'
+        sessionUser?.name || 'Usuário autenticado',
+        municipalityId
       );
       if (res.success) {
         setSuccessMessage(res.message);

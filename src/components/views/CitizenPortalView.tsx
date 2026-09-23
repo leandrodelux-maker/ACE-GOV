@@ -17,18 +17,19 @@ import { db } from '../../services/storage';
 import { supabaseService } from '../../services/supabaseService';
 import { CitizenComplaint } from '../../types';
 import { PageHeader } from '../ui';
-
-const DEFAULT_MUN_ID = '00000000-0000-0000-0000-000000000001';
+import { useMunicipalityId } from '../../contexts/AuthContext';
 
 export const CitizenPortalView: React.FC = () => {
+  const municipalityId = useMunicipalityId();
   const [complaints, setComplaints] = useState<CitizenComplaint[]>(db.getComplaints());
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'internal' | 'public_form' | 'search_protocol'>('internal');
   const [loading, setLoading] = useState<boolean>(false);
 
   // Public form states
   const [complaintType, setComplaintType] = useState<CitizenComplaint['type']>('TERRENO_BALDIO');
   const [address, setAddress] = useState('');
-  const [neighborhood, setNeighborhood] = useState('Centro');
+  const [neighborhood, setNeighborhood] = useState('');
   const [description, setDescription] = useState('');
   const [reporterName, setReporterName] = useState('');
   const [reporterPhone, setReporterPhone] = useState('');
@@ -45,19 +46,16 @@ export const CitizenPortalView: React.FC = () => {
   const loadComplaints = async () => {
     setLoading(true);
     try {
-      const dbComplaints = await supabaseService.getComplaints(DEFAULT_MUN_ID);
-      if (dbComplaints && dbComplaints.length > 0) {
-        // Unir evitando duplicados
-        const local = db.getComplaints();
-        const map = new Map<string, CitizenComplaint>();
-        dbComplaints.forEach(c => map.set(c.id, c));
-        local.forEach(c => {
-          if (!map.has(c.id)) map.set(c.id, c);
-        });
-        setComplaints(Array.from(map.values()));
+      const dbComplaints = await supabaseService.getComplaints(municipalityId);
+      if (dbComplaints) {
+        setComplaints(dbComplaints);
+        setLoadError(null);
+      } else {
+        setLoadError('Não foi possível carregar as denúncias do banco. Exibindo a última cópia salva neste aparelho.');
       }
     } catch (err) {
-      console.warn('Fallback para complaints locais:', err);
+      console.warn('Falha ao carregar denúncias:', err);
+      setLoadError('Não foi possível carregar as denúncias do banco. Exibindo a última cópia salva neste aparelho.');
     } finally {
       setLoading(false);
     }
@@ -76,7 +74,7 @@ export const CitizenPortalView: React.FC = () => {
     const newComplaint: CitizenComplaint = {
       id: `comp-${Date.now()}`,
       protocol: newProtocol,
-      municipalityId: DEFAULT_MUN_ID,
+      municipalityId,
       type: complaintType,
       address,
       neighborhood,
@@ -86,24 +84,22 @@ export const CitizenPortalView: React.FC = () => {
       status: 'RECEBIDA',
       priority: 'MEDIA',
       createdAt: new Date().toISOString().split('T')[0],
-      assignedAgentName: 'Equipe de Triagem',
-      resolutionNotes: 'Denúncia recebida. Equipe de ACE escalada para inspeção sanitária.',
     };
 
+    let saved = false;
     try {
-      // Salvar no Supabase
-      await supabaseService.insertComplaint(newComplaint);
+      saved = await supabaseService.insertComplaint(newComplaint);
     } catch (err) {
-      console.warn('Erro ao inserir no Supabase, salvando local:', err);
+      console.warn('Erro ao inserir denúncia no Supabase:', err);
     }
 
-    const updated = [newComplaint, ...complaints];
-    setComplaints(updated);
-    try {
-      localStorage.setItem('endemias_complaints', JSON.stringify(updated));
-    } catch {
-      // ignore
+    if (!saved) {
+      setSubmitting(false);
+      alert('Não foi possível registrar a denúncia no banco de dados. Nenhum protocolo foi gerado; tente novamente.');
+      return;
     }
+
+    setComplaints([newComplaint, ...complaints]);
 
     setGeneratedProtocol(newProtocol);
     setAddress('');

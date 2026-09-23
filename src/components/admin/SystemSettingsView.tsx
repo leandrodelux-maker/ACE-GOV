@@ -23,15 +23,27 @@ import {
 import { systemSettingsService, DEFAULT_SETTINGS } from '../../services/systemSettingsService';
 import { useAuth } from '../../contexts/AuthContext';
 import { PageHeader } from '../ui';
+import { canAccessView } from '../../config/routes';
 import { MultiDiseaseSettingsView } from '../views/MultiDiseaseSettingsView';
 
 interface SystemSettingsViewProps {
   initialTab?: string;
+  /** Navegação para ferramentas administrativas relacionadas */
+  onNavigate?: (target: string) => void;
 }
 
-export const SystemSettingsView: React.FC<SystemSettingsViewProps> = ({ initialTab = 'GERAL' }) => {
-  const { municipality } = useAuth();
+export const SystemSettingsView: React.FC<SystemSettingsViewProps> = ({ initialTab = 'GERAL', onNavigate }) => {
+  const { municipality, can, hasRole } = useAuth();
   const [activeTab, setActiveTab] = useState<string>(initialTab);
+  // A aba acompanha a rota (/admin/configuracoes x /admin/endemias)
+  useEffect(() => {
+    setActiveTab(initialTab);
+  }, [initialTab]);
+  const adminTools = ([
+    { view: 'labels', label: 'Etiquetas QR' },
+    { view: 'data_import', label: 'Importação de Dados' },
+    { view: 'communication', label: 'Comunicação Operacional' },
+  ] as const).filter((t) => canAccessView(t.view, { can, hasRole }));
   const [settingsData, setSettingsData] = useState<Record<string, any>>({});
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isSaving, setIsSaving] = useState<boolean>(false);
@@ -150,6 +162,21 @@ export const SystemSettingsView: React.FC<SystemSettingsViewProps> = ({ initialT
           ) : undefined
         }
       />
+
+      {onNavigate && adminTools.length > 0 && (
+        <nav aria-label="Ferramentas administrativas" className="flex flex-wrap items-center gap-2 text-xs">
+          <span className="text-slate-500">Outras ferramentas:</span>
+          {adminTools.map((t) => (
+            <button
+              key={t.view}
+              onClick={() => onNavigate(t.view)}
+              className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold"
+            >
+              {t.label}
+            </button>
+          ))}
+        </nav>
+      )}
 
       {/* Navegação das 12 Abas */}
       <div className="bg-white p-2 rounded-xl border border-slate-200 shadow-xs overflow-x-auto">

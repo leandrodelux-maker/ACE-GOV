@@ -12,6 +12,7 @@ import {
   Check,
 } from 'lucide-react';
 import { alertsService, AlertNotificationItem } from '../services/alertsService';
+import { useMunicipalityId, useAuth } from '../contexts/AuthContext';
 
 interface NotificationsDrawerProps {
   isOpen: boolean;
@@ -24,6 +25,8 @@ export const NotificationsDrawer: React.FC<NotificationsDrawerProps> = ({
   onClose,
   onNavigateToModule,
 }) => {
+  const { user: sessionUser } = useAuth();
+  const municipalityId = useMunicipalityId();
   const [alerts, setAlerts] = useState<AlertNotificationItem[]>([]);
   const [selectedSeverity, setSelectedSeverity] = useState<string>('TODOS');
   const [loading, setLoading] = useState(false);
@@ -37,20 +40,20 @@ export const NotificationsDrawer: React.FC<NotificationsDrawerProps> = ({
 
   const loadAlerts = async () => {
     setLoading(true);
-    const data = await alertsService.getAlerts();
+    const data = await alertsService.getAlerts(municipalityId);
     setAlerts(data);
     setLoading(false);
   };
 
   const handleAcknowledge = async (item: AlertNotificationItem) => {
     setAcknowledgingId(item.id);
-    const res = await alertsService.acknowledgeAlert(item.id);
+    const res = await alertsService.acknowledgeAlert(item.id, sessionUser?.name || 'Usuário autenticado', municipalityId);
     setAcknowledgingId(null);
     loadAlerts();
   };
 
   const handleAcknowledgeAll = async () => {
-    await alertsService.acknowledgeAll();
+    await alertsService.acknowledgeAll(municipalityId);
     loadAlerts();
   };
 

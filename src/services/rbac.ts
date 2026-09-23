@@ -4,6 +4,10 @@ import { supabase } from './supabaseClient';
 /**
  * RBAC do Endemias GOV — ESPELHO do catálogo canônico do banco.
  *
+ * Nota: a permissão 'ia_assistente.use' continua existindo no banco (migrations
+ * 07 e 24, não alteradas), mas saiu deste espelho junto com o módulo Assistente IA,
+ * que foi removido da aplicação.
+ *
  * A FONTE DA VERDADE é o PostgreSQL (tabelas `permissions` / `role_permissions`,
  * migration 20260907000024). As permissões efetivas de uma sessão vêm SEMPRE do
  * servidor (RPC `get_auth_bootstrap` → `session.permissions`) e são reforçadas
@@ -102,8 +106,6 @@ export const PERMISSIONS_CATALOG: PermissionDefinition[] = [
   { slug: 'motor_risco.view', module: 'motor_risco', action: 'view', label: 'Visualizar Motor de Risco', description: 'Consultar escores preditivos de risco' },
   { slug: 'motor_risco.manage', module: 'motor_risco', action: 'manage', label: 'Gerenciar Pesos de Risco', description: 'Ajustar pesos do algoritmo de risco' },
 
-  { slug: 'ia_assistente.use', module: 'ia_assistente', action: 'use', label: 'Usar Assistente IA', description: 'Interagir com assistente inteligente' },
-
   { slug: 'configuracoes.view', module: 'configuracoes', action: 'view', label: 'Visualizar Configurações', description: 'Acesso a parâmetros gerais' },
   { slug: 'configuracoes.manage', module: 'configuracoes', action: 'manage', label: 'Administrar Sistema', description: 'Controle de sistema, integrações e endemias' },
 
@@ -154,7 +156,7 @@ export const ROLES_REGISTRY: Record<UserRole, RoleDefinition> = {
       'imoveis_especiais.view', 'imoveis_especiais.manage',
       'denuncias.view', 'denuncias.manage',
       'planejamento.view', 'planejamento.manage',
-      'relatorios.view', 'motor_risco.view', 'ia_assistente.use',
+      'relatorios.view', 'motor_risco.view',
     ],
   },
   ACE: {
@@ -167,7 +169,7 @@ export const ROLES_REGISTRY: Record<UserRole, RoleDefinition> = {
       'visitas.view', 'visitas.create', 'visitas.update',
       'territorio.view', 'ciclos.view', 'planejamento.view',
       'ovitrampas.view', 'ovitrampas.install', 'ovitrampas.collect', 'ovitrampas.update',
-      'denuncias.view', 'ia_assistente.use',
+      'denuncias.view',
     ],
   },
   EPIDEMIOLOGY_AGENT: {
@@ -180,7 +182,7 @@ export const ROLES_REGISTRY: Record<UserRole, RoleDefinition> = {
       'focos.view', 'focos.manage',
       'ovitrampas.view', 'ovitrampas.results', 'ovitrampas.analyze', 'ovitrampas.export',
       'visitas.view', 'imoveis.view', 'territorio.view', 'ciclos.view',
-      'relatorios.view', 'relatorios.export', 'motor_risco.view', 'ia_assistente.use',
+      'relatorios.view', 'relatorios.export', 'motor_risco.view',
     ],
   },
   HEALTH_SECRETARY: {
@@ -193,7 +195,7 @@ export const ROLES_REGISTRY: Record<UserRole, RoleDefinition> = {
       'epidemiologia.view', 'ciclos.view', 'territorio.view', 'imoveis.view', 'visitas.view',
       'equipes.view', 'ovitrampas.view', 'ovitrampas.analyze', 'ovitrampas.export',
       'pontos_estrategicos.view', 'imoveis_especiais.view', 'motor_risco.view',
-      'auditoria.view', 'configuracoes.view', 'ia_assistente.use',
+      'auditoria.view', 'configuracoes.view',
     ],
   },
   AUDITOR_VIEWER: {
@@ -225,7 +227,7 @@ export const ROLES_REGISTRY: Record<UserRole, RoleDefinition> = {
     description: 'Integração territorial e busca ativa na comunidade',
     badgeColor: 'bg-teal-600 text-white',
     defaultPermissions: [
-      'territorio.view', 'imoveis.view', 'denuncias.view', 'visitas.view', 'ia_assistente.use',
+      'territorio.view', 'imoveis.view', 'denuncias.view', 'visitas.view',
     ],
   },
 };
@@ -288,7 +290,6 @@ export const LEGACY_EN_TO_PT: Record<string, string> = {
   'reports.export': 'relatorios.export',
   'risk_engine.view': 'motor_risco.view',
   'risk_engine.manage': 'motor_risco.manage',
-  'ai_assistant.use': 'ia_assistente.use',
   'settings.view': 'configuracoes.view',
   'settings.manage': 'configuracoes.manage',
   'audit.view': 'auditoria.view',

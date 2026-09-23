@@ -1,5 +1,6 @@
 import { supabase } from './supabaseClient';
 import { stockService } from './stockService';
+import { requireMunicipalityId } from './municipalityScope';
 
 export interface ChemicalOperation {
   id: string;
@@ -37,11 +38,10 @@ export interface ChemicalOperation {
   batch?: { id: string; batch_number: string; expiration_date: string; current_quantity: number; product?: { name: string; unit: string } };
 }
 
-const DEFAULT_MUN_ID = '00000000-0000-0000-0000-000000000001';
 
 export const chemicalOperationsService = {
   // 1. Listar Operações Químicas com Métricas Reais
-  async getOperations(municipalityId = DEFAULT_MUN_ID): Promise<ChemicalOperation[]> {
+  async getOperations(municipalityId: string): Promise<ChemicalOperation[]> {
     try {
       const { data, error } = await supabase
         .from('vector_control_operations')
@@ -85,10 +85,10 @@ export const chemicalOperationsService = {
     target_properties_count?: number;
     worked_properties_count?: number;
     notes?: string;
-    municipality_id?: string;
+    municipality_id: string;
   }): Promise<{ success: boolean; operation_id?: string; message: string }> {
     try {
-      const munId = payload.municipality_id || DEFAULT_MUN_ID;
+      const munId = requireMunicipalityId(payload.municipality_id);
 
       // 1. Validar saldo do lote no estoque
       const { data: batch, error: bErr } = await supabase

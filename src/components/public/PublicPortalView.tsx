@@ -16,6 +16,8 @@ import {
   Send
 } from 'lucide-react';
 import { publicPortalService, PublicPortalData } from '../../services/publicPortalService';
+import { resolvePublicMunicipalityId } from '../../config/publicMunicipality';
+import { PublicPortalUnavailable } from './PublicPortalUnavailable';
 
 interface PublicPortalViewProps {
   onNavigateToComplaint?: () => void;
@@ -26,7 +28,7 @@ export const PublicPortalView: React.FC<PublicPortalViewProps> = ({
   onNavigateToComplaint,
   onNavigateToTracking
 }) => {
-  const municipalityId = '00000000-0000-0000-0000-000000000001';
+  const [municipalityId] = useState<string | null>(() => resolvePublicMunicipalityId());
   const [data, setData] = useState<PublicPortalData | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchNeighborhood, setSearchNeighborhood] = useState('');
@@ -36,6 +38,10 @@ export const PublicPortalView: React.FC<PublicPortalViewProps> = ({
   }, []);
 
   const loadPublicData = async () => {
+    if (!municipalityId) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const res = await publicPortalService.getPublicOverview(municipalityId);
@@ -50,6 +56,8 @@ export const PublicPortalView: React.FC<PublicPortalViewProps> = ({
   const filteredNeighborhoods = (data?.neighborhoods || []).filter(n =>
     n.name.toLowerCase().includes(searchNeighborhood.toLowerCase())
   );
+
+  if (!municipalityId) return <PublicPortalUnavailable />;
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans">
@@ -165,7 +173,7 @@ export const PublicPortalView: React.FC<PublicPortalViewProps> = ({
               <Shield className="w-5 h-5 text-teal-600" />
             </div>
             <div className="text-2xl sm:text-3xl font-black text-slate-900">
-              {data?.indicators.coveragePercent || 78}%
+              {typeof data?.indicators.coveragePercent === 'number' ? `${data.indicators.coveragePercent}%` : '—'}
             </div>
             <span className="text-[11px] text-slate-400">Meta do Ciclo Bimestral Vigente</span>
           </div>

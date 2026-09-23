@@ -30,11 +30,10 @@ export interface ApprovedOperationalPlan {
   status: string;
 }
 
-const DEFAULT_MUN_ID = '00000000-0000-0000-0000-000000000001';
 
 export const planningAssistantService = {
   // 1. Gerar Sugestão de Planejamento Operacional
-  async generateSuggestedPlan(municipalityId = DEFAULT_MUN_ID): Promise<PlanningSuggestion[]> {
+  async generateSuggestedPlan(municipalityId: string): Promise<PlanningSuggestion[]> {
     try {
       const [neighsRes, fociRes, casesRes, pendRes, peRes] = await Promise.all([
         supabase.from('neighborhoods').select('*').eq('municipality_id', municipalityId),
@@ -113,7 +112,7 @@ export const planningAssistantService = {
     suggestions: PlanningSuggestion[],
     targetDate: string,
     approvedByName = 'Coordenador de Endemias',
-    municipalityId = DEFAULT_MUN_ID
+    municipalityId: string
   ): Promise<{ success: boolean; message: string; version?: number }> {
     try {
       // Obter última versão
@@ -167,7 +166,7 @@ export const planningAssistantService = {
   },
 
   // 3. Obter Histórico de Versões
-  async getPlansHistory(municipalityId = DEFAULT_MUN_ID): Promise<ApprovedOperationalPlan[]> {
+  async getPlansHistory(municipalityId: string): Promise<ApprovedOperationalPlan[]> {
     try {
       const { data, error } = await supabase
         .from('operational_plans_history')

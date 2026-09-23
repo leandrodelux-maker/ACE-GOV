@@ -30,8 +30,10 @@ import { vectorControlService } from '../../services/vectorControlService';
 import { epidemiologicalWeekService } from '../../services/epidemiologicalWeekService';
 import { EpidemiologyImportModal } from './EpidemiologyImportModal';
 import { PageHeader } from '../ui';
+import { useMunicipalityId } from '../../contexts/AuthContext';
 
 export const EpidemiologyView: React.FC = () => {
+  const municipalityId = useMunicipalityId();
   const [blocks, setBlocks] = useState<EpidemiologicalBlock[]>(db.getEpidemiologyBlocks());
   const [cases, setCases] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<'DASHBOARD' | 'CASOS' | 'BLOQUEIOS'>('DASHBOARD');
@@ -43,18 +45,20 @@ export const EpidemiologyView: React.FC = () => {
   const [selectedClassification, setSelectedClassification] = useState<string>('TODAS');
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Form para novo bloqueio
   const [newBlockDisease, setNewBlockDisease] = useState<'DENGUE' | 'ZIKA' | 'CHIKUNGUNYA' | 'FEBRE_AMARELA'>('DENGUE');
-  const [newBlockNeighborhood, setNewBlockNeighborhood] = useState('Vila Nova');
+  const [newBlockNeighborhood, setNewBlockNeighborhood] = useState('');
   const [radiusMeters, setRadiusMeters] = useState(150);
 
   const neighborhoods = db.getNeighborhoods();
   const currentSE = epidemiologicalWeekService.getEpidemiologicalWeek();
   const quickFilters = epidemiologicalWeekService.getQuickFilterOptions();
 
-  // População estimada do município para cálculo de taxa de incidência (/100k hab)
-  const municipalityPopulation = 128500;
+  // População de referência = soma da população cadastrada dos bairros (sem valor fixo).
+  // Sem população cadastrada, a incidência não é calculada.
+  const municipalityPopulation = neighborhoods.reduce((acc, n) => acc + (n.estimatedPopulation || 0), 0);
 
   useEffect(() => {
     loadData();
@@ -62,152 +66,59 @@ export const EpidemiologyView: React.FC = () => {
 
   const loadData = async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const [blocksRes, casesRes] = await Promise.all([
-        supabase.from('blockade_operations').select('*').order('started_at', { ascending: false }),
-        supabase.from('epidemiological_cases').select('*, neighborhoods(name)').order('notification_date', { ascending: false }),
+        supabase
+          .from('blockade_operations')
+          .select('*, neighborhoods(name), sectors(name)')
+          .eq('municipality_id', municipalityId)
+          .is('deleted_at', null)
+          .order('started_at', { ascending: false }),
+        supabase
+          .from('epidemiological_cases')
+          .select('*, neighborhoods(name)')
+          .eq('municipality_id', municipalityId)
+          .order('notification_date', { ascending: false }),
       ]);
 
-      if (blocksRes.data && blocksRes.data.length > 0) {
-        const mapped: EpidemiologicalBlock[] = blocksRes.data.map((b: any, idx: number) => ({
+      if (blocksRes.error) {
+        setLoadError('Não foi possível carregar os bloqueios.');
+      } else {
+        // Apenas campos registrados; o que não existe no banco fica vazio (sem valores inventados)
+        const mapped: EpidemiologicalBlock[] = (blocksRes.data || []).map((b: any) => ({
           id: b.id,
-          code: b.code || `BLQ-2026-0${idx + 1}`,
+          code: b.code,
           municipalityId: b.municipality_id,
-          eventId: b.outbreak_id || `notif-${idx}`,
-          disease: b.disease || 'DENGUE',
-          targetNeighborhood: 'Vila Nova',
-          targetSector: 'Setor 01',
-          radiusMeters: 150,
-          scheduledDate: b.started_at || new Date().toISOString().split('T')[0],
-          assignedTeamId: 'team-01',
-          assignedTeamName: 'Equipe de Bloqueio Rápido',
+          eventId: b.outbreak_id || '',
+          disease: b.disease,
+          targetNeighborhood: b.neighborhoods?.name || 'Bairro não informado',
+          targetSector: b.sectors?.name || '',
+          radiusMeters: 0,
+          scheduledDate: b.started_at,
+          assignedTeamId: '',
+          assignedTeamName: '',
           priority: 'URGENTE',
-          propertiesForecast: b.planned_properties || 150,
-          propertiesVisited: b.completed_properties || 0,
+          propertiesForecast: b.planned_properties ?? 0,
+          propertiesVisited: b.completed_properties ?? 0,
           propertiesClosed: 0,
           propertiesPending: 0,
           fociFound: 0,
           coveragePercentage: Number(b.coverage_percentage) || 0,
-          status: b.status || 'EM_ANDAMENTO',
+          status: b.status,
         }));
         setBlocks(mapped);
       }
 
-      if (casesRes.data && casesRes.data.length > 0) {
-        setCases(casesRes.data);
+      if (casesRes.error) {
+        setLoadError('Não foi possível carregar as notificações epidemiológicas.');
+        setCases([]);
       } else {
-        // Mock fallback de dados Sinan compatíveis com LGPD
-        const defaultCases = [
-          {
-            id: 'case-01',
-            notification_number: 'SINAN-2026-00124',
-            disease: 'DENGUE',
-            notification_date: '2026-09-02',
-            epi_week: currentSE.week,
-            epi_year: 2026,
-            patient_age_group: '20-34 anos',
-            sex: 'F',
-            pregnant: false,
-            case_origin: 'AUTÓCTONE',
-            probable_infection_location: 'Vila Nova',
-            notification_unit: 'UBS Vila Nova',
-            classification: 'CONFIRMADO',
-            clinical_classification: 'Dengue Clássica',
-            laboratory_result: 'POSITIVO_NS1',
-            hospitalization: false,
-            death: false,
-            status: 'CONCLUIDO',
-            neighborhoods: { name: 'Vila Nova' },
-          },
-          {
-            id: 'case-02',
-            notification_number: 'SINAN-2026-00125',
-            disease: 'DENGUE',
-            notification_date: '2026-09-04',
-            epi_week: currentSE.week,
-            epi_year: 2026,
-            patient_age_group: '35-49 anos',
-            sex: 'M',
-            pregnant: false,
-            case_origin: 'AUTÓCTONE',
-            probable_infection_location: 'Centro',
-            notification_unit: 'UPA 24h Central',
-            classification: 'SUSPEITO',
-            clinical_classification: 'Dengue em Investigação',
-            laboratory_result: 'AGUARDANDO_LAUDO',
-            hospitalization: false,
-            death: false,
-            status: 'EM_INVESTIGACAO',
-            neighborhoods: { name: 'Centro' },
-          },
-          {
-            id: 'case-03',
-            notification_number: 'SINAN-2026-00126',
-            disease: 'CHIKUNGUNYA',
-            notification_date: '2026-08-28',
-            epi_week: currentSE.week - 1,
-            epi_year: 2026,
-            patient_age_group: '50-64 anos',
-            sex: 'F',
-            pregnant: false,
-            case_origin: 'IMPORTADO',
-            probable_infection_location: 'Outro Município',
-            notification_unit: 'Hospital Regional',
-            classification: 'CONFIRMADO',
-            clinical_classification: 'Artrite Aguda Intensa',
-            laboratory_result: 'POSITIVO_RT_PCR',
-            hospitalization: true,
-            death: false,
-            status: 'CONCLUIDO',
-            neighborhoods: { name: 'Universitário' },
-          },
-          {
-            id: 'case-04',
-            notification_number: 'SINAN-2026-00127',
-            disease: 'ZIKA',
-            notification_date: '2026-08-20',
-            epi_week: currentSE.week - 2,
-            epi_year: 2026,
-            patient_age_group: '20-34 anos',
-            sex: 'F',
-            pregnant: true,
-            case_origin: 'AUTÓCTONE',
-            probable_infection_location: 'Arroio Grande',
-            notification_unit: 'UBS Arroio Grande',
-            classification: 'SUSPEITO',
-            clinical_classification: 'Exantema e Artralgia',
-            laboratory_result: 'AGUARDANDO_LAUDO',
-            hospitalization: false,
-            death: false,
-            status: 'EM_INVESTIGACAO',
-            neighborhoods: { name: 'Arroio Grande' },
-          },
-          {
-            id: 'case-05',
-            notification_number: 'SINAN-2026-00128',
-            disease: 'DENGUE',
-            notification_date: '2026-08-15',
-            epi_week: currentSE.week - 3,
-            epi_year: 2026,
-            patient_age_group: '10-14 anos',
-            sex: 'M',
-            pregnant: false,
-            case_origin: 'INDETERMINADO',
-            probable_infection_location: 'Vila Nova',
-            notification_unit: 'UBS Vila Nova',
-            classification: 'DESCARTADO',
-            clinical_classification: 'Outra Viadrose Exantemática',
-            laboratory_result: 'NEGATIVO',
-            hospitalization: false,
-            death: false,
-            status: 'DESCARTADO',
-            neighborhoods: { name: 'Vila Nova' },
-          },
-        ];
-        setCases(defaultCases);
+        setCases(casesRes.data || []);
       }
     } catch (err) {
-      console.warn('Fallback para dados epidemiológicos locais:', err);
+      console.warn('Falha ao carregar dados epidemiológicos:', err);
+      setLoadError('Não foi possível carregar os dados epidemiológicos.');
     } finally {
       setLoading(false);
     }
@@ -224,19 +135,26 @@ export const EpidemiologyView: React.FC = () => {
     e.preventDefault();
     setLoading(true);
 
-    const generatedCode = `BLQ-2026-${String(blocks.length + 1).padStart(3, '0')}`;
+    const selectedNeighborhoodRecord = neighborhoods.find((n) => n.id === newBlockNeighborhood);
+    if (!selectedNeighborhoodRecord) {
+      setLoading(false);
+      alert('Selecione o bairro alvo do bloqueio.');
+      return;
+    }
+    // Código único (a coluna code é UNIQUE)
+    const generatedCode = `BLQ-${new Date().getFullYear()}-${Date.now().toString(36).toUpperCase()}`;
     const newBlock: EpidemiologicalBlock = {
       id: `blk-${Date.now()}`,
       code: generatedCode,
-      municipalityId: '00000000-0000-0000-0000-000000000001',
+      municipalityId,
       eventId: `notif-${Date.now()}`,
       disease: newBlockDisease,
-      targetNeighborhood: newBlockNeighborhood,
-      targetSector: 'Setor 01',
+      targetNeighborhood: selectedNeighborhoodRecord.name,
+      targetSector: '',
       radiusMeters,
       scheduledDate: new Date().toISOString().split('T')[0],
-      assignedTeamId: 'team-01',
-      assignedTeamName: 'Equipe de Bloqueio Rápido',
+      assignedTeamId: '',
+      assignedTeamName: '',
       priority: 'URGENTE',
       propertiesForecast: radiusMeters === 150 ? 120 : 250,
       propertiesVisited: 0,
@@ -247,17 +165,12 @@ export const EpidemiologyView: React.FC = () => {
       status: 'EM_ANDAMENTO',
     };
 
+    let saved = false;
     try {
-      const { data: neighData } = await supabase
-        .from('neighborhoods')
-        .select('id')
-        .eq('name', newBlockNeighborhood)
-        .maybeSingle();
-
-      await supabase.from('blockade_operations').insert({
+      const { error: insertError } = await supabase.from('blockade_operations').insert({
         code: generatedCode,
-        municipality_id: '00000000-0000-0000-0000-000000000001',
-        neighborhood_id: neighData?.id || '00000000-0000-0000-0000-000000000010',
+        municipality_id: municipalityId,
+        neighborhood_id: selectedNeighborhoodRecord.id,
         disease: newBlockDisease,
         planned_properties: radiusMeters === 150 ? 120 : 250,
         completed_properties: 0,
@@ -265,14 +178,17 @@ export const EpidemiologyView: React.FC = () => {
         started_at: new Date().toISOString().split('T')[0],
         status: 'EM_ANDAMENTO',
       });
-    } catch (err) {
+      if (insertError) throw insertError;
+      saved = true;
+    } catch (err: any) {
       console.warn('Erro ao salvar bloqueio no Supabase:', err);
+      alert(`Não foi possível registrar o bloqueio: ${err?.message || 'erro desconhecido'}`);
     } finally {
       setLoading(false);
     }
 
-    const updated = [newBlock, ...blocks];
-    setBlocks(updated);
+    if (!saved) return;
+    setBlocks([newBlock, ...blocks]);
     setShowNewBlockModal(false);
   };
 
@@ -305,7 +221,7 @@ export const EpidemiologyView: React.FC = () => {
   const totalDeaths = filteredCases.filter(c => c.death === true).length;
 
   // Taxa de Incidência por 100 mil habitantes = (Casos Notificados / População) * 100.000
-  const incidenceRate = ((totalNotified / municipalityPopulation) * 100000).toFixed(1);
+  const incidenceRate = municipalityPopulation > 0 ? ((totalNotified / municipalityPopulation) * 100000).toFixed(1) : null;
 
   // Curva de casos por SE (Semanas 30 a 37 para demonstração de curva epidêmica)
   const epiCurveData = [
@@ -323,6 +239,9 @@ export const EpidemiologyView: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {loadError && (
+        <div role="alert" className="p-3 rounded-xl border border-rose-200 bg-rose-50 text-rose-800 text-xs">{loadError}</div>
+      )}
       {/* Top Header */}
       <PageHeader
         icon={Activity}
@@ -374,7 +293,7 @@ export const EpidemiologyView: React.FC = () => {
           <div className="flex items-center gap-2">
             <span className="text-[11px] text-slate-500">População de referência:</span>
             <span className="font-mono font-bold text-slate-800 text-[11px]">
-              {municipalityPopulation.toLocaleString('pt-BR')} hab.
+              {municipalityPopulation > 0 ? `${municipalityPopulation.toLocaleString('pt-BR')} hab.` : 'não cadastrada'}
             </span>
           </div>
         </div>
@@ -497,8 +416,8 @@ export const EpidemiologyView: React.FC = () => {
         {/* Card 8: Incidência */}
         <div className="bg-white p-3 rounded-xl border border-rose-300 shadow-xs bg-rose-50/30">
           <span className="text-[10px] text-rose-900 uppercase font-bold block">Incidência</span>
-          <div className="text-xl font-black text-rose-700 mt-1">{incidenceRate}</div>
-          <span className="text-[10px] text-slate-500">/ 100k hab.</span>
+          <div className="text-xl font-black text-rose-700 mt-1">{incidenceRate ?? '—'}</div>
+          <span className="text-[10px] text-slate-500">{incidenceRate ? '/ 100k hab.' : 'Sem população cadastrada'}</span>
         </div>
       </div>
 
@@ -595,30 +514,31 @@ export const EpidemiologyView: React.FC = () => {
             </div>
           </div>
 
-          {/* Banner de Diagnóstico e Risco */}
-          <div className="bg-rose-50 border border-rose-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div className="flex items-start gap-3">
-              <div className="p-2 bg-rose-100 text-rose-700 rounded-lg mt-0.5">
-                <AlertOctagon className="w-5 h-5" />
+          {/* Resumo calculado dos bloqueios em andamento (apenas dados registrados) */}
+          {blocks.filter((blk) => blk.status === 'EM_ANDAMENTO').length > 0 && (
+            <div className="bg-rose-50 border border-rose-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <div className="p-2 bg-rose-100 text-rose-700 rounded-lg mt-0.5">
+                  <AlertOctagon className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-rose-900">
+                    {blocks.filter((blk) => blk.status === 'EM_ANDAMENTO').length} bloqueio(s) em andamento
+                  </h4>
+                  <p className="text-xs text-rose-800 mt-0.5">
+                    Bairros: {Array.from(new Set(blocks.filter((blk) => blk.status === 'EM_ANDAMENTO').map((blk) => blk.targetNeighborhood))).join(', ')}.
+                  </p>
+                </div>
               </div>
-              <div>
-                <h4 className="text-xs font-bold text-rose-900">
-                  Alerta Sanitário Ativo: Tendência de Transmissão Acentuada no Bairro Vila Nova
-                </h4>
-                <p className="text-xs text-rose-800 mt-0.5">
-                  Foram confirmados 2 casos de Dengue tipo DENV-2 em um raio de 120m no Setor 01. O motor de risco epidemiológico
-                  recomenda bloqueio mecânico peridomiciliar e nebulização focal em até 48 horas.
-                </p>
-              </div>
-            </div>
 
-            <button
-              onClick={() => setActiveTab('BLOQUEIOS')}
-              className="px-3.5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold shadow-xs whitespace-nowrap"
-            >
-              Ver Bloqueios Ativos
-            </button>
-          </div>
+              <button
+                onClick={() => setActiveTab('BLOQUEIOS')}
+                className="px-3.5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold shadow-xs whitespace-nowrap"
+              >
+                Ver Bloqueios Ativos
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -758,7 +678,7 @@ export const EpidemiologyView: React.FC = () => {
                 <div className="grid grid-cols-3 gap-2 text-center text-xs py-2 bg-white rounded-lg border border-slate-100">
                   <div>
                     <span className="text-[10px] text-slate-400 block">Raio Peridomiciliar</span>
-                    <strong className="text-slate-800">{b.radiusMeters}m</strong>
+                    <strong className="text-slate-800">{b.radiusMeters ? `${b.radiusMeters}m` : 'Não registrado'}</strong>
                   </div>
                   <div>
                     <span className="text-[10px] text-slate-400 block">Imóveis Previstos</span>
@@ -816,8 +736,9 @@ export const EpidemiologyView: React.FC = () => {
                   onChange={e => setNewBlockNeighborhood(e.target.value)}
                   className="w-full p-2 border border-slate-200 rounded-lg focus:ring-1 focus:ring-rose-500 focus:outline-none"
                 >
+                  <option value="">Selecione o bairro...</option>
                   {neighborhoods.map(n => (
-                    <option key={n.id} value={n.name}>
+                    <option key={n.id} value={n.id}>
                       {n.name}
                     </option>
                   ))}
@@ -861,7 +782,7 @@ export const EpidemiologyView: React.FC = () => {
       <EpidemiologyImportModal
         isOpen={showImportModal}
         onClose={() => setShowImportModal(false)}
-        municipalityId="00000000-0000-0000-0000-000000000001"
+        municipalityId={municipalityId}
         onImportComplete={loadData}
       />
     </div>

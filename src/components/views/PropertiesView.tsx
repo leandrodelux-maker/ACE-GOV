@@ -25,13 +25,15 @@ import {
   Check,
   AlertTriangle,
 } from 'lucide-react';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth, useMunicipalityId } from '../../contexts/AuthContext';
 import { supabaseService } from '../../services/supabaseService';
 import { Property, PropertyType, PropertyStatus, Neighborhood } from '../../types';
 import { TerritoryTimelineModal } from './TerritoryTimelineModal';
 import { PageHeader, Breadcrumbs } from '../ui';
 
 export const PropertiesView: React.FC = () => {
+  const { municipality: sessionMunicipality } = useAuth();
+  const municipalityId = useMunicipalityId();
   const { can } = useAuth();
 
   // Estados da Tabela e Paginação
@@ -69,19 +71,6 @@ export const PropertiesView: React.FC = () => {
   const [allSectors, setAllSectors] = useState<any[]>([]);
   const [allBlocks, setAllBlocks] = useState<any[]>([]);
 
-  const defaultCoords = (() => {
-    try {
-      const c = localStorage.getItem('endemias_settings_MAPA');
-      if (c) {
-        const p = JSON.parse(c);
-        return {
-          lat: Number(p.centerLatitude) || -16.54832,
-          lng: Number(p.centerLongitude) || -50.73675,
-        };
-      }
-    } catch {}
-    return { lat: -16.54832, lng: -50.73675 };
-  })();
 
   const [formData, setFormData] = useState({
     code: '',
@@ -96,8 +85,9 @@ export const PropertiesView: React.FC = () => {
     residentName: '',
     residentPhone: '',
     residentsCount: 1,
-    latitude: defaultCoords.lat,
-    longitude: defaultCoords.lng,
+    // Coordenadas começam vazias: só são gravadas quando informadas/capturadas
+    latitude: '' as number | '',
+    longitude: '' as number | '',
   });
   const [formError, setFormError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState<boolean>(false);
@@ -125,7 +115,7 @@ export const PropertiesView: React.FC = () => {
   // Carregar Bairros, Setores e Quadras do Município
   useEffect(() => {
     const loadTerritoryHierarchy = async () => {
-      const muni = await supabaseService.getMunicipality();
+      const muni = sessionMunicipality;
       if (muni) {
         const [neighs, hier] = await Promise.all([
           supabaseService.getNeighborhoods(muni.id),
@@ -153,6 +143,7 @@ export const PropertiesView: React.FC = () => {
     setIsLoading(true);
     try {
       const res = await supabaseService.getPropertiesPaginated({
+        municipalityId,
         page,
         pageSize,
         searchTerm: debouncedSearch,
@@ -204,8 +195,8 @@ export const PropertiesView: React.FC = () => {
       residentName: '',
       residentPhone: '',
       residentsCount: 1,
-      latitude: -29.718,
-      longitude: -52.428,
+      latitude: '',
+      longitude: '',
     });
     setFormError(null);
     setIsFormOpen(true);
@@ -225,8 +216,8 @@ export const PropertiesView: React.FC = () => {
       residentName: prop.residentName || '',
       residentPhone: prop.residentPhone || '',
       residentsCount: prop.residentsCount || 1,
-      latitude: prop.latitude || -29.718,
-      longitude: prop.longitude || -52.428,
+      latitude: prop.latitude ?? '',
+      longitude: prop.longitude ?? '',
     });
     setFormError(null);
     setIsFormOpen(true);
@@ -889,6 +880,7 @@ export const PropertiesView: React.FC = () => {
         isOpen={showTimelineModal}
         onClose={() => setShowTimelineModal(false)}
         propertyId={selectedProperty?.id}
+        municipalityId={municipalityId}
       />
 
       {/* Modal: Cadastro / Edição de Imóvel Estruturado em 4 Seções */}
@@ -1038,7 +1030,7 @@ export const PropertiesView: React.FC = () => {
                       type="number"
                       step="any"
                       value={formData.latitude}
-                      onChange={e => setFormData(prev => ({ ...prev, latitude: parseFloat(e.target.value) || 0 }))}
+                      onChange={e => setFormData(prev => ({ ...prev, latitude: e.target.value === '' ? '' : parseFloat(e.target.value) }))}
                       className="w-full p-2 bg-slate-50 border border-slate-300 rounded-lg font-mono text-slate-800"
                     />
                   </div>
@@ -1048,7 +1040,7 @@ export const PropertiesView: React.FC = () => {
                       type="number"
                       step="any"
                       value={formData.longitude}
-                      onChange={e => setFormData(prev => ({ ...prev, longitude: parseFloat(e.target.value) || 0 }))}
+                      onChange={e => setFormData(prev => ({ ...prev, longitude: e.target.value === '' ? '' : parseFloat(e.target.value) }))}
                       className="w-full p-2 bg-slate-50 border border-slate-300 rounded-lg font-mono text-slate-800"
                     />
                   </div>

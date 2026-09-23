@@ -26,53 +26,66 @@ import { situationRoomService, SituationRoomData } from '../../services/situatio
 import { supabaseService } from '../../services/supabaseService';
 import { Neighborhood } from '../../types';
 import { PageHeader, StatCard, Breadcrumbs } from '../ui';
+import { useMunicipalityId } from '../../contexts/AuthContext';
 
 interface DashboardViewProps {
   onNavigate: (module: string) => void;
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
+  const municipalityId = useMunicipalityId();
   const [periodFilter, setPeriodFilter] = useState<'today' | '7days' | '30days' | 'cycle'>('cycle');
   const [neighborhoodFilter, setNeighborhoodFilter] = useState<string>('ALL');
   const [neighborhoodsList, setNeighborhoodsList] = useState<Neighborhood[]>([]);
   const [dashboardData, setDashboardData] = useState<SituationRoomData | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  // Carregar lista de bairros para o select
+  // Lista de bairros do município da sessão para o filtro
   useEffect(() => {
-    const loadNeighborhoods = async () => {
-      const muni = await supabaseService.getMunicipality();
-      if (muni) {
-        const neighs = await supabaseService.getNeighborhoods(muni.id);
-        if (neighs) setNeighborhoodsList(neighs);
-      }
+    let active = true;
+    supabaseService.getNeighborhoods(municipalityId).then((neighs) => {
+      if (active) setNeighborhoodsList(neighs || []);
+    });
+    return () => {
+      active = false;
     };
-    loadNeighborhoods();
-  }, []);
+  }, [municipalityId]);
 
   // Carregar dados reais agregados com cache
   const loadSituationData = useCallback(async (force = false) => {
     setIsLoading(true);
     try {
       const data = await situationRoomService.getSituationData({
+        municipalityId,
         periodFilter,
         neighborhoodId: neighborhoodFilter,
         forceRefresh: force,
       });
       setDashboardData(data);
+      setLoadError(null);
     } catch (err) {
       console.error('Erro ao carregar dados da Sala de Situação:', err);
+      setDashboardData(null);
+      setLoadError('Não foi possível carregar os dados da Sala de Situação. Verifique a conexão e tente novamente.');
     } finally {
       setIsLoading(false);
     }
-  }, [periodFilter, neighborhoodFilter]);
+  }, [municipalityId, periodFilter, neighborhoodFilter]);
 
   useEffect(() => {
     loadSituationData();
   }, [loadSituationData]);
 
   const kpis = dashboardData?.kpis;
-  const cycleName = dashboardData?.activeCycleName || 'Ciclo Ativo 2026';
+  const cycleName = dashboardData
+    ? dashboardData.activeCycleName ?? 'nenhum ciclo em andamento'
+    : null;
+  /** Valor do KPI: '...' carregando, '—' sem dados (erro), senão o valor real. */
+  const kpiValue = (v: string | number | undefined) => (isLoading ? '...' : kpis ? v ?? '—' : '—');
+  const ipoPercent =
+    kpis && kpis.totalOvitraps > 0 ? Math.round((kpis.positiveOvitraps / kpis.totalOvitraps) * 100) : null;
+  const hasDeposits = (dashboardData?.depositDistribution || []).some((d) => d.count > 0);
 
   return (
     <div className="space-y-5">
@@ -88,7 +101,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
       <PageHeader
         live
         title="Sala de Situação de Endemias"
-        subtitle={`Monitoramento entomológico, epidemiológico e operacional em tempo real — ${cycleName}`}
+        subtitle={`Monitoramento entomológico, epidemiológico e operacional${cycleName ? ` — ${cycleName}` : ''}`}
         actions={
           <>
             <div className="flex items-center rounded-lg bg-slate-100 p-1 border border-slate-200 text-xs font-medium">
@@ -128,7 +141,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
                 <option value="ALL">Todos os Bairros ({neighborhoodsList.length})</option>
                 {neighborhoodsList.map(n => (
                   <option key={n.id} value={n.id}>
-                    {n.name} ({n.riskLevel})
+                    {n.name}
                   </option>
                 ))}
               </select>
@@ -146,6 +159,20 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
         }
       />
 
+      {loadError && (
+        <div role="alert" className="p-3 rounded-xl border border-rose-200 bg-rose-50 text-rose-800 text-xs flex items-center justify-between gap-3">
+          <span>{loadError}</span>
+          <button onClick={() => loadSituationData(true)} className="px-3 py-1 rounded-lg bg-rose-600 text-white font-semibold">
+            Tentar novamente
+          </button>
+        </div>
+      )}
+      {!loadError && dashboardData && dashboardData.failedSources.length > 0 && (
+        <div role="status" className="p-3 rounded-xl border border-amber-200 bg-amber-50 text-amber-800 text-xs">
+          Alguns dados não puderam ser carregados ({dashboardData.failedSources.join(', ')}). Os indicadores dessas fontes podem estar incompletos.
+        </div>
+      )}
+
       {/* 8 Headline KPIs Operacionais Priorizados (Diretriz & Skill kpi-dashboard-design) */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
         {/* KPI 1: Visitas Realizadas */}
@@ -155,8 +182,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
           icon={CheckCircle2}
           tone="success"
           label="Visitas Realizadas"
-          value={isLoading ? '...' : (kpis?.visited || 0).toLocaleString('pt-BR')}
-          caption={`${kpis?.coveragePercent || 0}% do objetivo do ciclo →`}
+          value={kpiValue(kpis?.visited.toLocaleString('pt-BR'))}
+          caption={kpis ? `${kpis.coveragePercent}% dos imóveis cadastrados →` : 'Sem dados →'}
         />
 
         {/* KPI 2: Imóveis Cadastrados & Cobertura */}
@@ -166,7 +193,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
           icon={Home}
           tone="info"
           label="Imóveis no Território"
-          value={isLoading ? '...' : (kpis?.totalProperties || 0).toLocaleString('pt-BR')}
+          value={kpiValue(kpis?.totalProperties.toLocaleString('pt-BR'))}
           footer={
             <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden mt-1">
               <div
@@ -192,7 +219,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
           highlighted
           pulse
           label="Focos Ativos de Aedes"
-          value={isLoading ? '...' : kpis?.fociActive || 0}
+          value={kpiValue(kpis?.fociActive)}
           caption="Aedes aegypti identificado →"
         />
 
@@ -203,7 +230,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
           icon={ShieldCheck}
           tone="success"
           label="Focos Tratados / Eliminados"
-          value={isLoading ? '...' : kpis?.eliminated || 0}
+          value={kpiValue(kpis?.eliminated)}
           caption="Tratamento químico / mecânico →"
         />
 
@@ -214,8 +241,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
           icon={Clock}
           tone="warning"
           label="Pendências / Fechados"
-          value={isLoading ? '...' : (kpis?.pending || 0) + (kpis?.closed || 0)}
-          caption={`${kpis?.refusals || 0} recusas registradas →`}
+          value={kpiValue(kpis ? kpis.pending + kpis.closed : undefined)}
+          caption={kpis ? `${kpis.refusals} recusas registradas →` : 'Sem dados →'}
         />
 
         {/* KPI 6: Ovitrampas (Rede Sentinela) */}
@@ -225,12 +252,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
           icon={Layers}
           tone="info"
           label="Ovitrampas Positivas (IPO)"
-          value={isLoading ? '...' : `${kpis?.positiveOvitraps || 0} / ${kpis?.totalOvitraps || 0}`}
-          caption={`${
-            (kpis?.totalOvitraps || 0) > 0
-              ? Math.round(((kpis?.positiveOvitraps || 0) / (kpis?.totalOvitraps || 1)) * 100)
-              : 0
-          }% positividade sentinela →`}
+          value={kpiValue(kpis ? `${kpis.positiveOvitraps} / ${kpis.totalOvitraps}` : undefined)}
+          caption={ipoPercent !== null ? `${ipoPercent}% positividade sentinela →` : 'Sem ovitrampas cadastradas →'}
         />
 
         {/* KPI 7: Pontos Estratégicos (PE) */}
@@ -240,7 +263,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
           icon={Crosshair}
           tone="danger"
           label="Pontos Estratégicos (PE)"
-          value={isLoading ? '...' : `${kpis?.overduePE || 0} pendentes`}
+          value={kpiValue(kpis ? `${kpis.overduePE} pendentes` : undefined)}
           caption="Imóveis críticos quinzenais →"
         />
 
@@ -251,7 +274,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
           icon={AlertCircle}
           tone="warning"
           label="Denúncias Comunitárias"
-          value={isLoading ? '...' : kpis?.openComplaints || 0}
+          value={kpiValue(kpis?.openComplaints)}
           caption="Aguardando inspeção ACE →"
         />
       </div>
@@ -296,6 +319,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
                         <span>Carregando situação territorial do banco...</span>
                       </td>
                     </tr>
+                  ) : (dashboardData?.neighborhoods || []).length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="py-8 text-center text-slate-400">
+                        {loadError ? 'Não foi possível carregar.' : 'Sem bairros registrados para o município.'}
+                      </td>
+                    </tr>
                   ) : (dashboardData?.neighborhoods || []).map(n => {
                     const isCritical = n.riskLevel === 'CRITICO';
                     const isHigh = n.riskLevel === 'ALTO';
@@ -311,15 +340,19 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
                         </td>
                         <td className="py-3 px-3 text-slate-600">{n.totalProperties.toLocaleString('pt-BR')}</td>
                         <td className="py-3 px-3">
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold text-slate-800">{n.coveragePercentage}%</span>
-                            <div className="w-16 bg-slate-100 rounded-full h-1.5 overflow-hidden">
-                              <div
-                                className={`h-full rounded-full ${n.coveragePercentage >= 80 ? 'bg-emerald-500' : 'bg-amber-500'}`}
-                                style={{ width: `${n.coveragePercentage}%` }}
-                              />
+                          {n.coveragePercentage === null ? (
+                            <span className="text-slate-400">Sem imóveis cadastrados</span>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-slate-800">{n.coveragePercentage}%</span>
+                              <div className="w-16 bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                                <div
+                                  className={`h-full rounded-full ${n.coveragePercentage >= 80 ? 'bg-emerald-500' : 'bg-amber-500'}`}
+                                  style={{ width: `${n.coveragePercentage}%` }}
+                                />
+                              </div>
                             </div>
-                          </div>
+                          )}
                         </td>
                         <td className="py-3 px-3">
                           <span className={`px-2 py-0.5 rounded font-bold ${n.fociCount > 0 ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-700'}`}>
@@ -374,28 +407,39 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
               <div className="bg-sky-950/70 p-3 rounded-lg border border-sky-800/60">
                 <span className="text-[10px] text-sky-300 uppercase font-semibold">Armadilhas Ativas</span>
-                <p className="text-xl font-extrabold text-white mt-0.5">{kpis?.totalOvitraps || 0}</p>
+                <p className="text-xl font-extrabold text-white mt-0.5">{kpiValue(kpis?.totalOvitraps)}</p>
                 <span className="text-[10px] text-sky-300">Pontos sentinela</span>
               </div>
 
               <div className="bg-sky-950/70 p-3 rounded-lg border border-sky-800/60">
                 <span className="text-[10px] text-rose-300 uppercase font-semibold">Armadilhas Positivas</span>
-                <p className="text-xl font-extrabold text-rose-300 mt-0.5">{kpis?.positiveOvitraps || 0}</p>
+                <p className="text-xl font-extrabold text-rose-300 mt-0.5">{kpiValue(kpis?.positiveOvitraps)}</p>
                 <span className="text-[10px] text-rose-200 font-medium">Presença de ovos</span>
               </div>
 
               <div className="bg-sky-950/70 p-3 rounded-lg border border-sky-800/60">
                 <span className="text-[10px] text-sky-300 uppercase font-semibold">Positividade (IPO)</span>
                 <p className="text-xl font-extrabold text-white mt-0.5">
-                  {(kpis?.totalOvitraps || 0) > 0 ? Math.round(((kpis?.positiveOvitraps || 0) / (kpis?.totalOvitraps || 1)) * 100) : 0}%
+                  {isLoading ? '...' : ipoPercent !== null ? `${ipoPercent}%` : '—'}
                 </p>
                 <span className="text-[10px] text-sky-300">Índice Municipal</span>
               </div>
 
               <div className="bg-sky-950/70 p-3 rounded-lg border border-sky-800/60">
                 <span className="text-[10px] text-purple-300 uppercase font-semibold">Foco Prioritário</span>
-                <p className="text-xl font-extrabold text-purple-200 mt-0.5">Centro</p>
-                <span className="text-[10px] text-purple-300">Maior densidade de ovos</span>
+                {dashboardData?.topEggDensityNeighborhood ? (
+                  <>
+                    <p className="text-xl font-extrabold text-purple-200 mt-0.5 truncate">{dashboardData.topEggDensityNeighborhood.name}</p>
+                    <span className="text-[10px] text-purple-300">
+                      Maior densidade: {dashboardData.topEggDensityNeighborhood.averageEggs} ovos/armadilha
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm font-bold text-purple-200 mt-1.5">{isLoading ? '...' : 'Sem dados registrados'}</p>
+                    <span className="text-[10px] text-purple-300">Maior densidade de ovos</span>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -410,7 +454,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
             </div>
 
             <div className="space-y-3 mt-4">
-              {(dashboardData?.depositDistribution || []).map(dep => {
+              {!isLoading && !hasDeposits && (
+                <p className="text-xs text-slate-400 py-4 text-center">Sem depósitos registrados nas visitas do período.</p>
+              )}
+              {hasDeposits && (dashboardData?.depositDistribution || []).map(dep => {
                 const maxCount = Math.max(1, ...(dashboardData?.depositDistribution || []).map(d => d.count));
                 const percent = Math.min(100, Math.round((dep.count / maxCount) * 100));
 
@@ -426,7 +473,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
                     <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
                       <div
                         className={`h-full rounded-full ${dep.color}`}
-                        style={{ width: `${Math.max(5, percent)}%` }}
+                        style={{ width: `${percent}%` }}
                       />
                     </div>
                   </div>
@@ -451,9 +498,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
                   <span>Calculando prioridades do dia...</span>
                 </div>
               ) : (dashboardData?.priorities || []).length === 0 ? (
-                <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-center">
-                  <p className="font-bold">Sem prioridades críticas imediatas.</p>
-                  <p className="text-[11px] mt-0.5">Operações sanitárias em ritmo regular.</p>
+                <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 text-slate-600 text-center">
+                  <p className="font-bold">{loadError ? 'Não foi possível calcular as prioridades.' : 'Nenhuma prioridade identificada.'}</p>
+                  {!loadError && <p className="text-[11px] mt-0.5">Baseado apenas nos dados registrados no sistema.</p>}
                 </div>
               ) : (
                 (dashboardData?.priorities || []).map(prio => (

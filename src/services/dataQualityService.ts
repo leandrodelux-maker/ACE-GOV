@@ -21,13 +21,12 @@ export interface DataQualityReport {
   issues: DataQualityIssue[];
 }
 
-const DEFAULT_MUN_ID = '00000000-0000-0000-0000-000000000001';
 
 export const dataQualityService = {
   /**
    * Executa varredura algorítmica completa de integridade e calcula o score de 0 a 100
    */
-  async runAudit(municipalityId = DEFAULT_MUN_ID): Promise<DataQualityReport> {
+  async runAudit(municipalityId: string): Promise<DataQualityReport> {
     const issues: DataQualityIssue[] = [];
 
     try {
@@ -169,7 +168,7 @@ export const dataQualityService = {
     issueId: string,
     actionTaken: string,
     userName = 'Administrador do Sistema',
-    municipalityId = DEFAULT_MUN_ID
+    municipalityId: string
   ): Promise<{ success: boolean; message: string }> {
     try {
       await supabase.from('audit_logs').insert({

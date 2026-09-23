@@ -32,7 +32,6 @@ export interface ImportExecutionResult {
   logSummary: string;
 }
 
-const DEFAULT_MUN_ID = '00000000-0000-0000-0000-000000000001';
 
 export const epidemiologyImportService = {
   /**
@@ -108,7 +107,7 @@ export const epidemiologyImportService = {
     rows: string[][],
     headers: string[],
     mapping: ColumnMapping,
-    municipalityId = DEFAULT_MUN_ID
+    municipalityId: string
   ): Promise<ImportPreviewResult> {
     const colIndex = (colName: string) => headers.indexOf(colName);
 
@@ -216,7 +215,7 @@ export const epidemiologyImportService = {
   async executeImport(
     validRows: any[],
     fileName: string,
-    municipalityId = DEFAULT_MUN_ID
+    municipalityId: string
   ): Promise<ImportExecutionResult> {
     try {
       let importedCount = 0;

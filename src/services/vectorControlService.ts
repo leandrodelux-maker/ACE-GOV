@@ -1,5 +1,6 @@
 import { supabase } from './supabaseClient';
 import { stockService } from './stockService';
+import { requireMunicipalityId } from './municipalityScope';
 
 export interface VectorControlOperation {
   id: string;
@@ -45,11 +46,10 @@ export interface ChemicalApplication {
   batch?: { batch_number: string };
 }
 
-const DEFAULT_MUN_ID = '00000000-0000-0000-0000-000000000001';
 
 export const vectorControlService = {
   // 1. Listar Operações de Controle Vetorial
-  async getOperations(municipalityId = DEFAULT_MUN_ID): Promise<VectorControlOperation[]> {
+  async getOperations(municipalityId: string): Promise<VectorControlOperation[]> {
     try {
       const { data, error } = await supabase
         .from('vector_control_operations')
@@ -115,10 +115,10 @@ export const vectorControlService = {
     startDate?: string;
     notes?: string;
     caseId?: string;
-    municipalityId?: string;
+    municipalityId: string;
   }): Promise<VectorControlOperation | null> {
     try {
-      const munId = payload.municipalityId || DEFAULT_MUN_ID;
+      const munId = requireMunicipalityId(payload.municipalityId);
 
       const { data, error } = await supabase
         .from('vector_control_operations')
@@ -166,10 +166,10 @@ export const vectorControlService = {
     disease: string;
     notification_number: string;
     neighborhood_id?: string;
-    municipality_id?: string;
+    municipality_id: string;
   }): Promise<{ success: boolean; message: string; operation?: VectorControlOperation }> {
     try {
-      const munId = caseItem.municipality_id || DEFAULT_MUN_ID;
+      const munId = requireMunicipalityId(caseItem.municipality_id);
 
       const op = await vectorControlService.createOperation({
         type: 'bloqueio',
@@ -210,10 +210,10 @@ export const vectorControlService = {
     quantity: number;
     unit: string;
     notes?: string;
-    municipalityId?: string;
+    municipalityId: string;
   }): Promise<{ success: boolean; message: string }> {
     try {
-      const munId = payload.municipalityId || DEFAULT_MUN_ID;
+      const munId = requireMunicipalityId(payload.municipalityId);
 
       // 1. Dar saída no estoque pelo critério FEFO
       const stockRes = await stockService.dispatchProductFEFO({
@@ -231,12 +231,16 @@ export const vectorControlService = {
       }
 
       // 2. Localizar lote utilizado
-      const batchUsed = stockRes.batchesUsed?.[0]?.batchNumber || 'LOTE-DEFAULT';
-      const { data: batchData } = await supabase
-        .from('product_batches')
-        .select('id')
-        .eq('batch_number', batchUsed)
-        .maybeSingle();
+      // Lote baixado pelo FEFO (do MESMO produto — números de lote se repetem entre produtos/municípios)
+      const batchUsed = stockRes.batchesUsed?.[0]?.batchNumber ?? null;
+      const { data: batchData } = batchUsed
+        ? await supabase
+            .from('product_batches')
+            .select('id')
+            .eq('product_id', payload.productId)
+            .eq('batch_number', batchUsed)
+            .maybeSingle()
+        : { data: null };
 
       // 3. Registrar aplicação química
       const { error: appErr } = await supabase
@@ -246,7 +250,7 @@ export const vectorControlService = {
           property_id: payload.propertyId || null,
           agent_id: payload.agentId || null,
           product_id: payload.productId,
-          batch_id: batchData?.id || '00000000-0000-0000-0000-000000000001',
+          batch_id: batchData?.id ?? null,
           application_type: payload.applicationType,
           quantity: payload.quantity,
           unit: payload.unit,
@@ -258,7 +262,7 @@ export const vectorControlService = {
 
       return {
         success: true,
-        message: `Aplicação de ${payload.quantity} ${payload.unit} registrada e baixada do estoque com sucesso (Lote: ${batchUsed})!`,
+        message: `Aplicação de ${payload.quantity} ${payload.unit} registrada e baixada do estoque${batchUsed ? ` (Lote: ${batchUsed})` : ''}.`,
       };
     } catch (err: any) {
       console.error('Erro ao registrar aplicação química:', err);
@@ -267,7 +271,7 @@ export const vectorControlService = {
   },
 
   // 5. Encerrar Operação
-  async finishOperation(operationId: string, municipalityId = DEFAULT_MUN_ID): Promise<boolean> {
+  async finishOperation(operationId: string, municipalityId: string): Promise<boolean> {
     try {
       const { error } = await supabase
         .from('vector_control_operations')

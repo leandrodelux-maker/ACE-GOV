@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient';
+import { requireMunicipalityId } from './municipalityScope';
 
 export interface PropertyRG {
   id: string;
@@ -52,11 +53,10 @@ export interface RGCadastralAnomaly {
   items: any[];
 }
 
-const DEFAULT_MUN_ID = '00000000-0000-0000-0000-000000000001';
 
 export const geographicReconnaissanceService = {
   // 1. Carregar indicadores reais do Reconhecimento Geográfico
-  async getIndicators(municipalityId = DEFAULT_MUN_ID): Promise<RGIndicators> {
+  async getIndicators(municipalityId: string): Promise<RGIndicators> {
     try {
       const { data: properties, error } = await supabase
         .from('properties')
@@ -103,7 +103,7 @@ export const geographicReconnaissanceService = {
 
   // 2. Listar imóveis com filtros territoriais completos
   async getProperties(params: {
-    municipalityId?: string;
+    municipalityId: string;
     neighborhoodId?: string;
     sectorId?: string;
     microareaId?: string;
@@ -116,7 +116,7 @@ export const geographicReconnaissanceService = {
     limit?: number;
   }): Promise<PropertyRG[]> {
     try {
-      const munId = params.municipalityId || DEFAULT_MUN_ID;
+      const munId = requireMunicipalityId(params.municipalityId);
       let query = supabase
         .from('properties')
         .select(`
@@ -156,7 +156,7 @@ export const geographicReconnaissanceService = {
   },
 
   // 3. Ferramenta de Detecção de Anomalias Cadastrais
-  async detectCadastralAnomalies(municipalityId = DEFAULT_MUN_ID): Promise<RGCadastralAnomaly[]> {
+  async detectCadastralAnomalies(municipalityId: string): Promise<RGCadastralAnomaly[]> {
     try {
       const anomalies: RGCadastralAnomaly[] = [];
 
@@ -284,7 +284,7 @@ export const geographicReconnaissanceService = {
   // 4. Cadastrar novo Imóvel no Reconhecimento Geográfico
   async createProperty(property: Partial<PropertyRG>): Promise<{ success: boolean; property?: PropertyRG; message: string }> {
     try {
-      const munId = property.municipality_id || DEFAULT_MUN_ID;
+      const munId = requireMunicipalityId(property.municipality_id);
 
       // Gerar código único caso não fornecido
       let code = property.property_code;
@@ -430,7 +430,7 @@ export const geographicReconnaissanceService = {
   },
 
   // 10. Listar opções territoriais auxiliares para seletores
-  async getTerritoryOptions(municipalityId = DEFAULT_MUN_ID) {
+  async getTerritoryOptions(municipalityId: string) {
     try {
       const [bairros, setores, microareas, quadras, agentes] = await Promise.all([
         supabase.from('neighborhoods').select('id, name').eq('municipality_id', municipalityId).order('name'),

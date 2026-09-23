@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient';
+import { requireMunicipalityId } from './municipalityScope';
 
 export interface FieldSupervision {
   id: string;
@@ -21,163 +22,123 @@ export interface SupervisorAgentSummary {
   name: string;
   registrationNumber?: string;
   phone?: string;
-  status: 'em_campo' | 'offline' | 'pausa';
-  currentActivity?: string;
+  /** em_campo = registrou visita hoje; sem_visita_hoje = nenhum registro hoje */
+  status: 'em_campo' | 'sem_visita_hoje';
   visitsToday: number;
   pendingReturns: number;
-  lastSync: string;
-  assignedBlockCount?: number;
+  /** Horário da última visita registrada hoje (null = nenhuma) */
+  lastVisitAt: string | null;
 }
 
+/** Indicadores do dia. null = não foi possível obter o dado. */
 export interface SupervisorDashboardData {
-  agentsInField: number;
-  agentsOffline: number;
-  visitsToday: number;
-  pendingReturns: number;
-  openOrdersCount: number;
-  criticalAreasCount: number;
-  criticalAlertsCount: number;
+  agentsInField: number | null;
+  agentsWithoutVisitToday: number | null;
+  visitsToday: number | null;
+  pendingReturns: number | null;
+  openOrdersCount: number | null;
+  criticalAlertsCount: number | null;
+  error?: string;
 }
-
-const DEFAULT_MUN_ID = '00000000-0000-0000-0000-000000000001';
 
 export const supervisorService = {
   /**
-   * Buscar indicadores operacionais da equipe do supervisor
+   * Indicadores operacionais do dia no município (sem valores substitutos).
    */
-  async getSupervisorDashboard(municipalityId = DEFAULT_MUN_ID): Promise<SupervisorDashboardData> {
+  async getSupervisorDashboard(municipalityId: string): Promise<SupervisorDashboardData> {
+    const munId = requireMunicipalityId(municipalityId);
+    const todayStr = new Date().toISOString().split('T')[0];
     try {
-      const todayStr = new Date().toISOString().split('T')[0];
-
-      const [visitsRes, pendingsRes, ordersRes, alertsRes] = await Promise.all([
-        supabase
-          .from('visits')
-          .select('id, agent_id', { count: 'exact' })
-          .gte('visit_date', todayStr),
+      const [visitsRes, agentsRes, pendingsRes, ordersRes, alertsRes] = await Promise.all([
+        supabase.from('visits').select('agent_id').eq('municipality_id', munId).eq('visit_date', todayStr).is('deleted_at', null),
+        supabase.from('agents').select('id', { count: 'exact', head: true }).eq('municipality_id', munId).eq('active', true),
         supabase
           .from('pending_visits')
-          .select('id', { count: 'exact' })
+          .select('id, properties!inner(municipality_id)', { count: 'exact', head: true })
+          .eq('properties.municipality_id', munId)
           .eq('status', 'PENDENTE'),
         supabase
           .from('work_orders')
-          .select('id', { count: 'exact' })
+          .select('id', { count: 'exact', head: true })
+          .eq('municipality_id', munId)
           .in('status', ['aberta', 'atribuida', 'em_execucao']),
         supabase
           .from('alerts')
-          .select('id', { count: 'exact' })
+          .select('id', { count: 'exact', head: true })
+          .eq('municipality_id', munId)
           .eq('severity', 'CRITICO')
           .eq('acknowledged', false),
       ]);
 
-      const visitsToday = visitsRes.count || (visitsRes.data ? visitsRes.data.length : 0);
-      const pendingReturns = pendingsRes.count || (pendingsRes.data ? pendingsRes.data.length : 0);
-      const openOrdersCount = ordersRes.count || (ordersRes.data ? ordersRes.data.length : 0);
-      const criticalAlertsCount = alertsRes.count || (alertsRes.data ? alertsRes.data.length : 0);
-
-      // Quantidade de agentes com visitas registradas hoje = em campo
-      const activeAgents = new Set((visitsRes.data || []).map((v: any) => v.agent_id)).size;
-      const agentsInField = Math.max(activeAgents, 4);
-      const agentsOffline = 2;
+      const agentsInField = visitsRes.error ? null : new Set((visitsRes.data || []).map((v: any) => v.agent_id).filter(Boolean)).size;
+      const activeAgents = agentsRes.error ? null : agentsRes.count ?? 0;
 
       return {
         agentsInField,
-        agentsOffline,
-        visitsToday: visitsToday || 48,
-        pendingReturns: pendingReturns || 12,
-        openOrdersCount: openOrdersCount || 8,
-        criticalAreasCount: 3,
-        criticalAlertsCount: criticalAlertsCount || 2,
+        agentsWithoutVisitToday: agentsInField === null || activeAgents === null ? null : Math.max(0, activeAgents - agentsInField),
+        visitsToday: visitsRes.error ? null : (visitsRes.data || []).length,
+        pendingReturns: pendingsRes.error ? null : pendingsRes.count ?? 0,
+        openOrdersCount: ordersRes.error ? null : ordersRes.count ?? 0,
+        criticalAlertsCount: alertsRes.error ? null : alertsRes.count ?? 0,
       };
-    } catch (err) {
+    } catch (err: any) {
       console.error('Erro no dashboard do supervisor:', err);
       return {
-        agentsInField: 4,
-        agentsOffline: 1,
-        visitsToday: 42,
-        pendingReturns: 8,
-        openOrdersCount: 6,
-        criticalAreasCount: 2,
-        criticalAlertsCount: 1,
+        agentsInField: null,
+        agentsWithoutVisitToday: null,
+        visitsToday: null,
+        pendingReturns: null,
+        openOrdersCount: null,
+        criticalAlertsCount: null,
+        error: err?.message || 'Falha ao carregar indicadores.',
       };
     }
   },
 
   /**
-   * Buscar agentes da equipe do supervisor com métricas de hoje (sem rastreamento invasivo)
+   * Agentes ativos do município com registros de hoje (sem rastreamento de localização).
    */
-  async getTeamAgents(municipalityId = DEFAULT_MUN_ID): Promise<SupervisorAgentSummary[]> {
+  async getTeamAgents(municipalityId: string): Promise<SupervisorAgentSummary[]> {
+    const munId = requireMunicipalityId(municipalityId);
+    const todayStr = new Date().toISOString().split('T')[0];
     try {
-      const { data: agentsData, error } = await supabase
-        .from('agents')
-        .select('*')
-        .eq('municipality_id', municipalityId);
+      const [agentsRes, visitsRes, pendingRes] = await Promise.all([
+        supabase
+          .from('agents')
+          .select('id, employee_number, profiles(full_name, phone)')
+          .eq('municipality_id', munId)
+          .eq('active', true),
+        supabase
+          .from('visits')
+          .select('agent_id, created_at')
+          .eq('municipality_id', munId)
+          .eq('visit_date', todayStr)
+          .is('deleted_at', null),
+        supabase
+          .from('pending_visits')
+          .select('responsible_agent_id, assigned_agent_id, properties!inner(municipality_id)')
+          .eq('properties.municipality_id', munId)
+          .eq('status', 'PENDENTE'),
+      ]);
 
-      if (error || !agentsData || agentsData.length === 0) {
-        // Fallback representativo para apresentação
-        return [
-          {
-            id: 'ag-01',
-            name: 'Carlos Alberto Silva',
-            registrationNumber: 'ACE-2041',
-            phone: '(51) 98122-3344',
-            status: 'em_campo',
-            currentActivity: 'Vistoria Domiciliar Ciclo 01',
-            visitsToday: 18,
-            pendingReturns: 2,
-            lastSync: 'Há 8 minutos',
-            assignedBlockCount: 6,
-          },
-          {
-            id: 'ag-02',
-            name: 'Mariana Duarte',
-            registrationNumber: 'ACE-1892',
-            phone: '(51) 99344-5566',
-            status: 'em_campo',
-            currentActivity: 'Inspeção em Ponto Estratégico',
-            visitsToday: 15,
-            pendingReturns: 4,
-            lastSync: 'Há 14 minutos',
-            assignedBlockCount: 5,
-          },
-          {
-            id: 'ag-03',
-            name: 'Roberto Mendes',
-            registrationNumber: 'ACE-2210',
-            phone: '(51) 97788-9900',
-            status: 'em_campo',
-            currentActivity: 'Bloqueio Perifocal de Dengue',
-            visitsToday: 21,
-            pendingReturns: 1,
-            lastSync: 'Há 3 minutos',
-            assignedBlockCount: 4,
-          },
-          {
-            id: 'ag-04',
-            name: 'Fernanda Souza',
-            registrationNumber: 'ACE-1755',
-            phone: '(51) 98877-6655',
-            status: 'offline',
-            currentActivity: 'Aguardando sincronização de rota',
-            visitsToday: 6,
-            pendingReturns: 3,
-            lastSync: 'Há 2 horas',
-            assignedBlockCount: 5,
-          },
-        ];
-      }
+      if (agentsRes.error || !agentsRes.data) return [];
+      const visits = visitsRes.data || [];
+      const pending = pendingRes.data || [];
 
-      return agentsData.map((a: any, idx: number) => ({
-        id: a.id,
-        name: a.name,
-        registrationNumber: a.code || `ACE-00${idx + 1}`,
-        phone: a.phone || '(51) 99000-0000',
-        status: idx === 3 ? 'offline' : 'em_campo',
-        currentActivity: idx === 2 ? 'Bloqueio de foco' : 'Vistoria rotineira',
-        visitsToday: 12 + idx * 3,
-        pendingReturns: idx,
-        lastSync: `Há ${idx * 5 + 4} minutos`,
-        assignedBlockCount: 5,
-      }));
+      return agentsRes.data.map((a: any) => {
+        const own = visits.filter((v: any) => v.agent_id === a.id);
+        const last = own.map((v: any) => v.created_at).filter(Boolean).sort().pop() ?? null;
+        return {
+          id: a.id,
+          name: a.profiles?.full_name || 'Agente sem perfil vinculado',
+          registrationNumber: a.employee_number || undefined,
+          phone: a.profiles?.phone || undefined,
+          status: own.length > 0 ? 'em_campo' : 'sem_visita_hoje',
+          visitsToday: own.length,
+          pendingReturns: pending.filter((p: any) => p.responsible_agent_id === a.id || p.assigned_agent_id === a.id).length,
+          lastVisitAt: last,
+        } as SupervisorAgentSummary;
+      });
     } catch (err) {
       console.error('Erro ao listar equipe de agentes:', err);
       return [];
@@ -188,7 +149,7 @@ export const supervisorService = {
    * Registrar supervisão de campo
    */
   async registerSupervision(supervision: {
-    municipalityId?: string;
+    municipalityId: string;
     supervisorId: string;
     agentId: string;
     propertyId?: string;
@@ -197,7 +158,7 @@ export const supervisorService = {
     notes?: string;
   }): Promise<{ success: boolean; error?: string }> {
     try {
-      const municipalityId = supervision.municipalityId || DEFAULT_MUN_ID;
+      const municipalityId = requireMunicipalityId(supervision.municipalityId);
       const todayStr = new Date().toISOString().split('T')[0];
 
       const { error } = await supabase.from('field_supervisions').insert({
@@ -230,7 +191,7 @@ export const supervisorService = {
   /**
    * Listar supervisões de campo realizadas
    */
-  async getSupervisions(municipalityId = DEFAULT_MUN_ID): Promise<FieldSupervision[]> {
+  async getSupervisions(municipalityId: string): Promise<FieldSupervision[]> {
     try {
       const { data, error } = await supabase
         .from('field_supervisions')

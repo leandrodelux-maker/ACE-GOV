@@ -13,10 +13,11 @@ import {
 } from 'lucide-react';
 import { multiDiseaseService, DiseaseModuleConfig, DiseaseModuleId } from '../../services/multiDiseaseService';
 import { PageHeader } from '../ui';
+import { useMunicipalityId } from '../../contexts/AuthContext';
 
 export const MultiDiseaseSettingsView: React.FC = () => {
-  const municipalityId = '00000000-0000-0000-0000-000000000001';
-  const [modules, setModules] = useState<DiseaseModuleConfig[]>([]);
+  const municipalityId = useMunicipalityId();
+    const [modules, setModules] = useState<DiseaseModuleConfig[]>([]);
   const [savedSuccess, setSavedSuccess] = useState(false);
 
   useEffect(() => {

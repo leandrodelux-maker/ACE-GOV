@@ -61,6 +61,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange(async (event) => {
       if (event === 'SIGNED_OUT') {
+        db.clearMunicipalCache();
         setSession(null);
         setImpersonatedRole(null);
         return;
@@ -78,7 +79,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     if (session?.user) {
       db.setSessionUser(session.user);
-      db.hydrateFromSupabase();
+      if (session.municipality) db.hydrateFromSupabase(session.municipality);
     } else {
       db.setSessionUser(null);
     }
@@ -93,6 +94,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = async (): Promise<void> => {
     await authService.logout();
+    db.clearMunicipalCache();
     setSession(null);
     setImpersonatedRole(null);
   };
@@ -178,4 +180,17 @@ export const useAuth = (): AuthContextType => {
     throw new Error('useAuth deve ser utilizado dentro de um AuthProvider');
   }
   return context;
+};
+
+/**
+ * ID do município da sessão autenticada. Use nas telas internas para passar o
+ * município explicitamente aos serviços. O App só renderiza telas internas com
+ * sessão e município válidos; fora disso, falha de forma fechada.
+ */
+export const useMunicipalityId = (): string => {
+  const { municipality } = useAuth();
+  if (!municipality?.id) {
+    throw new Error('Município da sessão indisponível: acesso bloqueado.');
+  }
+  return municipality.id;
 };

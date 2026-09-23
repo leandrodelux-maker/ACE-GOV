@@ -53,7 +53,6 @@ export const RolesPermissionsView: React.FC = () => {
     { key: 'planejamento', name: 'Planejamento & Rotas', icon: '🧭' },
     { key: 'relatorios', name: 'Relatórios Oficiais', icon: '📄' },
     { key: 'motor_risco', name: 'Motor de Risco', icon: '📈' },
-    { key: 'ia_assistente', name: 'Assistente IA', icon: '✨' },
     { key: 'usuarios', name: 'Usuários do Sistema', icon: '👤' },
     { key: 'perfis', name: 'Perfis e Permissões (RBAC)', icon: '🔐' },
     { key: 'configuracoes', name: 'Configurações Municipais', icon: '⚙️' },

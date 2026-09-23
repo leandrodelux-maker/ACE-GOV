@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient';
+import { requireMunicipalityId } from './municipalityScope';
 
 export interface AlertNotificationItem {
   id: string;
@@ -15,13 +16,12 @@ export interface AlertNotificationItem {
   createdAt: string;
 }
 
-const DEFAULT_MUN_ID = '00000000-0000-0000-0000-000000000001';
 
 export const alertsService = {
   /**
    * Buscar todos os alertas do município ordenados por prioridade e data
    */
-  async getAlerts(municipalityId = DEFAULT_MUN_ID): Promise<AlertNotificationItem[]> {
+  async getAlerts(municipalityId: string): Promise<AlertNotificationItem[]> {
     try {
       const { data, error } = await supabase
         .from('alerts')
@@ -49,81 +49,8 @@ export const alertsService = {
         }));
       }
 
-      // Fallback institucional com exemplos representativos dos 12 gatilhos
-      return [
-        {
-          id: 'alt-01',
-          municipalityId,
-          type: 'EPIDEMIOLOGICO',
-          severity: 'CRITICO',
-          title: 'Notificação de Dengue com Sinal de Alarme em Vila Nova',
-          description: 'Caso confirmado com plaquetopenia em gestante. Exige bloqueio peridomiciliar em 24h.',
-          entityType: 'EPIDEMIOLOGY_CASE',
-          entityId: 'case-01',
-          acknowledged: false,
-          createdAt: new Date(Date.now() - 3600000).toISOString(),
-        },
-        {
-          id: 'alt-02',
-          municipalityId,
-          type: 'ENTOMOLOGICO',
-          severity: 'CRITICO',
-          title: 'Novo Foco de Aedes aegypti Detectado',
-          description: 'Criadouro positivo ativo em caixa d água destampada na Rua das Flores, 420.',
-          entityType: 'BREEDING_SITE',
-          entityId: 'foc-01',
-          acknowledged: false,
-          createdAt: new Date(Date.now() - 7200000).toISOString(),
-        },
-        {
-          id: 'alt-03',
-          municipalityId,
-          type: 'PONTOS_ESTRATEGICOS',
-          severity: 'ALTO',
-          title: 'Ponto Estratégico com Inspeção Vencida há 18 dias',
-          description: 'Borracharia Central (Rua Deodoro, 1020) ultrapassou o prazo quinzenal do PNCD.',
-          entityType: 'STRATEGIC_POINT',
-          entityId: 'pe-01',
-          acknowledged: false,
-          createdAt: new Date(Date.now() - 14400000).toISOString(),
-        },
-        {
-          id: 'alt-04',
-          municipalityId,
-          type: 'ESTOQUE',
-          severity: 'ALTO',
-          title: 'Estoque Baixo de Larvicida Pyriproxyfen 0.5%',
-          description: 'Restam apenas 2 lotes disponíveis no almoxarifado central. Recomenda-se pedido de reposição.',
-          entityType: 'STOCK',
-          entityId: 'prod-01',
-          acknowledged: false,
-          createdAt: new Date(Date.now() - 28800000).toISOString(),
-        },
-        {
-          id: 'alt-05',
-          municipalityId,
-          type: 'OPERACIONAL',
-          severity: 'ATENCAO',
-          title: 'Meta de Cobertura Semanal Abaixo de 80% no Setor 03',
-          description: 'Índice de imóveis fechados concentrado no período da tarde no Bairro Universitário.',
-          entityType: 'TERRITORY',
-          entityId: 'sec-03',
-          acknowledged: true,
-          createdAt: new Date(Date.now() - 43200000).toISOString(),
-        },
-        {
-          id: 'alt-06',
-          municipalityId,
-          type: 'SISTEMA',
-          severity: 'INFORMATIVO',
-          title: 'Backup Automático Diário Realizado com Sucesso',
-          description: 'Cópia snapshot da base de dados municipal concluída sem inconsistências.',
-          entityType: 'BACKUP',
-          entityId: 'bak-01',
-          acknowledged: true,
-          createdAt: new Date(Date.now() - 86400000).toISOString(),
-        },
-      ];
+      // Sem alertas registrados: lista vazia (nunca exemplos apresentados como reais)
+      return [];
     } catch (err) {
       console.warn('Fallback para alertas locais:', err);
       return [];
@@ -136,7 +63,7 @@ export const alertsService = {
   async acknowledgeAlert(
     alertId: string,
     userName = 'Usuário Autenticado',
-    municipalityId = DEFAULT_MUN_ID
+    municipalityId: string
   ): Promise<{ success: boolean; message: string }> {
     try {
       await supabase
@@ -167,7 +94,7 @@ export const alertsService = {
   /**
    * Marcar todos como lidos
    */
-  async acknowledgeAll(municipalityId = DEFAULT_MUN_ID): Promise<boolean> {
+  async acknowledgeAll(municipalityId: string): Promise<boolean> {
     try {
       await supabase
         .from('alerts')
@@ -183,7 +110,7 @@ export const alertsService = {
    * Criar um novo alerta no sistema
    */
   async createAlert(params: {
-    municipalityId?: string;
+    municipalityId: string;
     type: string;
     severity: 'CRITICO' | 'ALTO' | 'ATENCAO' | 'INFORMATIVO';
     title: string;
@@ -192,7 +119,7 @@ export const alertsService = {
     entityId?: string;
   }): Promise<{ success: boolean; id?: string }> {
     try {
-      const munId = params.municipalityId || DEFAULT_MUN_ID;
+      const munId = requireMunicipalityId(params.municipalityId);
       const { data, error } = await supabase
         .from('alerts')
         .insert({

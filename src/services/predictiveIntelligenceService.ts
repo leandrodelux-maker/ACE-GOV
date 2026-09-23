@@ -39,13 +39,12 @@ export interface PredictiveOverview {
   methodologicalNote: string;
 }
 
-const DEFAULT_MUN_ID = '00000000-0000-0000-0000-000000000001';
 
 export const predictiveIntelligenceService = {
   /**
    * Compila estimativas probabilísticas e detecta anomalias territoriais
    */
-  async getPredictiveOverview(municipalityId = DEFAULT_MUN_ID): Promise<PredictiveOverview> {
+  async getPredictiveOverview(municipalityId: string): Promise<PredictiveOverview> {
     try {
       // 1. Obter dados meteorológicos
       const climate = await weatherService.getClimateSummary(municipalityId);

@@ -18,10 +18,11 @@ import {
   Compass
 } from 'lucide-react';
 import { commandCenterService, CommandCenterData } from '../../services/commandCenterService';
+import { useMunicipalityId } from '../../contexts/AuthContext';
 
 export const CommandCenterView: React.FC = () => {
-  const municipalityId = '00000000-0000-0000-0000-000000000001';
-  const [data, setData] = useState<CommandCenterData | null>(null);
+  const municipalityId = useMunicipalityId();
+    const [data, setData] = useState<CommandCenterData | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date().toLocaleTimeString('pt-BR'));
   const [selectedNeighborhoodId, setSelectedNeighborhoodId] = useState<string | null>(null);
@@ -100,7 +101,7 @@ export const CommandCenterView: React.FC = () => {
             <span className="text-xs font-bold uppercase">Cobertura do Ciclo</span>
             <Target className="w-4 h-4 text-emerald-600" />
           </div>
-          <div className="text-3xl font-black text-slate-900">{data?.stats.coveragePercent || 78}%</div>
+          <div className="text-3xl font-black text-slate-900">{typeof data?.stats.coveragePercent === 'number' ? `${data.stats.coveragePercent}%` : '—'}</div>
           <span className="text-[11px] text-slate-400">Meta recomendada: ≥ 80%</span>
         </div>
 

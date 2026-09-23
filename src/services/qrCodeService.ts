@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient';
+import { requireMunicipalityId } from './municipalityScope';
 
 export type QrEntityType =
   | 'property'
@@ -30,7 +31,6 @@ export interface LabelPrintConfig {
   includeDate: boolean;
 }
 
-const DEFAULT_MUN_ID = '00000000-0000-0000-0000-000000000001';
 
 export const qrCodeService = {
   /**
@@ -102,7 +102,7 @@ export const qrCodeService = {
    * Registrar auditoria de geração de etiquetas (em lote ou individual)
    */
   async logLabelGeneration(config: {
-    municipalityId?: string;
+    municipalityId: string;
     entityType: QrEntityType;
     quantity: number;
     format: string;
@@ -110,7 +110,7 @@ export const qrCodeService = {
   }) {
     try {
       await supabase.from('audit_logs').insert({
-        municipality_id: config.municipalityId || DEFAULT_MUN_ID,
+        municipality_id: requireMunicipalityId(config.municipalityId),
         entity_name: 'etiquetas_qrcode',
         action: 'GERAR_ETIQUETAS',
         details: `Geração de ${config.quantity} etiquetas de QR Code (${config.entityType}) no formato ${config.format} por ${config.userName || 'Usuário Autenticado'}.`,

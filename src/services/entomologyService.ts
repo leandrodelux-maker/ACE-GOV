@@ -1,5 +1,6 @@
 import { supabase } from './supabaseClient';
 import { alertsService } from './alertsService';
+import { requireMunicipalityId } from './municipalityScope';
 
 export type CollectionType = 'larva' | 'pupa' | 'ovo' | 'mosquito_adulto' | 'outro';
 export type SampleStatus = 'coletada' | 'em_transporte' | 'recebida' | 'em_analise' | 'identificada' | 'finalizada' | 'descartada';
@@ -64,13 +65,12 @@ export interface EntomologyFilter {
   search?: string;
 }
 
-const DEFAULT_MUN_ID = '00000000-0000-0000-0000-000000000001';
 
 export const entomologyService = {
   /**
    * Gera o próximo código único sequencial institucional (ex: ENT-2026-000001)
    */
-  async generateSampleCode(municipalityId = DEFAULT_MUN_ID): Promise<string> {
+  async generateSampleCode(municipalityId: string): Promise<string> {
     const currentYear = new Date().getFullYear();
     const prefix = `ENT-${currentYear}-`;
 
@@ -100,7 +100,7 @@ export const entomologyService = {
    * Listar amostras com filtros ricos e relacionamentos reais
    */
   async getSamples(
-    municipalityId = DEFAULT_MUN_ID,
+    municipalityId: string,
     filters?: EntomologyFilter
   ): Promise<EntomologicalSample[]> {
     try {
@@ -195,7 +195,7 @@ export const entomologyService = {
   /**
    * Buscar indicadores (KPIs) de laboratório
    */
-  async getKPIs(municipalityId = DEFAULT_MUN_ID): Promise<EntomologyKPIs> {
+  async getKPIs(municipalityId: string): Promise<EntomologyKPIs> {
     try {
       const samples = await this.getSamples(municipalityId);
 
@@ -250,7 +250,7 @@ export const entomologyService = {
    * Cadastrar nova amostra entomológica
    */
   async createSample(sample: {
-    municipalityId?: string;
+    municipalityId: string;
     collectionType: CollectionType;
     originType?: 'visita' | 'ovitrampa' | 'liraa' | 'pe' | 'denuncia' | 'outro';
     originId?: string;
@@ -263,7 +263,7 @@ export const entomologyService = {
     notes?: string;
   }): Promise<{ success: boolean; data?: EntomologicalSample; error?: string }> {
     try {
-      const municipalityId = sample.municipalityId || DEFAULT_MUN_ID;
+      const municipalityId = requireMunicipalityId(sample.municipalityId);
       const sampleCode = await this.generateSampleCode(municipalityId);
       const collectionDate = sample.collectionDate || new Date().toISOString().split('T')[0];
 
@@ -521,14 +521,14 @@ export const entomologyService = {
    * Log seguro de auditoria para integridade de dados laboratoriais
    */
   async logAudit(params: {
-    municipalityId?: string;
+    municipalityId: string;
     entityId: string;
     action: string;
     details: string;
   }) {
     try {
       await supabase.from('audit_logs').insert({
-        municipality_id: params.municipalityId || DEFAULT_MUN_ID,
+        municipality_id: requireMunicipalityId(params.municipalityId),
         entity_name: 'entomological_samples',
         entity_id: params.entityId,
         action: params.action,

@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient';
+import { requireMunicipalityId } from './municipalityScope';
 
 export interface Product {
   id: string;
@@ -57,11 +58,10 @@ export interface StockAlerts {
   }[];
 }
 
-const DEFAULT_MUN_ID = '00000000-0000-0000-0000-000000000001';
 
 export const stockService = {
   // 1. Obter catálogo de produtos com lotes ordenados por FEFO
-  async getProductsWithBatches(municipalityId = DEFAULT_MUN_ID): Promise<Product[]> {
+  async getProductsWithBatches(municipalityId: string): Promise<Product[]> {
     try {
       const { data: prods, error: pErr } = await supabase
         .from('products')
@@ -125,7 +125,7 @@ export const stockService = {
         .from('products')
         .insert({
           ...product,
-          municipality_id: product.municipality_id || DEFAULT_MUN_ID,
+          municipality_id: requireMunicipalityId(product.municipality_id),
         })
         .select()
         .single();
@@ -145,10 +145,10 @@ export const stockService = {
     expirationDate: string;
     quantity: number;
     notes?: string;
-    municipalityId?: string;
+    municipalityId: string;
   }): Promise<{ success: boolean; message: string }> {
     try {
-      const munId = payload.municipalityId || DEFAULT_MUN_ID;
+      const munId = requireMunicipalityId(payload.municipalityId);
 
       // 1. Inserir lote
       const { data: batch, error: bErr } = await supabase
@@ -210,10 +210,10 @@ export const stockService = {
     teamId?: string;
     operationId?: string;
     notes?: string;
-    municipalityId?: string;
+    municipalityId: string;
   }): Promise<{ success: boolean; message: string; batchesUsed?: { batchNumber: string; qty: number }[] }> {
     try {
-      const munId = payload.municipalityId || DEFAULT_MUN_ID;
+      const munId = requireMunicipalityId(payload.municipalityId);
       let remainingQtyToDispatch = payload.quantity;
 
       // 1. Buscar lotes disponíveis ordenados por data de validade ascendente (FEFO)
@@ -301,7 +301,7 @@ export const stockService = {
   },
 
   // 5. Histórico de Movimentações
-  async getMovements(municipalityId = DEFAULT_MUN_ID, limit = 50): Promise<StockMovement[]> {
+  async getMovements(municipalityId: string, limit = 50): Promise<StockMovement[]> {
     try {
       const { data, error } = await supabase
         .from('stock_movements')

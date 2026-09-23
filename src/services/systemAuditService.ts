@@ -127,22 +127,6 @@ export const ALL_SYSTEM_PAGES: PageAuditDefinition[] = [
     },
   },
   {
-    route: '/briefing',
-    name: 'Briefing Operacional Matinal',
-    module: 'Vigilância & Inteligência',
-    component: 'DailyBriefingView.tsx',
-    tables: ['visits', 'weather_daily', 'field_routes', 'alerts'],
-    supportsRead: true,
-    supportsCreate: false,
-    supportsUpdate: false,
-    supportsDelete: false,
-    status: 'FUNCIONAL',
-    details: {
-      services: ['dailyBriefingService.ts'],
-      actions: ['Resumo Climático', 'Metas do Dia', 'Alertas Meteorológicos'],
-    },
-  },
-  {
     route: '/inteligencia/historico',
     name: 'Análise Histórica & Séries Temporais',
     module: 'Vigilância & Inteligência',
@@ -195,7 +179,7 @@ export const ALL_SYSTEM_PAGES: PageAuditDefinition[] = [
     name: 'Painel Executivo do Secretário de Saúde',
     module: 'Vigilância & Inteligência',
     component: 'ExecutiveDashboardView.tsx',
-    tables: ['field_cycles', 'visits', 'epidemiological_cases', 'management_targets'],
+    tables: ['field_cycles', 'visits', 'epidemiological_cases'],
     supportsRead: true,
     supportsCreate: false,
     supportsUpdate: false,
@@ -203,40 +187,7 @@ export const ALL_SYSTEM_PAGES: PageAuditDefinition[] = [
     status: 'FUNCIONAL',
     details: {
       services: ['supabaseService.ts'],
-      actions: ['Visão Macro', 'Índices Oficiais SUS', 'Status das Metas'],
-    },
-  },
-  {
-    route: '/tv',
-    name: 'Central de Telão / Painel de Monitoramento',
-    module: 'Vigilância & Inteligência',
-    component: 'OperationsRoomView.tsx',
-    tables: ['visits', 'ovitraps', 'alerts'],
-    supportsRead: true,
-    supportsCreate: false,
-    supportsUpdate: false,
-    supportsDelete: false,
-    status: 'FUNCIONAL',
-    details: {
-      services: ['situationRoomService.ts'],
-      actions: ['Modo TV Contínuo', 'Transição Automática de Telas', 'Alertas Visuais'],
-    },
-  },
-  {
-    route: '/assistente',
-    name: 'Assistente de Inteligência Artificial de Endemias',
-    module: 'Vigilância & Inteligência',
-    component: 'AiAssistantView.tsx',
-    tables: ['audit_logs', 'system_settings'],
-    supportsRead: true,
-    supportsCreate: true,
-    supportsUpdate: false,
-    supportsDelete: false,
-    status: 'FUNCIONAL',
-    details: {
-      services: ['aiQueryService.ts', 'supabaseClient.ts'],
-      actions: ['Consultas em Linguagem Natural', 'Recomendações Técnicas', 'Registro em audit_logs'],
-      issues: [],
+      actions: ['Visão Macro', 'Índices Oficiais SUS'],
     },
   },
 
@@ -585,22 +536,6 @@ export const ALL_SYSTEM_PAGES: PageAuditDefinition[] = [
 
   // Módulo: Gestão Operacional & Logística
   {
-    route: '/metas',
-    name: 'Metas e Indicadores de Gestão',
-    module: 'Gestão Operacional & Logística',
-    component: 'ManagementTargetsView.tsx',
-    tables: ['management_targets', 'field_cycles'],
-    supportsRead: true,
-    supportsCreate: true,
-    supportsUpdate: true,
-    supportsDelete: false,
-    status: 'FUNCIONAL',
-    details: {
-      services: ['managementTargetsService.ts'],
-      actions: ['Definir Metas por Ciclo', 'Acompanhar % Concluído', 'Alertas de Desvio'],
-    },
-  },
-  {
     route: '/ordens-servico',
     name: 'Ordens de Serviço (OS)',
     module: 'Gestão Operacional & Logística',
@@ -614,22 +549,6 @@ export const ALL_SYSTEM_PAGES: PageAuditDefinition[] = [
     details: {
       services: ['workOrderService.ts'],
       actions: ['Emitir OS para Denúncia/Retorno', 'Atribuir a ACE', 'Concluir com Laudo'],
-    },
-  },
-  {
-    route: '/capacitacoes',
-    name: 'Capacitações & Cursos da Equipe',
-    module: 'Gestão Operacional & Logística',
-    component: 'TrainingsView.tsx',
-    tables: ['trainings', 'training_participants', 'agents'],
-    supportsRead: true,
-    supportsCreate: true,
-    supportsUpdate: true,
-    supportsDelete: false,
-    status: 'FUNCIONAL',
-    details: {
-      services: ['trainingService.ts'],
-      actions: ['Criar Treinamento', 'Lista de Presença', 'Controle de Reciclagem'],
     },
   },
   {
@@ -995,7 +914,7 @@ export const systemAuditService = {
   async testConnection(): Promise<{ connected: boolean; latencyMs: number; municipalityCount: number }> {
     const start = performance.now();
     try {
-      const { count, error } = await supabase
+      const { count, error, status } = await supabase
         .from('municipalities')
         .select('*', { count: 'exact', head: true });
 
@@ -1009,18 +928,10 @@ export const systemAuditService = {
         };
       }
 
-      // Se houver erro de permissão (ex.: RLS estrito bloqueando anon em tabelas),
-      // valida conectividade via RPC pública do portal do cidadão
-      const { data: publicMun, error: rpcError } = await supabase.rpc('get_public_municipality', {
-        p_id: '00000000-0000-0000-0000-000000000001',
-      });
-
-      if (!rpcError && publicMun) {
-        return {
-          connected: true,
-          latencyMs: Math.round(performance.now() - start),
-          municipalityCount: 1,
-        };
+      // Qualquer resposta HTTP (ex.: 401/403 por RLS sem sessão) prova que o servidor
+      // respondeu; falha de rede não traz status HTTP.
+      if ((typeof status === 'number' && status > 0) || (error as any).code) {
+        return { connected: true, latencyMs, municipalityCount: 0 };
       }
 
       return { connected: false, latencyMs, municipalityCount: 0 };

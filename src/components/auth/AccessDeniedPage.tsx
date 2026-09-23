@@ -37,7 +37,7 @@ export const AccessDeniedPage: React.FC<AccessDeniedPageProps> = ({ onNavigate }
 
           <div className="space-y-2 mt-6">
             <button
-              onClick={() => onNavigate('dashboard')}
+              onClick={() => onNavigate('/')}
               className="w-full py-2.5 px-4 rounded-xl font-semibold text-sm text-white bg-sky-600 hover:bg-sky-500 transition flex items-center justify-center gap-2"
             >
               <Home className="w-4 h-4" />

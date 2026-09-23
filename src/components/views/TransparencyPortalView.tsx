@@ -4,8 +4,11 @@ import { db } from '../../services/storage';
 import { supabaseService } from '../../services/supabaseService';
 import { supabase } from '../../services/supabaseClient';
 import { Neighborhood } from '../../types';
+import { useAuth, useMunicipalityId } from '../../contexts/AuthContext';
 
 export const TransparencyPortalView: React.FC = () => {
+  const { municipality: sessionMunicipality } = useAuth();
+  const municipalityId = useMunicipalityId();
   const [municipalityName, setMunicipalityName] = useState('Município');
   const [cycleName, setCycleName] = useState('1º Ciclo 2026');
   const [neighborhoods, setNeighborhoods] = useState<Neighborhood[]>(db.getNeighborhoods());
@@ -13,7 +16,7 @@ export const TransparencyPortalView: React.FC = () => {
     visitedProperties: 0,
     eliminatedFoci: 0,
     activeAgents: 0,
-    responseTimeHours: 24,
+    responseTimeHours: 0,
     coveragePercent: 0,
   });
   const [isLoading, setIsLoading] = useState(true);
@@ -25,32 +28,33 @@ export const TransparencyPortalView: React.FC = () => {
   const loadTransparencyData = async () => {
     setIsLoading(true);
     try {
-      const muni = await supabaseService.getMunicipality();
-      const muniId = muni?.id || '00000000-0000-0000-0000-000000000001';
+      const muni = sessionMunicipality;
+      const muniId = municipalityId;
 
       if (muni) setMunicipalityName(muni.name);
 
       const [cycle, neighs, visitsRes, fociRes, agentsRes] = await Promise.all([
         supabaseService.getActiveCycle(muniId),
         supabaseService.getNeighborhoods(muniId),
-        supabase.from('visits').select('id', { count: 'exact', head: true }).eq('municipality_id', muniId).in('status', ['TRABALHADO', 'realizada']),
-        supabase.from('breeding_sites').select('id', { count: 'exact', head: true }).eq('status', 'ELIMINADO'),
+        supabase.from('visits').select('id', { count: 'exact', head: true }).eq('municipality_id', muniId).in('result', ['trabalhado', 'TRABALHADO']),
+        supabase.from('breeding_sites').select('id', { count: 'exact', head: true }).eq('municipality_id', muniId).eq('status', 'ELIMINADO'),
         supabase.from('agents').select('id', { count: 'exact', head: true }).eq('municipality_id', muniId).eq('active', true),
       ]);
 
       if (cycle) setCycleName(cycle.name);
       if (neighs && neighs.length > 0) setNeighborhoods(neighs);
 
-      const visited = visitsRes.count || 2418;
-      const totalProps = (neighs || []).reduce((acc, n) => acc + (n.totalProperties || 0), 0) || 3400;
-      const cov = Math.min(100, Math.round((visited / totalProps) * 100));
+      // Somente contagens reais; sem imóveis cadastrados a cobertura não é calculada
+      const visited = visitsRes.count ?? 0;
+      const totalProps = (neighs || []).reduce((acc, n) => acc + (n.totalProperties || 0), 0);
+      const cov = totalProps > 0 ? Math.min(100, Math.round((visited / totalProps) * 100)) : 0;
 
       setStats({
         visitedProperties: visited,
-        eliminatedFoci: fociRes.count || 39,
-        activeAgents: agentsRes.count || 42,
-        responseTimeHours: 28,
-        coveragePercent: cov || 71,
+        eliminatedFoci: fociRes.count ?? 0,
+        activeAgents: agentsRes.count ?? 0,
+        responseTimeHours: 0,
+        coveragePercent: cov,
       });
     } catch (err) {
       console.warn('Fallback para transparência local:', err);
@@ -109,7 +113,7 @@ export const TransparencyPortalView: React.FC = () => {
 
         <div className="bg-white p-5 rounded-xl border border-slate-200 text-center shadow-xs">
           <span className="text-xs text-slate-500 font-semibold uppercase">Tempo de Atendimento</span>
-          <p className="text-2xl font-black text-purple-700 mt-1">{stats.responseTimeHours}h</p>
+          <p className="text-2xl font-black text-purple-700 mt-1">{stats.responseTimeHours > 0 ? `${stats.responseTimeHours}h` : "Sem dados"}</p>
           <span className="text-[10px] text-purple-700 font-bold">Média de resposta municipal</span>
         </div>
       </div>
@@ -125,20 +129,20 @@ export const TransparencyPortalView: React.FC = () => {
             <div key={n.id} className="py-3 flex items-center justify-between">
               <div>
                 <p className="font-bold text-slate-900">{n.name}</p>
-                <p className="text-[11px] text-slate-500">{n.totalProperties} imóveis cadastrados</p>
+                <p className="text-[11px] text-slate-500">{n.totalProperties ?? 'Sem dados de'} imóveis cadastrados</p>
               </div>
 
               <div className="flex items-center gap-4">
                 <div className="text-right">
                   <span className="text-[10px] text-slate-400 block">Cobertura</span>
-                  <span className="font-bold text-blue-700">{n.coveragePercentage}%</span>
+                  <span className="font-bold text-blue-700">{typeof n.coveragePercentage === 'number' ? `${n.coveragePercentage}%` : '—'}</span>
                 </div>
                 <div className="text-right">
                   <span className="text-[10px] text-slate-400 block">Situação</span>
                   <span className={`px-2 py-0.5 rounded font-bold text-[10px] ${
                     n.riskLevel === 'CRITICO' ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-800'
                   }`}>
-                    {n.riskLevel === 'CRITICO' ? 'Atenção Redobrada' : 'Controlado'}
+                    {n.riskLevel === 'CRITICO' ? 'Atenção Redobrada' : n.riskLevel ? 'Controlado' : 'Sem dados'}
                   </span>
                 </div>
               </div>

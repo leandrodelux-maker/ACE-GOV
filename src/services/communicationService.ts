@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient';
+import { requireMunicipalityId } from './municipalityScope';
 
 export type OperationalEvent =
   | 'nova_os'
@@ -40,7 +41,6 @@ export interface WhatsAppProviderConfig {
   active: boolean;
 }
 
-const DEFAULT_MUN_ID = '00000000-0000-0000-0000-000000000001';
 
 export const communicationService = {
   /**
@@ -90,7 +90,7 @@ export const communicationService = {
   /**
    * Buscar templates cadastrados no município
    */
-  async getTemplates(municipalityId = DEFAULT_MUN_ID): Promise<MessageTemplate[]> {
+  async getTemplates(municipalityId: string): Promise<MessageTemplate[]> {
     try {
       const { data, error } = await supabase
         .from('message_templates')
@@ -166,62 +166,31 @@ export const communicationService = {
   },
 
   /**
-   * Adapter desacoplado de envio de WhatsApp (Simulador/Provedor Ativo)
-   * Garante que mensagens nunca contenham dados de pacientes ou endereços residenciais de cidadãos
+   * Envio de WhatsApp.
+   *
+   * Nenhum provedor de mensagens (API do WhatsApp Business, SMS etc.) está
+   * configurado nesta aplicação. A versão anterior SIMULAVA o envio: gravava a
+   * mensagem como "enviado" com uma referência de provedor inventada. Agora o
+   * envio é recusado sem registrar mensagens que não foram entregues.
    */
   async sendMessage(params: {
-    municipalityId?: string;
+    municipalityId: string;
     recipientPhone: string;
     recipientRole: string;
     event: OperationalEvent;
     customText?: string;
-  }): Promise<{ success: boolean; logId?: string; providerRef?: string }> {
-    const municipalityId = params.municipalityId || DEFAULT_MUN_ID;
-
-    // 1. Obter template ativo
-    const templates = await this.getTemplates(municipalityId);
-    const tmpl = templates.find(t => t.event === params.event && t.active);
-
-    if (!tmpl) {
-      return { success: false, providerRef: 'EVENTO_DESATIVADO' };
-    }
-
-    const messageText = params.customText || tmpl.text;
-    const providerRef = `WPP-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
-
-    try {
-      // 2. Registrar log de mensageria
-      const { data, error } = await supabase
-        .from('message_logs')
-        .insert({
-          municipality_id: municipalityId,
-          recipient: params.recipientPhone,
-          recipient_role: params.recipientRole,
-          event: params.event,
-          message_text: messageText,
-          status: 'enviado',
-          provider_reference: providerRef,
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      return {
-        success: true,
-        logId: data.id,
-        providerRef,
-      };
-    } catch (err) {
-      console.warn('Falha no log de envio de WhatsApp:', err);
-      return { success: true, providerRef };
-    }
+  }): Promise<{ success: boolean; logId?: string; providerRef?: string; error?: string }> {
+    requireMunicipalityId(params.municipalityId);
+    return {
+      success: false,
+      error: 'Envio indisponível: nenhum provedor de WhatsApp/SMS está configurado. A mensagem não foi enviada.',
+    };
   },
 
   /**
    * Buscar histórico de mensagens enviadas
    */
-  async getLogs(municipalityId = DEFAULT_MUN_ID): Promise<MessageLog[]> {
+  async getLogs(municipalityId: string): Promise<MessageLog[]> {
     try {
       const { data, error } = await supabase
         .from('message_logs')

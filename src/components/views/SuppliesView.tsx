@@ -9,13 +9,15 @@ import {
   Clock,
   ShieldCheck,
 } from 'lucide-react';
-import { db } from '../../services/storage';
 import { SupplyItem } from '../../types';
 import { supabase } from '../../services/supabaseClient';
 import { PageHeader } from '../ui';
+import { useMunicipalityId } from '../../contexts/AuthContext';
 
 export const SuppliesView: React.FC = () => {
-  const [supplies, setSupplies] = useState<SupplyItem[]>(db.getSupplies());
+  const municipalityId = useMunicipalityId();
+  const [supplies, setSupplies] = useState<SupplyItem[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadSupabaseSupplies() {
@@ -23,10 +25,13 @@ export const SuppliesView: React.FC = () => {
         const { data, error } = await supabase
           .from('supplies')
           .select('*')
+          .eq('municipality_id', municipalityId)
           .order('name');
 
-        if (!error && data && data.length > 0) {
-          const mapped: SupplyItem[] = data.map(s => ({
+        if (error) {
+          setLoadError('Não foi possível carregar os insumos.');
+        } else {
+          const mapped: SupplyItem[] = (data || []).map(s => ({
             id: s.id,
             municipalityId: s.municipality_id,
             name: s.name,
@@ -39,24 +44,27 @@ export const SuppliesView: React.FC = () => {
               id: `bat-${s.id}`,
               batchNumber: s.batch_number,
               quantity: Number(s.quantity),
-              expirationDate: s.expiration_date || '2027-12-31',
-              supplier: 'Ministério da Saúde / SES',
+              expirationDate: s.expiration_date || '',
+              supplier: s.supplier || '',
               isNearExpiration: false,
             }] : [],
           }));
           setSupplies(mapped);
         }
       } catch (err) {
-        console.warn('Fallback para insumos locais:', err);
+        console.warn('Falha ao carregar insumos:', err);
+        setLoadError('Não foi possível carregar os insumos.');
       }
     }
     loadSupabaseSupplies();
-  }, []);
+  }, [municipalityId]);
 
   const lowStockCount = supplies.filter(s => s.isLowStock || s.currentStock <= s.minimumStock).length;
 
   return (
     <div className="space-y-6">
+      {loadError && <div role="alert" className="p-3 rounded-xl border border-rose-200 bg-rose-50 text-rose-800 text-xs">{loadError}</div>}
+      {!loadError && supplies.length === 0 && <div className="p-3 rounded-xl border border-slate-200 bg-white text-slate-500 text-xs">Sem insumos registrados para o município.</div>}
       {/* Top Header */}
       <PageHeader
         icon={Package}

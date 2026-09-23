@@ -13,8 +13,11 @@ import {
 } from 'lucide-react';
 import { dataQualityService, DataQualityReport, DataQualityIssue } from '../../services/dataQualityService';
 import { PageHeader } from '../ui';
+import { useMunicipalityId, useAuth } from '../../contexts/AuthContext';
 
 export const DataQualityView: React.FC = () => {
+  const { user: sessionUser } = useAuth();
+  const municipalityId = useMunicipalityId();
   const [report, setReport] = useState<DataQualityReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [filterCategory, setFilterCategory] = useState<'TODOS' | 'CRITICO' | 'AVISO' | 'SUGESTAO'>('TODOS');
@@ -28,7 +31,7 @@ export const DataQualityView: React.FC = () => {
     setLoading(true);
     setActionSuccess('');
     try {
-      const res = await dataQualityService.runAudit();
+      const res = await dataQualityService.runAudit(municipalityId);
       setReport(res);
     } catch (err) {
       console.error('Falha ao auditar qualidade de dados:', err);
@@ -38,7 +41,7 @@ export const DataQualityView: React.FC = () => {
   };
 
   const handleResolveIssue = async (issue: DataQualityIssue) => {
-    const res = await dataQualityService.resolveIssue(issue.id, issue.suggestedAction);
+    const res = await dataQualityService.resolveIssue(issue.id, issue.suggestedAction, sessionUser?.name || 'Usuário autenticado', municipalityId);
     setActionSuccess(res.message);
     setTimeout(() => setActionSuccess(''), 4000);
     runAudit();

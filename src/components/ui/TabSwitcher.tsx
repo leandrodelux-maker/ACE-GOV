@@ -21,13 +21,16 @@ export interface TabSwitcherProps {
  */
 export const TabSwitcher: React.FC<TabSwitcherProps> = ({ tabs, activeTab, onChange }) => {
   return (
-    <div className="flex items-center gap-1.5 bg-white p-1.5 rounded-card border border-slate-200 shadow-xs overflow-x-auto">
+    <div role="tablist" className="flex items-center gap-1.5 bg-white p-1.5 rounded-card border border-slate-200 shadow-xs overflow-x-auto">
       {tabs.map((tab) => {
         const Icon = tab.icon;
         const isActive = activeTab === tab.id;
         return (
           <button
             key={tab.id}
+            type="button"
+            role="tab"
+            aria-selected={isActive}
             onClick={() => onChange(tab.id)}
             className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold whitespace-nowrap transition ${
               isActive

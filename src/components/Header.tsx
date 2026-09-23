@@ -7,7 +7,6 @@ import {
   Wifi,
   WifiOff,
   RefreshCw,
-  Monitor,
   UserCheck,
   ChevronDown,
   Download,
@@ -29,11 +28,10 @@ interface HeaderProps {
   onImpersonateRole: (role: UserRole) => void;
   onStopImpersonation?: () => void;
   pendingSyncCount: number;
-  onSync: () => void;
+  /** Abre o PWA do ACE, onde a fila offline é sincronizada com o banco */
+  onOpenPendingSync: () => void;
   onToggleSidebar: () => void;
   unreadAlertsCount: number;
-  onOpenAlerts: () => void;
-  onOpenTvMode: () => void;
   municipalityName: string;
   onLogout?: () => void;
   onNavigate?: (module: string) => void;
@@ -60,11 +58,9 @@ export const Header: React.FC<HeaderProps> = ({
   onImpersonateRole,
   onStopImpersonation,
   pendingSyncCount,
-  onSync,
+  onOpenPendingSync,
   onToggleSidebar,
   unreadAlertsCount,
-  onOpenAlerts,
-  onOpenTvMode,
   municipalityName,
   onLogout,
   onNavigate,
@@ -118,7 +114,7 @@ export const Header: React.FC<HeaderProps> = ({
                 </span>
               </div>
               <p className="text-[11px] text-slate-400 leading-none truncate max-w-[180px] sm:max-w-[260px]">
-                {municipalityName} — 1º Ciclo 2026
+                {municipalityName}
               </p>
             </div>
           </div>
@@ -200,9 +196,9 @@ export const Header: React.FC<HeaderProps> = ({
             {/* Offline Pending Sync Badge */}
             {pendingSyncCount > 0 && (
               <button
-                onClick={onSync}
-                className="ml-2 flex items-center gap-1 px-2.5 py-1 rounded bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-semibold shadow transition animate-pulse"
-                title="Sincronizar visitas realizadas em modo offline"
+                onClick={onOpenPendingSync}
+                className="ml-2 flex items-center gap-1 px-2.5 py-1 rounded bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-semibold shadow transition"
+                title="Visitas guardadas no aparelho aguardando envio — abrir o PWA para sincronizar"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
                 <span>{pendingSyncCount} pendente{pendingSyncCount > 1 ? 's' : ''}</span>
@@ -210,20 +206,12 @@ export const Header: React.FC<HeaderProps> = ({
             )}
           </div>
 
-          {/* TV / Telão Operations Room */}
-          <button
-            onClick={onOpenTvMode}
-            className="p-2 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition"
-            title="Abrir Central de Operações em Modo TV (Telão)"
-          >
-            <Monitor className="w-4 h-4" />
-          </button>
-
           {/* Alerts Bell com Abertura de Drawer Lateral */}
           <button
             onClick={() => setDrawerOpen(true)}
             className="relative p-2 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition"
-            title="Central de Alertas em Tempo Real"
+            title="Central de Alertas"
+            aria-label={unreadAlertsCount > 0 ? `Alertas: ${unreadAlertsCount} não resolvidos` : 'Alertas'}
           >
             <Bell className="w-4 h-4" />
             {unreadAlertsCount > 0 && (

@@ -1,12 +1,11 @@
 import { supabase } from './supabaseClient';
 import { db } from './storage';
+import { MissingMunicipalityError } from './municipalityScope';
 
 export interface SystemSettingsCategory {
   category: string;
   settings: Record<string, any>;
 }
-
-export const DEFAULT_MUN_ID = '00000000-0000-0000-0000-000000000001';
 
 export const DEFAULT_SETTINGS: Record<string, Record<string, any>> = {
   GERAL: {
@@ -83,10 +82,11 @@ export const DEFAULT_SETTINGS: Record<string, Record<string, any>> = {
 export const systemSettingsService = {
   /**
    * Identifica o municipality_id efetivo:
-   * Prioridade: parâmetro fornecido > perfil da sessão autenticada > primeiro município ativo > DEFAULT_MUN_ID
+   * Prioridade: parâmetro fornecido > município do perfil da sessão autenticada.
+   * Sem nenhum dos dois, a operação é bloqueada (nunca usa outro município).
    */
   async getEffectiveMunicipalityId(providedId?: string): Promise<string> {
-    if (providedId && providedId !== DEFAULT_MUN_ID) {
+    if (providedId) {
       return providedId;
     }
     try {
@@ -103,21 +103,10 @@ export const systemSettingsService = {
         }
       }
 
-      const { data: mun } = await supabase
-        .from('municipalities')
-        .select('id')
-        .eq('active', true)
-        .order('created_at', { ascending: true })
-        .limit(1)
-        .maybeSingle();
-
-      if (mun?.id) {
-        return mun.id;
-      }
     } catch (e) {
       console.warn('[systemSettingsService] Erro ao resolver município efetivo:', e);
     }
-    return DEFAULT_MUN_ID;
+    throw new MissingMunicipalityError();
   },
 
   // Obter todas as configurações de uma categoria

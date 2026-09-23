@@ -19,8 +19,11 @@ import {
 import { situationRoomService, SituationRoomData } from '../../services/situationRoomService';
 import { supabaseService } from '../../services/supabaseService';
 import { Municipality, FieldCycle } from '../../types';
+import { useAuth, useMunicipalityId } from '../../contexts/AuthContext';
 
 export const ExecutiveDashboardView: React.FC = () => {
+  const { municipality: sessionMunicipality } = useAuth();
+  const municipalityId = useMunicipalityId();
   const [municipality, setMunicipality] = useState<Municipality | null>(null);
   const [cycle, setCycle] = useState<FieldCycle | null>(null);
   const [data, setData] = useState<SituationRoomData | null>(null);
@@ -29,8 +32,8 @@ export const ExecutiveDashboardView: React.FC = () => {
   const loadExecutiveData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const muni = await supabaseService.getMunicipality();
-      const muniId = muni?.id || '00000000-0000-0000-0000-000000000001';
+      const muni = sessionMunicipality;
+      const muniId = municipalityId;
       const activeCycle = await supabaseService.getActiveCycle(muniId);
 
       const sitData = await situationRoomService.getSituationData({

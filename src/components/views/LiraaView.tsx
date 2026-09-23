@@ -29,8 +29,10 @@ import {
   LiraaIndices,
 } from '../../services/liraaService';
 import { PageHeader } from '../ui';
+import { useMunicipalityId } from '../../contexts/AuthContext';
 
 export const LiraaView: React.FC = () => {
+  const municipalityId = useMunicipalityId();
   const [surveys, setSurveys] = useState<LiraaSurvey[]>([]);
   const [selectedSurveyId, setSelectedSurveyId] = useState<string>('');
   const [strata, setStrata] = useState<LiraaStratum[]>([]);
@@ -56,7 +58,7 @@ export const LiraaView: React.FC = () => {
 
   const loadSurveys = async () => {
     setLoading(true);
-    const list = await liraaService.getSurveys();
+    const list = await liraaService.getSurveys(municipalityId);
     setSurveys(list);
     if (list.length > 0) {
       setSelectedSurveyId(list[0].id);
@@ -86,7 +88,7 @@ export const LiraaView: React.FC = () => {
   const handleCreateSurvey = async (e: React.FormEvent) => {
     e.preventDefault();
     const created = await liraaService.createSurvey({
-      municipality_id: '00000000-0000-0000-0000-000000000001',
+      municipality_id: municipalityId,
       type: newSurveyType,
       name: newSurveyName,
       year: 2026,
@@ -102,7 +104,7 @@ export const LiraaView: React.FC = () => {
       // Criar estrato padrão inicial
       await liraaService.createStratum({
         survey_id: created.id,
-        municipality_id: '00000000-0000-0000-0000-000000000001',
+        municipality_id: municipalityId,
         name: 'Estrato 01 - Bairros Centrais e Adjacências',
         code: 'EST-01',
         population: 45000,
@@ -120,7 +122,7 @@ export const LiraaView: React.FC = () => {
   const handleGenerateSampling = async () => {
     if (!selectedSurveyId || strata.length === 0) return;
     const stratId = strata[0].id;
-    const res = await liraaService.generateSample(selectedSurveyId, stratId, 250);
+    const res = await liraaService.generateSample(selectedSurveyId, stratId, 250, municipalityId);
     alert(res.message);
     loadSurveyDetails(selectedSurveyId);
   };
@@ -145,7 +147,7 @@ export const LiraaView: React.FC = () => {
 
   const handleReplace = async (sample: LiraaSample) => {
     if (confirm(`Substituir a amostra do imóvel ${sample.property?.street}, ${sample.property?.number}? Um novo imóvel será sorteado no mesmo estrato.`)) {
-      const ok = await liraaService.replaceSample(sample.id, sample.survey_id, sample.stratum_id);
+      const ok = await liraaService.replaceSample(sample.id, sample.survey_id, sample.stratum_id, municipalityId);
       if (ok) {
         alert('Amostra substituída com sucesso!');
         loadSurveyDetails(selectedSurveyId);
@@ -158,7 +160,7 @@ export const LiraaView: React.FC = () => {
   const handleFinalizeSurvey = async () => {
     if (!selectedSurveyId) return;
     if (confirm('Deseja consolidar e finalizar este levantamento? As vistorias serão congeladas e registradas na auditoria.')) {
-      const res = await liraaService.finalizeSurvey(selectedSurveyId);
+      const res = await liraaService.finalizeSurvey(selectedSurveyId, municipalityId);
       alert(res.message);
       if (res.success) {
         loadSurveys();

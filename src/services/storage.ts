@@ -22,25 +22,6 @@ import {
   Team,
 } from '../types';
 
-import {
-  initialMunicipality,
-  initialUsers,
-  initialCycle,
-  initialNeighborhoods,
-  initialProperties,
-  initialOvitraps,
-  initialStrategicPoints,
-  initialSpecialProperties,
-  initialEpidemiologicalEvents,
-  initialEpidemiologicalBlocks,
-  initialComplaints,
-  initialSupplies,
-  initialEquipments,
-  initialTasks,
-  initialAlerts,
-  initialReferrals,
-  initialAuditLogs,
-} from './seedData';
 import { supabaseService } from './supabaseService';
 import { supabase } from './supabaseClient';
 
@@ -83,6 +64,31 @@ const STORAGE_KEYS = {
   AUDIT_LOGS: 'endemias_gov_audit_logs',
 };
 
+const STORAGE_SCHEMA_VERSION_KEY = 'endemias_gov_storage_version';
+const STORAGE_SCHEMA_VERSION = '2';
+
+/** Chaves que recebiam dados de exemplo em versões anteriores. */
+const SEEDED_KEYS = [
+  STORAGE_KEYS.MUNICIPALITY,
+  STORAGE_KEYS.USERS,
+  STORAGE_KEYS.CYCLE,
+  STORAGE_KEYS.NEIGHBORHOODS,
+  STORAGE_KEYS.PROPERTIES,
+  STORAGE_KEYS.OVITRAPS,
+  STORAGE_KEYS.STRATEGIC_POINTS,
+  STORAGE_KEYS.SPECIAL_PROPERTIES,
+  STORAGE_KEYS.EPIDEMIOLOGY_EVENTS,
+  STORAGE_KEYS.EPIDEMIOLOGY_BLOCKS,
+  STORAGE_KEYS.COMPLAINTS,
+  STORAGE_KEYS.TEAMS,
+  STORAGE_KEYS.SUPPLIES,
+  STORAGE_KEYS.EQUIPMENTS,
+  STORAGE_KEYS.TASKS,
+  STORAGE_KEYS.ALERTS,
+  STORAGE_KEYS.REFERRALS,
+  STORAGE_KEYS.AUDIT_LOGS,
+];
+
 function getFromStorage<T>(key: string, fallback: T): T {
   try {
     const item = localStorage.getItem(key);
@@ -101,109 +107,62 @@ function saveToStorage<T>(key: string, data: T): void {
 }
 
 class EndemiasStorageService {
-  // Initialize defaults if empty
+  /**
+   * Inicialização do armazenamento local.
+   *
+   * Versões anteriores semeavam dados de EXEMPLO (bairros, imóveis, denúncias,
+   * alertas, usuários, logs...) que eram exibidos como se fossem reais quando o
+   * banco estava vazio. Agora nada é semeado: o cache local só recebe dados do
+   * Supabase (hidratação com o município da sessão). Na primeira execução desta
+   * versão, os exemplos gravados anteriormente são removidos. A fila offline de
+   * visitas NÃO é tocada.
+   */
   init() {
-    if (!localStorage.getItem(STORAGE_KEYS.MUNICIPALITY)) {
-      saveToStorage(STORAGE_KEYS.MUNICIPALITY, initialMunicipality);
-    }
-    // A hidratação a partir do Supabase agora só ocorre COM sessão autenticada
-    // (disparada pelo AuthContext via db.hydrateFromSupabase()).
-
-    if (!localStorage.getItem(STORAGE_KEYS.USERS)) {
-      saveToStorage(STORAGE_KEYS.USERS, initialUsers);
-    }
-    // NÃO semeia mais um usuário-padrão privilegiado. Sem sessão => stub anônimo.
-    if (!localStorage.getItem(STORAGE_KEYS.CYCLE)) {
-      saveToStorage(STORAGE_KEYS.CYCLE, initialCycle);
-    }
-    if (!localStorage.getItem(STORAGE_KEYS.NEIGHBORHOODS)) {
-      saveToStorage(STORAGE_KEYS.NEIGHBORHOODS, initialNeighborhoods);
-    }
-    if (!localStorage.getItem(STORAGE_KEYS.PROPERTIES)) {
-      saveToStorage(STORAGE_KEYS.PROPERTIES, initialProperties);
-    }
-    if (!localStorage.getItem(STORAGE_KEYS.OVITRAPS)) {
-      saveToStorage(STORAGE_KEYS.OVITRAPS, initialOvitraps);
-    }
-    if (!localStorage.getItem(STORAGE_KEYS.STRATEGIC_POINTS)) {
-      saveToStorage(STORAGE_KEYS.STRATEGIC_POINTS, initialStrategicPoints);
-    }
-    if (!localStorage.getItem(STORAGE_KEYS.SPECIAL_PROPERTIES)) {
-      saveToStorage(STORAGE_KEYS.SPECIAL_PROPERTIES, initialSpecialProperties);
-    }
-    if (!localStorage.getItem(STORAGE_KEYS.EPIDEMIOLOGY_EVENTS)) {
-      saveToStorage(STORAGE_KEYS.EPIDEMIOLOGY_EVENTS, initialEpidemiologicalEvents);
-    }
-    if (!localStorage.getItem(STORAGE_KEYS.EPIDEMIOLOGY_BLOCKS)) {
-      saveToStorage(STORAGE_KEYS.EPIDEMIOLOGY_BLOCKS, initialEpidemiologicalBlocks);
-    }
-    if (!localStorage.getItem(STORAGE_KEYS.COMPLAINTS)) {
-      saveToStorage(STORAGE_KEYS.COMPLAINTS, initialComplaints);
-    }
-    if (!localStorage.getItem(STORAGE_KEYS.SUPPLIES)) {
-      saveToStorage(STORAGE_KEYS.SUPPLIES, initialSupplies);
-    }
-    if (!localStorage.getItem(STORAGE_KEYS.EQUIPMENTS)) {
-      saveToStorage(STORAGE_KEYS.EQUIPMENTS, initialEquipments);
-    }
-    if (!localStorage.getItem(STORAGE_KEYS.TASKS)) {
-      saveToStorage(STORAGE_KEYS.TASKS, initialTasks);
-    }
-    if (!localStorage.getItem(STORAGE_KEYS.ALERTS)) {
-      saveToStorage(STORAGE_KEYS.ALERTS, initialAlerts);
-    }
-    if (!localStorage.getItem(STORAGE_KEYS.REFERRALS)) {
-      saveToStorage(STORAGE_KEYS.REFERRALS, initialReferrals);
-    }
-    if (!localStorage.getItem(STORAGE_KEYS.AUDIT_LOGS)) {
-      saveToStorage(STORAGE_KEYS.AUDIT_LOGS, initialAuditLogs);
-    }
-    if (!localStorage.getItem(STORAGE_KEYS.VISITS)) {
-      saveToStorage(STORAGE_KEYS.VISITS, []);
-    }
-    if (!localStorage.getItem(STORAGE_KEYS.OFFLINE_QUEUE)) {
-      saveToStorage(STORAGE_KEYS.OFFLINE_QUEUE, []);
+    try {
+      if (localStorage.getItem(STORAGE_SCHEMA_VERSION_KEY) !== STORAGE_SCHEMA_VERSION) {
+        for (const key of SEEDED_KEYS) localStorage.removeItem(key);
+        localStorage.setItem(STORAGE_SCHEMA_VERSION_KEY, STORAGE_SCHEMA_VERSION);
+      }
+    } catch {
+      /* armazenamento indisponível */
     }
   }
 
-  // Hidratação progressiva assíncrona que puxa dados reais do Supabase/PostgreSQL.
-  // Só executa quando há uma sessão Supabase Auth ativa (RLS aplica o município).
-  async hydrateFromSupabase(): Promise<void> {
+
+  /**
+   * Hidrata o cache local com dados reais do município da SESSÃO (nunca "o
+   * primeiro município ativo"). Listas vazias também são gravadas, para que a
+   * interface mostre "sem dados" em vez de restos de outra sessão.
+   */
+  async hydrateFromSupabase(municipality: Municipality): Promise<void> {
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) return;
+      if (!session?.user || !municipality?.id) return;
 
-      // 1. Município Real
-      const mun = await supabaseService.getMunicipality();
-      if (mun) {
-        saveToStorage(STORAGE_KEYS.MUNICIPALITY, mun);
+      saveToStorage(STORAGE_KEYS.MUNICIPALITY, municipality);
 
-        // 2. Bairros Reais
-        const neighborhoods = await supabaseService.getNeighborhoods(mun.id);
-        if (neighborhoods && neighborhoods.length > 0) {
-          saveToStorage(STORAGE_KEYS.NEIGHBORHOODS, neighborhoods);
-        }
+      const [neighborhoods, cycle, complaints, alerts] = await Promise.all([
+        supabaseService.getNeighborhoods(municipality.id),
+        supabaseService.getActiveCycle(municipality.id),
+        supabaseService.getComplaints(municipality.id),
+        supabaseService.getAlerts(municipality.id),
+      ]);
 
-        // 3. Ciclo Ativo Real
-        const cycle = await supabaseService.getActiveCycle(mun.id);
-        if (cycle) {
-          saveToStorage(STORAGE_KEYS.CYCLE, cycle);
-        }
-
-        // 4. Denúncias Reais
-        const complaints = await supabaseService.getComplaints(mun.id);
-        if (complaints && complaints.length > 0) {
-          saveToStorage(STORAGE_KEYS.COMPLAINTS, complaints);
-        }
-
-        // 5. Alertas Reais
-        const alerts = await supabaseService.getAlerts(mun.id);
-        if (alerts && alerts.length > 0) {
-          saveToStorage(STORAGE_KEYS.ALERTS, alerts);
-        }
-      }
+      saveToStorage(STORAGE_KEYS.NEIGHBORHOODS, neighborhoods || []);
+      saveToStorage(STORAGE_KEYS.CYCLE, cycle || null);
+      saveToStorage(STORAGE_KEYS.COMPLAINTS, complaints || []);
+      saveToStorage(STORAGE_KEYS.ALERTS, alerts || []);
     } catch {
-      // Falha silenciosa para manter offline-first resiliente
+      // Falha de rede: mantém o cache anterior (uso offline)
+    }
+  }
+
+  /** Remove o cache de dados municipais (logout / troca de sessão). */
+  clearMunicipalCache(): void {
+    try {
+      for (const key of SEEDED_KEYS) localStorage.removeItem(key);
+    } catch {
+      /* armazenamento indisponível */
     }
   }
 
@@ -237,7 +196,7 @@ class EndemiasStorageService {
   }
 
   getUsers(): User[] {
-    return getFromStorage<User[]>(STORAGE_KEYS.USERS, initialUsers);
+    return getFromStorage<User[]>(STORAGE_KEYS.USERS, []);
   }
 
   addUser(user: Omit<User, 'id' | 'createdAt'>): User {
@@ -260,8 +219,8 @@ class EndemiasStorageService {
   }
 
   // --- MUNICIPALITY ---
-  getMunicipality(): Municipality {
-    return getFromStorage<Municipality>(STORAGE_KEYS.MUNICIPALITY, initialMunicipality);
+  getMunicipality(): Municipality | null {
+    return getFromStorage<Municipality | null>(STORAGE_KEYS.MUNICIPALITY, null);
   }
 
   saveMunicipality(updates: Partial<Municipality>): void {
@@ -283,53 +242,7 @@ class EndemiasStorageService {
 
   // --- TEAMS ---
   getTeams(): Team[] {
-    const defaultTeams: Team[] = [
-      {
-        id: 'equipe-01',
-        name: 'Equipe 01 - Centro / Vila Nova',
-        municipalityId: '00000000-0000-0000-0000-000000000001',
-        supervisorId: 'usr-002',
-        supervisorName: 'Roberto Silveira',
-        assignedZone: 'URBANA',
-        assignedNeighborhoods: ['Centro', 'Vila Nova'],
-        membersCount: 8,
-        status: 'EM_CAMPO',
-      },
-      {
-        id: 'equipe-02',
-        name: 'Equipe 02 - Arroio Grande',
-        municipalityId: '00000000-0000-0000-0000-000000000001',
-        supervisorId: 'usr-002',
-        supervisorName: 'Roberto Silveira',
-        assignedZone: 'URBANA',
-        assignedNeighborhoods: ['Arroio Grande'],
-        membersCount: 7,
-        status: 'EM_CAMPO',
-      },
-      {
-        id: 'equipe-03',
-        name: 'Equipe 03 - Avenida / Santo Inácio',
-        municipalityId: '00000000-0000-0000-0000-000000000001',
-        supervisorId: 'usr-002',
-        supervisorName: 'Roberto Silveira',
-        assignedZone: 'URBANA',
-        assignedNeighborhoods: ['Avenida'],
-        membersCount: 6,
-        status: 'BASE',
-      },
-      {
-        id: 'equipe-04',
-        name: 'Equipe 04 - Zona Rural / Linha Santa Cruz',
-        municipalityId: '00000000-0000-0000-0000-000000000001',
-        supervisorId: 'usr-002',
-        supervisorName: 'Roberto Silveira',
-        assignedZone: 'RURAL',
-        assignedNeighborhoods: ['Linha Santa Cruz'],
-        membersCount: 5,
-        status: 'DESLOCAMENTO',
-      },
-    ];
-    return getFromStorage<Team[]>(STORAGE_KEYS.TEAMS, defaultTeams);
+    return getFromStorage<Team[]>(STORAGE_KEYS.TEAMS, []);
   }
 
   addTeam(teamData: Omit<Team, 'id'>): Team {
@@ -345,13 +258,13 @@ class EndemiasStorageService {
   }
 
   // --- CYCLE ---
-  getCycle(): FieldCycle {
-    return getFromStorage<FieldCycle>(STORAGE_KEYS.CYCLE, initialCycle);
+  getCycle(): FieldCycle | null {
+    return getFromStorage<FieldCycle | null>(STORAGE_KEYS.CYCLE, null);
   }
 
   // --- NEIGHBORHOODS & TERRITORY ---
   getNeighborhoods(): Neighborhood[] {
-    return getFromStorage<Neighborhood[]>(STORAGE_KEYS.NEIGHBORHOODS, initialNeighborhoods);
+    return getFromStorage<Neighborhood[]>(STORAGE_KEYS.NEIGHBORHOODS, []);
   }
 
   addNeighborhood(neighborhood: Omit<Neighborhood, 'id'>): Neighborhood {
@@ -368,7 +281,7 @@ class EndemiasStorageService {
 
   // --- PROPERTIES ---
   getProperties(): Property[] {
-    return getFromStorage<Property[]>(STORAGE_KEYS.PROPERTIES, initialProperties);
+    return getFromStorage<Property[]>(STORAGE_KEYS.PROPERTIES, []);
   }
 
   getPropertyById(id: string): Property | undefined {
@@ -510,7 +423,7 @@ class EndemiasStorageService {
 
   // --- OVITRAMPAS ---
   getOvitraps(): Ovitrap[] {
-    return getFromStorage<Ovitrap[]>(STORAGE_KEYS.OVITRAPS, initialOvitraps);
+    return getFromStorage<Ovitrap[]>(STORAGE_KEYS.OVITRAPS, []);
   }
 
   addOvitrapCollection(ovitrapId: string, eggCount: number, observations?: string): void {
@@ -553,21 +466,21 @@ class EndemiasStorageService {
 
   // --- STRATEGIC POINTS ---
   getStrategicPoints(): StrategicPoint[] {
-    return getFromStorage<StrategicPoint[]>(STORAGE_KEYS.STRATEGIC_POINTS, initialStrategicPoints);
+    return getFromStorage<StrategicPoint[]>(STORAGE_KEYS.STRATEGIC_POINTS, []);
   }
 
   // --- SPECIAL PROPERTIES ---
   getSpecialProperties(): SpecialProperty[] {
-    return getFromStorage<SpecialProperty[]>(STORAGE_KEYS.SPECIAL_PROPERTIES, initialSpecialProperties);
+    return getFromStorage<SpecialProperty[]>(STORAGE_KEYS.SPECIAL_PROPERTIES, []);
   }
 
   // --- EPIDEMIOLOGY & BLOCKS ---
   getEpidemiologyEvents(): EpidemiologicalEvent[] {
-    return getFromStorage<EpidemiologicalEvent[]>(STORAGE_KEYS.EPIDEMIOLOGY_EVENTS, initialEpidemiologicalEvents);
+    return getFromStorage<EpidemiologicalEvent[]>(STORAGE_KEYS.EPIDEMIOLOGY_EVENTS, []);
   }
 
   getEpidemiologyBlocks(): EpidemiologicalBlock[] {
-    return getFromStorage<EpidemiologicalBlock[]>(STORAGE_KEYS.EPIDEMIOLOGY_BLOCKS, initialEpidemiologicalBlocks);
+    return getFromStorage<EpidemiologicalBlock[]>(STORAGE_KEYS.EPIDEMIOLOGY_BLOCKS, []);
   }
 
   createBlockOperation(blockData: Omit<EpidemiologicalBlock, 'id' | 'code' | 'propertiesVisited' | 'propertiesClosed' | 'propertiesPending' | 'fociFound' | 'coveragePercentage' | 'status'>): EpidemiologicalBlock {
@@ -592,7 +505,7 @@ class EndemiasStorageService {
 
   // --- CITIZEN COMPLAINTS ---
   getComplaints(): CitizenComplaint[] {
-    return getFromStorage<CitizenComplaint[]>(STORAGE_KEYS.COMPLAINTS, initialComplaints);
+    return getFromStorage<CitizenComplaint[]>(STORAGE_KEYS.COMPLAINTS, []);
   }
 
   addComplaint(complaintData: Omit<CitizenComplaint, 'id' | 'protocol' | 'createdAt' | 'status'>): CitizenComplaint {
@@ -640,7 +553,7 @@ class EndemiasStorageService {
 
   // --- SUPPLIES & INVENTORY ---
   getSupplies(): SupplyItem[] {
-    return getFromStorage<SupplyItem[]>(STORAGE_KEYS.SUPPLIES, initialSupplies);
+    return getFromStorage<SupplyItem[]>(STORAGE_KEYS.SUPPLIES, []);
   }
 
   recordSupplyOutput(supplyId: string, quantity: number, recipientName: string): void {
@@ -661,12 +574,12 @@ class EndemiasStorageService {
 
   // --- EQUIPMENTS ---
   getEquipments(): Equipment[] {
-    return getFromStorage<Equipment[]>(STORAGE_KEYS.EQUIPMENTS, initialEquipments);
+    return getFromStorage<Equipment[]>(STORAGE_KEYS.EQUIPMENTS, []);
   }
 
   // --- PLANNING TASKS ---
   getTasks(): PlanningTask[] {
-    return getFromStorage<PlanningTask[]>(STORAGE_KEYS.TASKS, initialTasks);
+    return getFromStorage<PlanningTask[]>(STORAGE_KEYS.TASKS, []);
   }
 
   addTask(taskData: Omit<PlanningTask, 'id' | 'status'>): PlanningTask {
@@ -689,7 +602,7 @@ class EndemiasStorageService {
 
   // --- ALERTS ---
   getAlerts(): Alert[] {
-    return getFromStorage<Alert[]>(STORAGE_KEYS.ALERTS, initialAlerts);
+    return getFromStorage<Alert[]>(STORAGE_KEYS.ALERTS, []);
   }
 
   resolveAlert(id: string, actionTaken: string): void {
@@ -710,7 +623,7 @@ class EndemiasStorageService {
 
   // --- REFERRALS (ENCAMINHAMENTOS) ---
   getReferrals(): IntersectoralReferral[] {
-    return getFromStorage<IntersectoralReferral[]>(STORAGE_KEYS.REFERRALS, initialReferrals);
+    return getFromStorage<IntersectoralReferral[]>(STORAGE_KEYS.REFERRALS, []);
   }
 
   createReferral(data: Omit<IntersectoralReferral, 'id' | 'protocol' | 'createdAt' | 'status'>): IntersectoralReferral {
@@ -732,7 +645,7 @@ class EndemiasStorageService {
 
   // --- AUDIT LOGS ---
   getAuditLogs(): AuditLog[] {
-    return getFromStorage<AuditLog[]>(STORAGE_KEYS.AUDIT_LOGS, initialAuditLogs);
+    return getFromStorage<AuditLog[]>(STORAGE_KEYS.AUDIT_LOGS, []);
   }
 
   addAuditLog(operation: AuditLog['operation'], module: string, recordIdentifier: string, newValue?: string, previousValue?: string): void {
@@ -885,9 +798,9 @@ class EndemiasStorageService {
         agentId: agent.id,
         agentName: agent.name,
         teamName: 'Equipe Norte 01',
-        totalVisits: visitsCount || 142,
+        totalVisits: visitsCount,
         coveragePercentage: coverage,
-        pendingReturns: pendingReturns || 18,
+        pendingReturns,
         fociFound: fociFound || 6,
         blocksAssigned: agentBlocks.length || 1,
         complaintsAssigned: agentComplaints.length,

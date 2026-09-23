@@ -24,22 +24,25 @@ import {
   SupervisorDashboardData,
   FieldSupervision,
 } from '../../services/supervisorService';
+import { useAuth } from '../../contexts/AuthContext';
+import { alertsService, AlertNotificationItem } from '../../services/alertsService';
 
 interface SupervisorMobileViewProps {
   municipalityId?: string;
 }
 
 export const SupervisorMobileView: React.FC<SupervisorMobileViewProps> = ({ municipalityId }) => {
+  const { user: sessionUser } = useAuth();
   const [activeTab, setActiveTab] = useState<'home' | 'equipe' | 'planejamento' | 'mapa' | 'supervisao'>('home');
   const [dashboard, setDashboard] = useState<SupervisorDashboardData>({
-    agentsInField: 0,
-    agentsOffline: 0,
-    visitsToday: 0,
-    pendingReturns: 0,
-    openOrdersCount: 0,
-    criticalAreasCount: 0,
-    criticalAlertsCount: 0,
+    agentsInField: null,
+    agentsWithoutVisitToday: null,
+    visitsToday: null,
+    pendingReturns: null,
+    openOrdersCount: null,
+    criticalAlertsCount: null,
   });
+  const fmt = (v: number | null) => (v === null ? '—' : v);
   const [agents, setAgents] = useState<SupervisorAgentSummary[]>([]);
   const [supervisions, setSupervisions] = useState<FieldSupervision[]>([]);
   const [loading, setLoading] = useState(true);
@@ -52,16 +55,19 @@ export const SupervisorMobileView: React.FC<SupervisorMobileViewProps> = ({ muni
 
   // Mensagem de feedback
   const [feedbackMsg, setFeedbackMsg] = useState('');
+  const [openAlerts, setOpenAlerts] = useState<AlertNotificationItem[]>([]);
 
   const loadData = async () => {
     setLoading(true);
     try {
-      const [dashData, agentsList, supList] = await Promise.all([
+      const [dashData, agentsList, supList, alertList] = await Promise.all([
         supervisorService.getSupervisorDashboard(municipalityId),
         supervisorService.getTeamAgents(municipalityId),
         supervisorService.getSupervisions(municipalityId),
+        alertsService.getAlerts(municipalityId),
       ]);
       setDashboard(dashData);
+      setOpenAlerts(alertList.filter((a) => !a.acknowledged).slice(0, 3));
       setAgents(agentsList);
       setSupervisions(supList);
       if (agentsList.length > 0) {
@@ -80,11 +86,11 @@ export const SupervisorMobileView: React.FC<SupervisorMobileViewProps> = ({ muni
 
   const handleSaveSupervision = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedAgentId) return;
+    if (!selectedAgentId || !sessionUser?.id) return;
 
     const res = await supervisorService.registerSupervision({
       municipalityId,
-      supervisorId: '00000000-0000-0000-0000-000000000001', // Fallback profile
+      supervisorId: sessionUser.id, // perfil do supervisor autenticado
       agentId: selectedAgentId,
       activityType: supervisionActivity,
       result: supervisionResult,
@@ -122,15 +128,15 @@ export const SupervisorMobileView: React.FC<SupervisorMobileViewProps> = ({ muni
         {/* Mini status bar */}
         <div className="grid grid-cols-3 gap-2 mt-4 pt-3 border-t border-white/10 text-center">
           <div>
-            <span className="text-base font-extrabold">{dashboard.agentsInField}</span>
+            <span className="text-base font-extrabold">{fmt(dashboard.agentsInField)}</span>
             <p className="text-[10px] text-teal-200">ACE em Campo</p>
           </div>
           <div>
-            <span className="text-base font-extrabold">{dashboard.visitsToday}</span>
+            <span className="text-base font-extrabold">{fmt(dashboard.visitsToday)}</span>
             <p className="text-[10px] text-teal-200">Visitas Hoje</p>
           </div>
           <div>
-            <span className="text-base font-extrabold text-amber-300">{dashboard.pendingReturns}</span>
+            <span className="text-base font-extrabold text-amber-300">{fmt(dashboard.pendingReturns)}</span>
             <p className="text-[10px] text-teal-200">Pendências</p>
           </div>
         </div>
@@ -178,44 +184,45 @@ export const SupervisorMobileView: React.FC<SupervisorMobileViewProps> = ({ muni
             <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs">
               <span className="text-xs text-slate-500">Ordens de Serviço</span>
               <div className="text-2xl font-bold text-slate-900 dark:text-white mt-1">
-                {dashboard.openOrdersCount}
+                {fmt(dashboard.openOrdersCount)}
               </div>
-              <p className="text-[10px] text-blue-600 mt-1 font-semibold">Atribuídas à equipe</p>
+              <p className="text-[10px] text-blue-600 mt-1 font-semibold">Abertas no município</p>
             </div>
 
             <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs">
-              <span className="text-xs text-slate-500">Áreas Críticas</span>
+              <span className="text-xs text-slate-500">Alertas Críticos</span>
               <div className="text-2xl font-bold text-rose-600 mt-1">
-                {dashboard.criticalAreasCount}
+                {fmt(dashboard.criticalAlertsCount)}
               </div>
-              <p className="text-[10px] text-rose-500 mt-1 font-semibold">Setores sob alerta</p>
+              <p className="text-[10px] text-rose-500 mt-1 font-semibold">Sem ciência registrada</p>
             </div>
           </div>
 
           <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs space-y-3">
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
-              Alertas Prioritários da Região
+              Alertas pendentes de ciência
             </h3>
             <div className="space-y-2">
-              <div className="p-3 rounded-lg bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 text-xs">
-                <div className="flex items-center gap-1.5 font-bold text-rose-900 dark:text-rose-200">
-                  <Flame className="w-4 h-4 text-rose-600" />
-                  Caso Suspeito de Dengue no Setor 04
-                </div>
-                <p className="text-slate-600 dark:text-slate-400 mt-1">
-                  Bloqueio perifocal pendente de confirmação pelo ACE Carlos Alberto.
-                </p>
-              </div>
-
-              <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-xs">
-                <div className="flex items-center gap-1.5 font-bold text-amber-900 dark:text-amber-200">
-                  <AlertTriangle className="w-4 h-4 text-amber-600" />
-                  Ponto Estratégico Vencido (Borracharia Central)
-                </div>
-                <p className="text-slate-600 dark:text-slate-400 mt-1">
-                  Prazo quinzenal expirou há 4 dias. Redistribuir ordem para a tarde.
-                </p>
-              </div>
+              {openAlerts.length === 0 ? (
+                <p className="text-xs text-slate-500">Sem alertas pendentes de ciência no município.</p>
+              ) : (
+                openAlerts.map((al) => (
+                  <div
+                    key={al.id}
+                    className={`p-3 rounded-lg border text-xs ${
+                      al.severity === 'CRITICO'
+                        ? 'bg-rose-50 dark:bg-rose-950/30 border-rose-200 dark:border-rose-800'
+                        : 'bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800'
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5 font-bold text-slate-900 dark:text-slate-100">
+                      {al.severity === 'CRITICO' ? <Flame className="w-4 h-4 text-rose-600" /> : <AlertTriangle className="w-4 h-4 text-amber-600" />}
+                      {al.title}
+                    </div>
+                    {al.description && <p className="text-slate-600 dark:text-slate-400 mt-1">{al.description}</p>}
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>
@@ -245,7 +252,7 @@ export const SupervisorMobileView: React.FC<SupervisorMobileViewProps> = ({ muni
                         {ag.registrationNumber}
                       </span>
                     </div>
-                    <p className="text-xs text-slate-500 mt-0.5">{ag.currentActivity}</p>
+
                   </div>
 
                   <span
@@ -255,7 +262,7 @@ export const SupervisorMobileView: React.FC<SupervisorMobileViewProps> = ({ muni
                         : 'bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-300'
                     }`}
                   >
-                    {ag.status === 'em_campo' ? 'Em Campo' : 'Offline'}
+                    {ag.status === 'em_campo' ? 'Com visitas hoje' : 'Sem visitas hoje'}
                   </span>
                 </div>
 
@@ -269,8 +276,10 @@ export const SupervisorMobileView: React.FC<SupervisorMobileViewProps> = ({ muni
                     <p className="text-[10px] text-slate-400">Pendências</p>
                   </div>
                   <div>
-                    <span className="font-semibold text-slate-600 dark:text-slate-300 text-[11px]">{ag.lastSync}</span>
-                    <p className="text-[10px] text-slate-400">Última Sinc.</p>
+                    <span className="font-semibold text-slate-600 dark:text-slate-300 text-[11px]">
+                      {ag.lastVisitAt ? new Date(ag.lastVisitAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '—'}
+                    </span>
+                    <p className="text-[10px] text-slate-400">Última visita</p>
                   </div>
                 </div>
 

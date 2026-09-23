@@ -115,7 +115,7 @@ export const commandCenterService = {
         
         totalFoci += foci;
         totalVisited += nVisits.filter(v => v.status === 'realizada').length;
-        totalProps += n.total_properties || 100;
+        totalProps += n.total_properties || 0;
 
         return {
           id: n.id,
@@ -209,9 +209,9 @@ export const commandCenterService = {
         municipalityName,
         currentCycle: 'Ciclo 05 / 2026 (Bimestral)',
         stats: {
-          coveragePercent: coveragePercent || 78,
-          activeAcesToday: activeAces || 14,
-          visitsToday: visitsCountToday || 248,
+          coveragePercent,
+          activeAcesToday: activeAces,
+          visitsToday: visitsCountToday,
           criticalAlertsCount: criticalCount || 2,
           activeBlocks: activeBlocks || 3,
           overduePeCount: overduePe.length,

@@ -48,7 +48,6 @@ export interface PendencyIndicators {
   criticalPendingCount: number; // Imóveis com >= 3 tentativas
 }
 
-const DEFAULT_MUN_ID = '00000000-0000-0000-0000-000000000001';
 
 export const pendencyManagementService = {
   // 1. Obter Indicadores Reais de Pendências

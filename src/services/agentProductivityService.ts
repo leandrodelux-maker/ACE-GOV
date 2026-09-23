@@ -1,12 +1,19 @@
 import { supabase } from './supabaseClient';
-import { db } from './storage';
+import { requireMunicipalityId } from './municipalityScope';
+import { supabaseService } from './supabaseService';
+
+/**
+ * Produtividade dos ACE calculada exclusivamente a partir dos registros do
+ * município (agents, teams, visits, visit_deposits, pending_visits).
+ * Período: ciclo de campo em andamento; sem ciclo, últimos 30 dias.
+ */
 
 export interface AgentProductivityMetric {
   agentId: string;
   agentName: string;
   agentCode: string;
+  teamId: string | null;
   teamName: string;
-  assignedArea: string;
   totalVisits: number;
   workedProperties: number;
   closedProperties: number;
@@ -14,122 +21,117 @@ export interface AgentProductivityMetric {
   pendingReturns: number;
   fociFound: number;
   fociEliminated: number;
-  strategicPointsInspected: number;
-  ovitrapsHandled: number;
-  complaintsVisited: number;
-  coveragePercentage: number;
-  dailyAverage: number;
   workDays: number;
-  territoryPendingCount: number;
-  workloadStatus: 'REGULAR' | 'SOBRECARREGADO' | 'COM_PENDENCIAS';
+  /** null quando o agente não tem dias com visita no período */
+  dailyAverage: number | null;
+  workloadStatus: 'REGULAR' | 'COM_PENDENCIAS' | 'SEM_VISITAS';
 }
 
 export interface TeamProductivityMetric {
   teamId: string;
   teamName: string;
-  supervisorName: string;
+  supervisorName: string | null;
   agentsCount: number;
   totalVisits: number;
   workedProperties: number;
   pendingCount: number;
   fociCount: number;
-  coveragePercentage: number;
 }
 
-const DEFAULT_MUN_ID = '00000000-0000-0000-0000-000000000001';
+export interface ProductivityReport {
+  agents: AgentProductivityMetric[];
+  teams: TeamProductivityMetric[];
+  periodLabel: string;
+  error?: string;
+}
+
+const norm = (v: unknown) => String(v ?? '').toUpperCase();
 
 export const agentProductivityService = {
-  // 1. Obter produtividade individual dos agentes
-  async getAgentMetrics(municipalityId = DEFAULT_MUN_ID): Promise<AgentProductivityMetric[]> {
-    try {
-      const [visitsRes, propsRes, pendingRes] = await Promise.all([
-        supabase.from('visits').select('*').eq('municipality_id', municipalityId),
-        supabase.from('properties').select('id, neighborhood_id, status').eq('municipality_id', municipalityId),
-        supabase.from('pending_visits').select('*').eq('status', 'ABERTA'),
-      ]);
+  async getProductivity(municipalityId: string): Promise<ProductivityReport> {
+    const munId = requireMunicipalityId(municipalityId);
+    const cycle = await supabaseService.getActiveCycle(munId);
+    const since = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0];
+    const periodLabel = cycle ? `Ciclo em andamento: ${cycle.name}` : 'Últimos 30 dias (nenhum ciclo em andamento)';
 
-      const visits = visitsRes.data || [];
-      const properties = propsRes.data || [];
-      const pendingList = pendingRes.data || [];
+    let visitsQuery = supabase
+      .from('visits')
+      .select('agent_id, result, visit_date, visit_deposits(positive, eliminated, treated)')
+      .eq('municipality_id', munId)
+      .is('deleted_at', null);
+    visitsQuery = cycle ? visitsQuery.eq('cycle_id', cycle.id) : visitsQuery.gte('visit_date', since);
 
-      // Mapeamento fixo inicial de agentes operacionais municipais
-      const agentsBase = [
-        { id: 'ace-01', name: 'Carlos Eduardo Oliveira', code: 'ACE-104', team: 'Equipe Alpha (Norte)', area: 'Vila Nova / Setor 01' },
-        { id: 'ace-02', name: 'Mariana Souza Santos', code: 'ACE-108', team: 'Equipe Alpha (Norte)', area: 'Centro / Setor 02' },
-        { id: 'ace-03', name: 'Lucas Ferreira Lima', code: 'ACE-112', team: 'Equipe Beta (Sul)', area: 'Universitário / Setor 03' },
-        { id: 'ace-04', name: 'Juliana Mendes Rocha', code: 'ACE-115', team: 'Equipe Beta (Sul)', area: 'Arroio Grande / Setor 04' },
-      ];
+    const [agentsRes, teamsRes, visitsRes, pendingRes] = await Promise.all([
+      supabase
+        .from('agents')
+        .select('id, employee_number, team_id, profiles(full_name)')
+        .eq('municipality_id', munId)
+        .eq('active', true),
+      supabase.from('teams').select('id, name, supervisor:profiles(full_name)').eq('municipality_id', munId),
+      visitsQuery,
+      supabase
+        .from('pending_visits')
+        .select('assigned_agent_id, responsible_agent_id, status, properties!inner(municipality_id)')
+        .eq('properties.municipality_id', munId)
+        .in('status', ['PENDENTE', 'ABERTA']),
+    ]);
 
-      return agentsBase.map((agent, index) => {
-        // Distribuir visitas reais ou calcular métricas proporcionais da base
-        const totalVisits = visits.length > 0 ? Math.max(1, Math.round(visits.length / (index + 1))) : 28 + index * 4;
-        const workedProperties = Math.round(totalVisits * 0.85);
-        const closedProperties = Math.round(totalVisits * 0.10);
-        const refusedProperties = Math.max(0, totalVisits - workedProperties - closedProperties);
-        const fociFound = index === 0 ? 3 : index === 1 ? 1 : 0;
-        const fociEliminated = fociFound;
-        const pendingCount = (pendingList.length > 0 ? Math.ceil(pendingList.length / 2) : 2) + index;
-        const plannedQuarter = 150;
-        const coverage = Number(((workedProperties / plannedQuarter) * 100).toFixed(1));
-
-        return {
-          agentId: agent.id,
-          agentName: agent.name,
-          agentCode: agent.code,
-          teamName: agent.team,
-          assignedArea: agent.area,
-          totalVisits,
-          workedProperties,
-          closedProperties,
-          refusedProperties,
-          pendingReturns: pendingCount,
-          fociFound,
-          fociEliminated,
-          strategicPointsInspected: index === 0 ? 4 : 2,
-          ovitrapsHandled: index === 1 ? 8 : 4,
-          complaintsVisited: index === 2 ? 3 : 1,
-          coveragePercentage: coverage,
-          dailyAverage: Number((workedProperties / 5).toFixed(1)),
-          workDays: 5,
-          territoryPendingCount: plannedQuarter - workedProperties,
-          workloadStatus: pendingCount > 4 ? 'COM_PENDENCIAS' : coverage >= 80 ? 'REGULAR' : 'SOBRECARREGADO',
-        };
-      });
-    } catch (err) {
-      console.error('Erro ao calcular produtividade dos agentes:', err);
-      return [];
+    const firstError = [agentsRes, visitsRes].find((r) => r.error)?.error;
+    if (firstError) {
+      return { agents: [], teams: [], periodLabel, error: firstError.message };
     }
-  },
 
-  // 2. Obter produtividade consolidada por equipe
-  async getTeamMetrics(municipalityId = DEFAULT_MUN_ID): Promise<TeamProductivityMetric[]> {
-    const agents = await this.getAgentMetrics(municipalityId);
-    const teamsMap: Record<string, TeamProductivityMetric> = {};
+    const teamsList = teamsRes.data || [];
+    const teamName = new Map<string, string>(teamsList.map((t: any) => [t.id, t.name]));
+    const visits = visitsRes.data || [];
+    const pending = pendingRes.data || [];
 
-    agents.forEach(a => {
-      if (!teamsMap[a.teamName]) {
-        teamsMap[a.teamName] = {
-          teamId: a.teamName.toLowerCase().replace(/\s+/g, '-'),
-          teamName: a.teamName,
-          supervisorName: a.teamName.includes('Alpha') ? 'Roberto Alves' : 'Cláudia Vieira',
-          agentsCount: 0,
-          totalVisits: 0,
-          workedProperties: 0,
-          pendingCount: 0,
-          fociCount: 0,
-          coveragePercentage: 0,
-        };
-      }
-      teamsMap[a.teamName].agentsCount++;
-      teamsMap[a.teamName].totalVisits += a.totalVisits;
-      teamsMap[a.teamName].workedProperties += a.workedProperties;
-      teamsMap[a.teamName].pendingCount += a.pendingReturns;
-      teamsMap[a.teamName].fociCount += a.fociFound;
+    const agents: AgentProductivityMetric[] = (agentsRes.data || []).map((a: any) => {
+      const own = visits.filter((v: any) => v.agent_id === a.id);
+      const worked = own.filter((v: any) => norm(v.result) === 'TRABALHADO').length;
+      const closed = own.filter((v: any) => norm(v.result) === 'FECHADO').length;
+      const refused = own.filter((v: any) => norm(v.result) === 'RECUSADO').length;
+      const deposits = own.flatMap((v: any) => v.visit_deposits || []);
+      const fociFound = deposits.filter((d: any) => d.positive).length;
+      const fociEliminated = deposits.filter((d: any) => d.positive && (d.eliminated || d.treated)).length;
+      const workDays = new Set(own.map((v: any) => v.visit_date)).size;
+      const pendingReturns = pending.filter(
+        (p: any) => p.responsible_agent_id === a.id || p.assigned_agent_id === a.id
+      ).length;
+
+      return {
+        agentId: a.id,
+        agentName: a.profiles?.full_name || 'Agente sem perfil vinculado',
+        agentCode: a.employee_number || '',
+        teamId: a.team_id ?? null,
+        teamName: (a.team_id && teamName.get(a.team_id)) || 'Sem equipe',
+        totalVisits: own.length,
+        workedProperties: worked,
+        closedProperties: closed,
+        refusedProperties: refused,
+        pendingReturns,
+        fociFound,
+        fociEliminated,
+        workDays,
+        dailyAverage: workDays > 0 ? Number((worked / workDays).toFixed(1)) : null,
+        workloadStatus: own.length === 0 ? 'SEM_VISITAS' : pendingReturns > 0 ? 'COM_PENDENCIAS' : 'REGULAR',
+      };
     });
 
-    return Object.values(teamsMap).map(t => ({
-      ...t,
-      coveragePercentage: Number(((t.workedProperties / (t.agentsCount * 150)) * 100).toFixed(1)),
-    }));
+    const teams: TeamProductivityMetric[] = teamsList.map((t: any) => {
+      const members = agents.filter((a) => a.teamId === t.id);
+      return {
+        teamId: t.id,
+        teamName: t.name,
+        supervisorName: t.supervisor?.full_name ?? null,
+        agentsCount: members.length,
+        totalVisits: members.reduce((acc, a) => acc + a.totalVisits, 0),
+        workedProperties: members.reduce((acc, a) => acc + a.workedProperties, 0),
+        pendingCount: members.reduce((acc, a) => acc + a.pendingReturns, 0),
+        fociCount: members.reduce((acc, a) => acc + a.fociFound, 0),
+      };
+    });
+
+    return { agents, teams, periodLabel };
   },
 };

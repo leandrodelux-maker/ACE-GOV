@@ -25,10 +25,11 @@ import {
 import { predictiveIntelligenceService, PredictiveOverview } from '../../services/predictiveIntelligenceService';
 import { supabase } from '../../services/supabaseClient';
 import { PageHeader } from '../ui';
+import { useMunicipalityId } from '../../contexts/AuthContext';
 
 export const HistoricalAnalysisView: React.FC = () => {
-  const municipalityId = '00000000-0000-0000-0000-000000000001';
-
+  const municipalityId = useMunicipalityId();
+  
   const [selectedIndicator, setSelectedIndicator] = useState<HistoricalIndicatorKey>('cobertura');
   const [selectedMode, setSelectedMode] = useState<'2026_vs_2025' | 'ciclo_atual_vs_anterior' | 'ultimas_4semanas_vs_anteriores'>('2026_vs_2025');
   const [selectedNeighborhood, setSelectedNeighborhood] = useState<string>('ALL');

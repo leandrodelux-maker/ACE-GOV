@@ -17,8 +17,11 @@ import { Property } from '../../types';
 import { supabase } from '../../services/supabaseClient';
 import { supabaseService } from '../../services/supabaseService';
 import { PageHeader } from '../ui';
+import { useAuth, useMunicipalityId } from '../../contexts/AuthContext';
 
 export const FociAndRecurrenceView: React.FC = () => {
+  const { municipality: sessionMunicipality } = useAuth();
+  const municipalityId = useMunicipalityId();
   const [properties, setProperties] = useState<Property[]>(db.getProperties());
   const [eliminatedFociCount, setEliminatedFociCount] = useState<number>(0);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -29,8 +32,8 @@ export const FociAndRecurrenceView: React.FC = () => {
   const loadFociData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const muni = await supabaseService.getMunicipality();
-      const muniId = muni?.id || '00000000-0000-0000-0000-000000000001';
+      const muni = sessionMunicipality;
+      const muniId = municipalityId;
 
       // 1. Buscar propriedades com foco ou reincidência do Supabase
       const { data: dbProps } = await supabase
@@ -49,7 +52,7 @@ export const FociAndRecurrenceView: React.FC = () => {
           status: p.status || 'NORMAL',
           address: p.street || 'Rua sem nome',
           number: p.number || 'S/N',
-          neighborhood: p.neighborhoods?.name || 'Vila Nova',
+          neighborhood: p.neighborhoods?.name || 'Bairro não informado',
           block: p.block || 'Quadra 01',
           sector: p.sector || 'Setor 01',
           zone: (p.zone as any) || 'URBANA',
@@ -72,7 +75,7 @@ export const FociAndRecurrenceView: React.FC = () => {
         .select('*', { count: 'exact', head: true })
         .eq('status', 'ELIMINADO');
 
-      setEliminatedFociCount(elimCount || 12);
+      setEliminatedFociCount(elimCount || 0);
     } catch (err) {
       console.warn('Fallback para focos locais:', err);
     } finally {
@@ -92,8 +95,8 @@ export const FociAndRecurrenceView: React.FC = () => {
     setIsSubmittingNotification(true);
 
     try {
-      const muni = await supabaseService.getMunicipality();
-      const muniId = muni?.id || '00000000-0000-0000-0000-000000000001';
+      const muni = sessionMunicipality;
+      const muniId = municipalityId;
 
       // 1. Salvar no Supabase audit_logs
       await supabase.from('audit_logs').insert({

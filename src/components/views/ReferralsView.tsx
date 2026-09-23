@@ -1,31 +1,54 @@
 import React, { useState, useEffect } from 'react';
 import { Send, Plus, CheckCircle, Clock, Building, MapPin, X, Filter, Search, ShieldCheck } from 'lucide-react';
 import { db } from '../../services/storage';
-import { supabase } from '../../services/supabaseClient';
+import { auditLogService } from '../../services/auditLogService';
+import { useAuth, useMunicipalityId } from '../../contexts/AuthContext';
 import { IntersectoralReferral } from '../../types';
 import { PageHeader } from '../ui';
 
-const DEFAULT_MUN_ID = '00000000-0000-0000-0000-000000000001';
+/**
+ * Encaminhamentos intersetoriais.
+ * LIMITAÇÃO: não existe tabela de encaminhamentos no banco (ver
+ * docs/ACE-GOV-AUDITORIA-E-EXECUCAO.md). Os registros ficam salvos apenas neste
+ * navegador; a criação e a mudança de status são registradas na auditoria.
+ */
+const LOCAL_KEY = 'endemias_referrals';
+
+function readLocalReferrals(municipalityId: string): IntersectoralReferral[] {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]');
+    return Array.isArray(parsed) ? parsed.filter((r: IntersectoralReferral) => r.municipalityId === municipalityId) : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeLocalReferrals(municipalityId: string, items: IntersectoralReferral[]) {
+  try {
+    const all = JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]');
+    const others = Array.isArray(all) ? all.filter((r: IntersectoralReferral) => r.municipalityId !== municipalityId) : [];
+    localStorage.setItem(LOCAL_KEY, JSON.stringify([...items, ...others]));
+  } catch {
+    /* armazenamento indisponível */
+  }
+}
 
 export const ReferralsView: React.FC = () => {
-  const [referrals, setReferrals] = useState<IntersectoralReferral[]>(db.getReferrals());
+  const { user: currentUser } = useAuth();
+  const munId = useMunicipalityId();
+  const [referrals, setReferrals] = useState<IntersectoralReferral[]>(() => readLocalReferrals(munId));
   const [showModal, setShowModal] = useState(false);
   const [targetSector, setTargetSector] = useState<IntersectoralReferral['targetSector']>('LIMPEZA_URBANA');
   const [propertyAddress, setPropertyAddress] = useState('');
-  const [neighborhood, setNeighborhood] = useState('Centro');
+  const [neighborhood, setNeighborhood] = useState('');
   const [description, setDescription] = useState('');
   const [filterSector, setFilterSector] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  const currentUser = db.getCurrentUser();
-  const munId = currentUser?.municipalityId || DEFAULT_MUN_ID;
-
-  // Sincronizar com audit_logs / storage
   useEffect(() => {
-    const localRefs = db.getReferrals();
-    setReferrals(localRefs);
-  }, []);
+    setReferrals(readLocalReferrals(munId));
+  }, [munId]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,7 +57,7 @@ export const ReferralsView: React.FC = () => {
     setSubmitting(true);
     const newRef: IntersectoralReferral = {
       id: `ref-${Date.now()}`,
-      protocol: `ENC-2026-00${referrals.length + 12}`,
+      protocol: `ENC-${new Date().getFullYear()}-${Date.now().toString(36).toUpperCase()}`,
       municipalityId: munId,
       propertyAddress: propertyAddress.trim(),
       neighborhood: neighborhood.trim(),
@@ -45,32 +68,20 @@ export const ReferralsView: React.FC = () => {
       createdAt: new Date().toISOString().split('T')[0],
     };
 
-    // Registrar no audit_logs do Supabase para rastreabilidade institucional
-    try {
-      await supabase.from('audit_logs').insert({
-        user_id: currentUser?.id && currentUser.id.length === 36 ? currentUser.id : null,
-        action: 'INTERSECTORAL_REFERRAL_CREATED',
-        entity_type: 'referrals',
-        entity_id: newRef.protocol,
-        details: {
-          protocol: newRef.protocol,
-          target_sector: targetSector,
-          address: propertyAddress,
-          neighborhood,
-          description,
-        },
-      });
-    } catch (err) {
-      console.warn('Erro ao salvar auditoria no Supabase:', err);
-    }
+    // Rastreabilidade institucional (tabela audit_logs)
+    await auditLogService.log({
+      municipalityId: munId,
+      userId: currentUser?.id,
+      action: 'CADASTRO',
+      module: 'Encaminhamentos',
+      entity: 'encaminhamento_local',
+      entityId: newRef.protocol,
+      newData: { protocol: newRef.protocol, target_sector: targetSector, address: propertyAddress, neighborhood, description },
+    });
 
     const updated = [newRef, ...referrals];
     setReferrals(updated);
-    try {
-      localStorage.setItem('endemias_referrals', JSON.stringify(updated));
-    } catch {
-      // ignore
-    }
+    writeLocalReferrals(munId, updated);
 
     setShowModal(false);
     setPropertyAddress('');
@@ -87,18 +98,17 @@ export const ReferralsView: React.FC = () => {
       return r;
     });
     setReferrals(updated);
-    try {
-      localStorage.setItem('endemias_referrals', JSON.stringify(updated));
-      await supabase.from('audit_logs').insert({
-        user_id: currentUser?.id && currentUser.id.length === 36 ? currentUser.id : null,
-        action: 'INTERSECTORAL_REFERRAL_UPDATED',
-        entity_type: 'referrals',
-        entity_id: refId,
-        details: { updated_at: new Date().toISOString() },
-      });
-    } catch {
-      // ignore
-    }
+    writeLocalReferrals(munId, updated);
+    const changed = updated.find((r) => r.id === refId);
+    await auditLogService.log({
+      municipalityId: munId,
+      userId: currentUser?.id,
+      action: 'EDICAO',
+      module: 'Encaminhamentos',
+      entity: 'encaminhamento_local',
+      entityId: changed?.protocol || refId,
+      newData: { status: changed?.status },
+    });
   };
 
   const filteredReferrals = referrals.filter(ref => {

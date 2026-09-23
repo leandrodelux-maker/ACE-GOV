@@ -28,8 +28,10 @@ import {
   RGCadastralAnomaly,
 } from '../../services/geographicReconnaissanceService';
 import { PageHeader } from '../ui';
+import { useMunicipalityId } from '../../contexts/AuthContext';
 
 export const GeographicReconnaissanceView: React.FC = () => {
+  const municipalityId = useMunicipalityId();
   const [indicators, setIndicators] = useState<RGIndicators>({
     totalProperties: 0,
     georeferencedProperties: 0,
@@ -97,16 +99,17 @@ export const GeographicReconnaissanceView: React.FC = () => {
     setLoading(true);
     try {
       const [ind, props, anom, opts] = await Promise.all([
-        geographicReconnaissanceService.getIndicators(),
+        geographicReconnaissanceService.getIndicators(municipalityId),
         geographicReconnaissanceService.getProperties({
+          municipalityId,
           search,
           propertyType: filterType !== 'todos' ? filterType : undefined,
           situation: filterSituation !== 'todos' ? filterSituation : undefined,
           onlyWithoutCoords: filterOnlyNoCoords ? true : undefined,
           limit: 150,
         }),
-        geographicReconnaissanceService.detectCadastralAnomalies(),
-        geographicReconnaissanceService.getTerritoryOptions(),
+        geographicReconnaissanceService.detectCadastralAnomalies(municipalityId),
+        geographicReconnaissanceService.getTerritoryOptions(municipalityId),
       ]);
 
       setIndicators(ind);

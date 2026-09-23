@@ -21,7 +21,6 @@ export interface ColumnMapping {
   required: boolean;
 }
 
-const DEFAULT_MUN_ID = '00000000-0000-0000-0000-000000000001';
 
 export const dataImportService = {
   // 1. Obter campos obrigatórios e esperados por entidade
@@ -118,7 +117,7 @@ export const dataImportService = {
     rows: any[],
     mapping: Record<string, string>,
     updateExisting = true,
-    municipalityId = DEFAULT_MUN_ID
+    municipalityId: string
   ): Promise<{ success: boolean; job: ImportJobRecord; errors: any[] }> {
     const totalRecords = rows.length;
     let validRecords = 0;
@@ -273,7 +272,7 @@ export const dataImportService = {
   },
 
   // 4. Histórico de import_jobs
-  async getRecentJobs(municipalityId = DEFAULT_MUN_ID): Promise<ImportJobRecord[]> {
+  async getRecentJobs(municipalityId: string): Promise<ImportJobRecord[]> {
     try {
       const { data, error } = await supabase
         .from('import_jobs')

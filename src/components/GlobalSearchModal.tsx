@@ -15,6 +15,8 @@ import {
   FileText,
 } from 'lucide-react';
 import { db } from '../services/storage';
+import { useAuth } from '../contexts/AuthContext';
+import { ROUTES, canAccessView, isViewModule } from '../config/routes';
 
 interface GlobalSearchModalProps {
   isOpen: boolean;
@@ -40,6 +42,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
   const [results, setResults] = useState<SearchResultItem[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const { can, hasRole } = useAuth();
 
   useEffect(() => {
     if (isOpen) {
@@ -63,30 +66,15 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
       const term = searchTerm.toLowerCase();
       const found: SearchResultItem[] = [];
 
-      // 0. Módulos e Atalhos do Sistema
-      const SYSTEM_MODULES = [
-        { name: 'Central de Território', desc: 'Bairros, Setores, Quadras e Microáreas', module: 'territory', icon: MapPin },
-        { name: 'Cadastro de Imóveis', desc: 'Gestão completa de imóveis e cadastros', module: 'properties', icon: Home },
-        { name: 'Sala de Situação', desc: 'Dashboard e monitoramento de indicadores', module: 'dashboard', icon: Activity },
-        { name: 'PWA do Agente (ACE)', desc: 'Modo de campo para agentes e supervisores', module: 'ace_pwa', icon: Users },
-        { name: 'Visitas Domiciliares', desc: 'Registro e histórico de inspeções', module: 'visits', icon: Home },
-        { name: 'Pendências de Campo', desc: 'Imóveis fechados, desabitados e recusas', module: 'field_pendencies', icon: AlertTriangle },
-        { name: 'Mapa Municipal', desc: 'Visualização geográfica de imóveis e focos', module: 'map', icon: MapPin },
-        { name: 'Ovitrampas (Ovos)', desc: 'Rede sentinela de armadilhas', module: 'ovitraps', icon: Flame },
-        { name: 'LIRAa / LIA', desc: 'Levantamento Rápido de Índices de Infestação', module: 'liraa', icon: Activity },
-        { name: 'Central de Configurações', desc: 'Parâmetros municipais, mapas e alertas', module: 'system_settings', icon: Shield },
-        { name: 'Central de Relatórios', desc: 'Boletins epidemiológicos oficiais SUS', module: 'reports', icon: FileText },
-        { name: 'Usuários e Permissões', desc: 'Controle de acessos e perfis', module: 'admin_users', icon: Users },
-      ];
-
-      SYSTEM_MODULES.forEach(m => {
-        if (m.name.toLowerCase().includes(term) || m.desc.toLowerCase().includes(term) || m.module.includes(term)) {
+      // 0. Telas do sistema (mapa central de rotas)
+      ROUTES.filter((r) => r.searchable).forEach((r) => {
+        if (r.title.toLowerCase().includes(term) || r.path.toLowerCase().includes(term)) {
           found.push({
             category: 'NAVEGAÇÃO / MÓDULO',
-            title: m.name,
-            subtitle: m.desc,
-            module: m.module,
-            icon: m.icon,
+            title: r.title,
+            subtitle: r.path,
+            module: r.view,
+            icon: ArrowRight,
           });
         }
       });
@@ -120,7 +108,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
             found.push({
               category: 'TERRITÓRIO & BAIRROS',
               title: `Bairro ${n.name}`,
-              subtitle: `${n.totalProperties} imóveis • Cobertura: ${n.coveragePercentage}% • Focos: ${n.fociCount}`,
+              subtitle: `${n.totalProperties ?? 'Sem dados de'} imóveis • Focos: ${n.fociCount ?? 'sem dados'}`,
               module: 'territory',
               itemId: n.id,
               icon: MapPin,
@@ -142,7 +130,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
               category: 'AGENTES & USUÁRIOS',
               title: u.name,
               subtitle: `Perfil: ${u.role} • Matrícula: ${u.registrationNumber || 'N/A'} • ${u.email}`,
-              module: u.role === 'ACE' ? 'teams' : 'users',
+              module: 'admin_users',
               itemId: u.id,
               icon: Users,
             });
@@ -163,7 +151,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
               category: 'DENÚNCIAS & OUVIDORIA',
               title: `Protocolo ${c.protocol}`,
               subtitle: `${c.address} • Status: ${c.status} • Prioridade: ${c.priority || 'MÉDIA'}`,
-              module: 'citizen_portal',
+              module: 'complaints',
               itemId: c.id,
               icon: AlertTriangle,
             });
@@ -225,8 +213,8 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
             found.push({
               category: 'BLOQUEIOS EPIDEMIOLÓGICOS',
               title: `Bloqueio ${b.code} (${b.disease})`,
-              subtitle: `${b.targetNeighborhood} • Raio: ${b.radiusMeters}m • Status: ${b.status}`,
-              module: 'blocks',
+              subtitle: `${b.targetNeighborhood} • Status: ${b.status}`,
+              module: 'epidemiology',
               itemId: b.id,
               icon: Activity,
             });
@@ -234,12 +222,14 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
         });
       } catch {}
 
-      setResults(found.slice(0, 20));
+      // Só oferece destinos que existem e que o perfil pode abrir (mesma regra das rotas)
+      const access = { can, hasRole };
+      setResults(found.filter((r) => isViewModule(r.module) && canAccessView(r.module, access)).slice(0, 20));
       setIsSearching(false);
     }, 250);
 
     return () => clearTimeout(handler);
-  }, [searchTerm]);
+  }, [searchTerm, can, hasRole]);
 
   if (!isOpen) return null;
 

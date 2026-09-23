@@ -23,29 +23,56 @@ import {
   DocumentSignature,
 } from '../../services/signatureService';
 import { PageHeader } from '../ui';
+import { useAuth } from '../../contexts/AuthContext';
+import { ROLES_REGISTRY } from '../../services/rbac';
 
 interface DocumentsCenterViewProps {
   municipalityId?: string;
 }
 
 export const DocumentsCenterView: React.FC<DocumentsCenterViewProps> = ({ municipalityId }) => {
+  const { user: sessionUser, municipality: sessionMunicipality } = useAuth();
   const [activeTab, setActiveTab] = useState<'gerador' | 'verificador'>('gerador');
   const templates = documentTemplateService.getTemplates();
 
   // Seleção e preenchimento
   const [selectedTemplate, setSelectedTemplate] = useState<DocumentTemplate>(templates[0]);
-  const [variables, setVariables] = useState<Record<string, string>>({
-    municipio: 'Município de Santa Cruz do Sul',
+  // Valores iniciais: apenas o que vem da sessão; os demais campos são preenchidos pelo usuário.
+  const buildDefaultVariables = (): Record<string, string> => ({
+    municipio: sessionMunicipality ? `Município de ${sessionMunicipality.name}` : '',
     data: new Date().toLocaleDateString('pt-BR'),
-    agente: 'Carlos Alberto Silva (ACE)',
-    supervisor: 'Mariana Duarte (Supervisora)',
-    bairro: 'Centro / Setor 02',
-    imovel: 'Rua Ernesto Alves, 1020',
-    ciclo: 'Ciclo 01 / 2026',
-    resultado: 'Imóvel Inspecionado - Sem Focos Encontrados',
-    depósitos_eliminados: '2 pneus secos e 1 vaso de planta perfurado',
-    observacoes: 'Morador colaborativo e orientado sobre descarte de entulhos.',
+    agente: sessionUser?.name || '',
+    supervisor: '',
+    bairro: '',
+    imovel: '',
+    ciclo: '',
+    resultado: '',
+    numero_protocolo: '',
+    motivo_denuncia: '',
+    situacao_encontrada: '',
+    providencias: '',
+    ponto_estrategico: '',
+    categoria_pe: '',
+    criadouros_encontrados: '',
+    tratamento_realizado: '',
+    iip_geral: '',
+    classificacao_risco: '',
+    estratos_criticos: '',
+    tipo_deposito_predominante: '',
+    codigo_amostra: '',
+    agente_coletor: sessionUser?.name || '',
+    biologo_analista: '',
+    origem_amostra: '',
+    especies_identificadas: '',
+    conclusao_laudo: '',
+    numero_os: '',
+    tipo_os: '',
+    prioridade: '',
+    equipe_designada: '',
+    local_execucao: '',
+    objetivo_acao: '',
   });
+  const [variables, setVariables] = useState<Record<string, string>>(() => buildDefaultVariables());
 
   const [generatedDoc, setGeneratedDoc] = useState<string>('');
   const [signature, setSignature] = useState<DocumentSignature | null>(null);
@@ -65,41 +92,8 @@ export const DocumentsCenterView: React.FC<DocumentsCenterViewProps> = ({ munici
     setSelectedTemplate(tmpl);
     setSignature(null);
 
-    // Pré-preencher variáveis padrões conforme o modelo
-    const baseVars: Record<string, string> = {
-      municipio: 'Município de Santa Cruz do Sul',
-      data: new Date().toLocaleDateString('pt-BR'),
-      agente: 'Carlos Alberto Silva (ACE)',
-      supervisor: 'Mariana Duarte (Supervisora)',
-      bairro: 'Centro / Setor 02',
-      imovel: 'Rua Ernesto Alves, 1020',
-      ciclo: 'Ciclo 01 / 2026',
-      resultado: 'Conforme Diretrizes do PNCD',
-      numero_protocolo: 'OUV-2026-4412',
-      motivo_denuncia: 'Água parada em calha',
-      situacao_encontrada: 'Foco inicial removido',
-      providencias: 'Aplicação de larvicida',
-      ponto_estrategico: 'Borracharia Central',
-      categoria_pe: 'Borracharia / Ferro-velho',
-      criadouros_encontrados: 'Zero focos',
-      tratamento_realizado: 'Tratamento perifocal com Pyriproxyfen',
-      iip_geral: '1.4',
-      classificacao_risco: 'Médio Risco (Alerta)',
-      estratos_criticos: 'Estrato 02 (Bairro Universitário)',
-      tipo_deposito_predominante: 'Depósitos ao nível do solo (B)',
-      codigo_amostra: 'ENT-2026-000001',
-      agente_coletor: 'Carlos Alberto Silva',
-      biologo_analista: 'Dra. Vanessa Lima (CRBio 1042)',
-      origem_amostra: 'Visita Domiciliar - Caixa D’água',
-      especies_identificadas: 'Aedes aegypti (14 larvas L3)',
-      conclusao_laudo: 'Positivo para vetor da Dengue. Bloqueio perifocal acionado.',
-      numero_os: 'OS-END-2026-00001',
-      tipo_os: 'Bloqueio Imediato',
-      prioridade: 'Alta',
-      equipe_designada: 'Equipe de Bloqueio 02',
-      local_execucao: 'Bairro Universitário',
-      objetivo_acao: 'Controle químico e mecânico em raio de 150m.',
-    };
+    // Pré-preenche apenas dados da sessão (sem valores de exemplo)
+    const baseVars: Record<string, string> = buildDefaultVariables();
 
     setVariables(baseVars);
     const rendered = documentTemplateService.renderDocument(tmpl.id, baseVars);
@@ -114,16 +108,17 @@ export const DocumentsCenterView: React.FC<DocumentsCenterViewProps> = ({ munici
   };
 
   const handleSignDocument = async () => {
-    if (!generatedDoc) return;
+    // A assinatura é sempre do usuário autenticado
+    if (!generatedDoc || !sessionUser) return;
     setIsSigning(true);
     try {
       const res = await signatureService.signDocument({
         documentId: `DOC-${selectedTemplate.id}-${Date.now()}`,
         documentType: selectedTemplate.name,
         documentContent: generatedDoc,
-        userId: '00000000-0000-0000-0000-000000000001',
-        userName: 'Carlos Alberto Silva',
-        userRole: 'Agente de Combate às Endemias (ACE)',
+        userId: sessionUser.id,
+        userName: sessionUser.name,
+        userRole: ROLES_REGISTRY[sessionUser.role]?.name || sessionUser.role,
         municipalityId,
       });
 

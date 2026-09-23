@@ -18,8 +18,10 @@ import {
 } from 'lucide-react';
 import { dataImportService, ImportJobRecord } from '../../services/dataImportService';
 import { PageHeader } from '../ui';
+import { useMunicipalityId } from '../../contexts/AuthContext';
 
 export const DataImportView: React.FC = () => {
+  const municipalityId = useMunicipalityId();
   const [currentStep, setCurrentStep] = useState<number>(1);
   const [entityType, setEntityType] = useState<string>('PROPERTIES');
   const [file, setFile] = useState<File | null>(null);
@@ -41,7 +43,7 @@ export const DataImportView: React.FC = () => {
   }, []);
 
   const loadRecentJobs = async () => {
-    const jobs = await dataImportService.getRecentJobs();
+    const jobs = await dataImportService.getRecentJobs(municipalityId);
     setRecentJobs(jobs);
   };
 
@@ -90,7 +92,8 @@ export const DataImportView: React.FC = () => {
         file.size,
         fileRows,
         mapping,
-        updateExisting
+        updateExisting,
+        municipalityId
       );
 
       setImportResult({ job: res.job, errors: res.errors });

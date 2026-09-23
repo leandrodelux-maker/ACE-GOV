@@ -24,8 +24,11 @@ import {
 import { stockService, Product } from '../../services/stockService';
 import { db } from '../../services/storage';
 import { PageHeader } from '../ui';
+import { useMunicipalityId, useAuth } from '../../contexts/AuthContext';
 
 export const VectorControlView: React.FC = () => {
+  const { user: sessionUser } = useAuth();
+  const municipalityId = useMunicipalityId();
   const [operations, setOperations] = useState<VectorControlOperation[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -53,8 +56,8 @@ export const VectorControlView: React.FC = () => {
   const loadData = async () => {
     setLoading(true);
     const [ops, prods] = await Promise.all([
-      vectorControlService.getOperations(),
-      stockService.getProductsWithBatches(),
+      vectorControlService.getOperations(municipalityId),
+      stockService.getProductsWithBatches(municipalityId),
     ]);
     setOperations(ops);
     setProducts(prods);
@@ -67,6 +70,7 @@ export const VectorControlView: React.FC = () => {
   const handleCreateOperation = async (e: React.FormEvent) => {
     e.preventDefault();
     const created = await vectorControlService.createOperation({
+      municipalityId,
       type: opType,
       disease,
       radiusMeters,
@@ -87,6 +91,7 @@ export const VectorControlView: React.FC = () => {
 
     const prod = products.find(p => p.id === selectedProductId);
     const res = await vectorControlService.registerChemicalApplication({
+      municipalityId,
       operationId: showChemicalModal.id,
       productId: selectedProductId,
       applicationType: chemicalAppType,
@@ -105,7 +110,7 @@ export const VectorControlView: React.FC = () => {
 
   const handleFinish = async (opId: string) => {
     if (confirm('Deseja encerrar esta operação de controle vetorial?')) {
-      const ok = await vectorControlService.finishOperation(opId);
+      const ok = await vectorControlService.finishOperation(opId, municipalityId);
       if (ok) {
         alert('Operação concluída com sucesso!');
         loadData();

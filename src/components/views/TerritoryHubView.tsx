@@ -26,6 +26,9 @@ import { Neighborhood, Municipality } from '../../types';
 import { PageHeader, Breadcrumbs } from '../ui';
 import { QuickCreateModal, QuickCreateEntity } from '../ui/QuickCreateModal';
 import { StrategicPointsView } from './StrategicPointsView';
+import { useAuth, useMunicipalityId } from '../../contexts/AuthContext';
+import { useHubTab } from '../../hooks/useHubTab';
+import { canAccessView } from '../../config/routes';
 import { SpecialPropertiesView } from './SpecialPropertiesView';
 
 export type TerritoryHubTab = 'overview' | 'neighborhoods' | 'sectors' | 'blocks' | 'microareas' | 'strategic_points' | 'special_properties';
@@ -33,13 +36,20 @@ export type TerritoryHubTab = 'overview' | 'neighborhoods' | 'sectors' | 'blocks
 interface TerritoryHubViewProps {
   onNavigate: (module: string, action?: string) => void;
   initialTab?: TerritoryHubTab;
+  onTabChange?: (tab: TerritoryHubTab) => void;
 }
 
 export const TerritoryHubView: React.FC<TerritoryHubViewProps> = ({
   onNavigate,
   initialTab = 'overview',
+  onTabChange,
 }) => {
-  const [activeTab, setActiveTab] = useState<TerritoryHubTab>(initialTab);
+  const { municipality: sessionMunicipality } = useAuth();
+  const municipalityId = useMunicipalityId();
+  const [activeTab, setActiveTab] = useHubTab<TerritoryHubTab>(initialTab as TerritoryHubTab, onTabChange);
+  const { can, hasRole } = useAuth();
+  const canSeeStrategicPoints = canAccessView('strategic_points', { can, hasRole });
+  const canSeeSpecialProperties = canAccessView('special_properties', { can, hasRole });
   const [municipality, setMunicipality] = useState<Municipality | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -74,8 +84,8 @@ export const TerritoryHubView: React.FC<TerritoryHubViewProps> = ({
   const loadHubData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const muni = await supabaseService.getMunicipality();
-      const mId = muni?.id || '00000000-0000-0000-0000-000000000001';
+      const muni = sessionMunicipality;
+      const mId = municipalityId;
       setMunicipality(muni);
 
       const [m, neighs, sects, blks, micros] = await Promise.all([
@@ -332,6 +342,7 @@ export const TerritoryHubView: React.FC<TerritoryHubViewProps> = ({
           <span>Microáreas ({metrics.microareasCount})</span>
         </button>
 
+        {canSeeStrategicPoints && (
         <button
           onClick={() => setActiveTab('strategic_points')}
           className={`pb-3 px-4 border-b-2 transition flex items-center gap-2 whitespace-nowrap ${
@@ -343,7 +354,9 @@ export const TerritoryHubView: React.FC<TerritoryHubViewProps> = ({
           <Crosshair className="w-4 h-4" />
           <span>Pontos Estratégicos</span>
         </button>
+        )}
 
+        {canSeeSpecialProperties && (
         <button
           onClick={() => setActiveTab('special_properties')}
           className={`pb-3 px-4 border-b-2 transition flex items-center gap-2 whitespace-nowrap ${
@@ -355,6 +368,7 @@ export const TerritoryHubView: React.FC<TerritoryHubViewProps> = ({
           <Building2 className="w-4 h-4" />
           <span>Imóveis Especiais</span>
         </button>
+        )}
 
         <button
           onClick={() => onNavigate('properties')}
@@ -486,9 +500,11 @@ export const TerritoryHubView: React.FC<TerritoryHubViewProps> = ({
                       ? 'bg-rose-100 text-rose-800'
                       : n.riskLevel === 'ALTO'
                       ? 'bg-amber-100 text-amber-800'
-                      : 'bg-emerald-100 text-emerald-800'
+                      : n.riskLevel
+                      ? 'bg-emerald-100 text-emerald-800'
+                      : 'bg-slate-100 text-slate-500'
                   }`}>
-                    {n.riskLevel || 'BAIXO'}
+                    {n.riskLevel || 'Risco sem dados'}
                   </span>
                 </div>
 
@@ -704,10 +720,10 @@ export const TerritoryHubView: React.FC<TerritoryHubViewProps> = ({
       )}
 
       {/* CONTEÚDO DA ABA: PONTOS ESTRATÉGICOS */}
-      {activeTab === 'strategic_points' && <StrategicPointsView />}
+      {activeTab === 'strategic_points' && canSeeStrategicPoints && <StrategicPointsView />}
 
       {/* CONTEÚDO DA ABA: IMÓVEIS ESPECIAIS */}
-      {activeTab === 'special_properties' && <SpecialPropertiesView />}
+      {activeTab === 'special_properties' && canSeeSpecialProperties && <SpecialPropertiesView />}
 
       {/* Modal de Criação Rápida */}
       <QuickCreateModal

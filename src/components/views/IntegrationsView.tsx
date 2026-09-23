@@ -68,7 +68,7 @@ export const IntegrationsView: React.FC<IntegrationsViewProps> = ({ municipality
       if (res.success) {
         loadData();
       } else {
-        alert(`Erro na sincronização: ${res.error}`);
+        alert(res.error || 'Não foi possível sincronizar.');
       }
     } finally {
       setRunningProvider(null);
@@ -98,7 +98,8 @@ export const IntegrationsView: React.FC<IntegrationsViewProps> = ({ municipality
         setIsManualOpen(false);
         setManualFileName('');
         loadData();
-        alert('Arquivo estruturado processado com sucesso e deduplicação aplicada!');
+      } else {
+        alert(res.error || 'Não foi possível processar o arquivo.');
       }
     } finally {
       setIsProcessingManual(false);

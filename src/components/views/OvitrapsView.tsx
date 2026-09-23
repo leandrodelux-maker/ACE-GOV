@@ -57,6 +57,7 @@ import { PageHeader } from '../ui';
 import { supabase } from '../../services/supabaseClient';
 import { supabaseService } from '../../services/supabaseService';
 import { Neighborhood } from '../../types';
+import { useAuth, useMunicipalityId } from '../../contexts/AuthContext';
 
 interface OvitrapsViewProps {
   onNavigate?: (module: string) => void;
@@ -76,6 +77,8 @@ type TabType =
   | 'configuracoes';
 
 export const OvitrapsView: React.FC<OvitrapsViewProps> = ({ onNavigate }) => {
+  const { municipality: sessionMunicipality } = useAuth();
+  const municipalityId = useMunicipalityId();
   // 1. Estado da Navegação por Abas (11 Abas Oficiais)
   const [activeTab, setActiveTab] = useState<TabType>('visao_geral');
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -123,7 +126,7 @@ export const OvitrapsView: React.FC<OvitrapsViewProps> = ({ onNavigate }) => {
   const [inconsistencies, setInconsistencies] = useState<InconsistencyItem[]>([]);
   const [temporalTrends, setTemporalTrends] = useState<any[]>([]);
   const [settings, setSettings] = useState<OvitrapSettings>({
-    municipalityId: '00000000-0000-0000-0000-000000000001',
+    municipalityId,
     collectionIntervalDays: 5,
     installationFrequencyDays: 28,
     doubleCheckEnabled: false,
@@ -186,8 +189,8 @@ export const OvitrapsView: React.FC<OvitrapsViewProps> = ({ onNavigate }) => {
     number: '',
     address: '',
     referencePoint: '',
-    latitude: -29.718,
-    longitude: -52.428,
+    latitude: '' as number | '',
+    longitude: '' as number | '',
     locationType: 'Residencial',
     responsibleName: '',
     responsiblePhone: '',
@@ -202,9 +205,9 @@ export const OvitrapsView: React.FC<OvitrapsViewProps> = ({ onNavigate }) => {
     installationTime: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
     expectedDays: 5,
     paddleCode: '',
-    latitude: -29.718,
-    longitude: -52.428,
-    gpsAccuracy: 4.2,
+    latitude: undefined as number | undefined,
+    longitude: undefined as number | undefined,
+    gpsAccuracy: undefined as number | undefined,
     notes: '',
     forceDuplicate: false,
     duplicateJustification: '',
@@ -217,9 +220,9 @@ export const OvitrapsView: React.FC<OvitrapsViewProps> = ({ onNavigate }) => {
     status: 'coleta_realizada' as any,
     paddleReplaced: true,
     paddleCode: '',
-    latitude: -29.718,
-    longitude: -52.428,
-    gpsAccuracy: 3.8,
+    latitude: undefined as number | undefined,
+    longitude: undefined as number | undefined,
+    gpsAccuracy: undefined as number | undefined,
     notes: '',
   });
 
@@ -243,8 +246,8 @@ export const OvitrapsView: React.FC<OvitrapsViewProps> = ({ onNavigate }) => {
   const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const muni = await supabaseService.getMunicipality();
-      const muniId = muni?.id || '00000000-0000-0000-0000-000000000001';
+      const muni = sessionMunicipality;
+      const muniId = municipalityId;
 
       const filterObj: OvitrapFilter = {
         period: globalPeriod,
@@ -361,11 +364,15 @@ export const OvitrapsView: React.FC<OvitrapsViewProps> = ({ onNavigate }) => {
   const handleSaveInstall = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedTrap) return;
+    if (!installData.agentId) {
+      alert('Selecione o agente responsável pela instalação.');
+      return;
+    }
     setIsSubmitting(true);
     try {
       const res = await ovitrapService.installOvitrap({
         ovitrapId: selectedTrap.id,
-        agentId: installData.agentId || '00000000-0000-0000-0000-000000000001',
+        agentId: installData.agentId,
         installationDate: installData.installationDate,
         installationTime: installData.installationTime,
         expectedDays: installData.expectedDays,
@@ -400,7 +407,7 @@ export const OvitrapsView: React.FC<OvitrapsViewProps> = ({ onNavigate }) => {
       paddleCode: '',
       latitude: trap.latitude,
       longitude: trap.longitude,
-      gpsAccuracy: 4.1,
+      gpsAccuracy: undefined,
       notes: '',
     });
     setShowCollectModal(true);
@@ -410,11 +417,15 @@ export const OvitrapsView: React.FC<OvitrapsViewProps> = ({ onNavigate }) => {
   const handleSaveCollect = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedTrap) return;
+    if (!collectData.agentId) {
+      alert('Selecione o agente responsável pela coleta.');
+      return;
+    }
     setIsSubmitting(true);
     try {
       const res = await ovitrapService.registerCollection({
         ovitrapId: selectedTrap.id,
-        agentId: collectData.agentId || '00000000-0000-0000-0000-000000000001',
+        agentId: collectData.agentId,
         collectionDate: collectData.collectionDate,
         collectionTime: collectData.collectionTime,
         status: collectData.status,
@@ -484,7 +495,7 @@ export const OvitrapsView: React.FC<OvitrapsViewProps> = ({ onNavigate }) => {
 
   // Handler: Abrir modal de cadastro de novo ponto
   const handleOpenCreatePoint = async () => {
-    const nextCode = await ovitrapService.generateNextCode();
+    const nextCode = await ovitrapService.generateNextCode(municipalityId);
     setNewPointData({
       code: nextCode,
       name: `Ponto ${nextCode}`,
@@ -495,8 +506,8 @@ export const OvitrapsView: React.FC<OvitrapsViewProps> = ({ onNavigate }) => {
       number: '',
       address: '',
       referencePoint: '',
-      latitude: -29.718,
-      longitude: -52.428,
+      latitude: '',
+      longitude: '',
       locationType: 'Residencial',
       responsibleName: '',
       responsiblePhone: '',
@@ -512,8 +523,8 @@ export const OvitrapsView: React.FC<OvitrapsViewProps> = ({ onNavigate }) => {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      const muni = await supabaseService.getMunicipality();
-      const muniId = muni?.id || '00000000-0000-0000-0000-000000000001';
+      const muni = sessionMunicipality;
+      const muniId = municipalityId;
 
       const fullAddress = newPointData.street
         ? `${newPointData.street}${newPointData.number ? `, ${newPointData.number}` : ''}`
@@ -530,8 +541,9 @@ export const OvitrapsView: React.FC<OvitrapsViewProps> = ({ onNavigate }) => {
         number: newPointData.number,
         address: fullAddress,
         referencePoint: newPointData.referencePoint,
-        latitude: Number(newPointData.latitude),
-        longitude: Number(newPointData.longitude),
+        // Vazio => sem coordenada (nunca 0,0)
+        latitude: (newPointData.latitude === '' ? null : Number(newPointData.latitude)) as any,
+        longitude: (newPointData.longitude === '' ? null : Number(newPointData.longitude)) as any,
         locationType: newPointData.locationType,
         responsibleName: newPointData.responsibleName,
         responsiblePhone: newPointData.responsiblePhone,
@@ -1829,7 +1841,7 @@ export const OvitrapsView: React.FC<OvitrapsViewProps> = ({ onNavigate }) => {
 
               {/* Barra Inferior com Coordenadas e Detalhes */}
               <div className="z-10 bg-slate-800/90 backdrop-blur-xs p-3 rounded-xl border border-slate-700 text-slate-300 text-xs flex items-center justify-between">
-                <span>Centro Territorial: -29.7180 S, -52.4280 W</span>
+                <span>Centro do mapa conforme Configurações &gt; Mapas &amp; Camadas</span>
                 <span className="text-sky-400 font-bold">
                   Clique em qualquer armadilha para abrir histórico e ciclo sanitário
                 </span>
@@ -2351,7 +2363,7 @@ export const OvitrapsView: React.FC<OvitrapsViewProps> = ({ onNavigate }) => {
                     type="number"
                     step="any"
                     value={newPointData.latitude}
-                    onChange={(e) => setNewPointData({ ...newPointData, latitude: Number(e.target.value) })}
+                    onChange={(e) => setNewPointData({ ...newPointData, latitude: e.target.value === '' ? '' : Number(e.target.value) })}
                     className="w-full p-2 border border-slate-200 rounded-lg font-mono"
                   />
                 </div>
@@ -2361,7 +2373,7 @@ export const OvitrapsView: React.FC<OvitrapsViewProps> = ({ onNavigate }) => {
                     type="number"
                     step="any"
                     value={newPointData.longitude}
-                    onChange={(e) => setNewPointData({ ...newPointData, longitude: Number(e.target.value) })}
+                    onChange={(e) => setNewPointData({ ...newPointData, longitude: e.target.value === '' ? '' : Number(e.target.value) })}
                     className="w-full p-2 border border-slate-200 rounded-lg font-mono"
                   />
                 </div>

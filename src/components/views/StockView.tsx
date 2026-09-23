@@ -26,8 +26,10 @@ import {
   StockAlerts,
 } from '../../services/stockService';
 import { PageHeader, StatCard } from '../ui';
+import { useMunicipalityId } from '../../contexts/AuthContext';
 
 export const StockView: React.FC = () => {
+  const municipalityId = useMunicipalityId();
   const [products, setProducts] = useState<Product[]>([]);
   const [movements, setMovements] = useState<StockMovement[]>([]);
   const [alerts, setAlerts] = useState<StockAlerts | null>(null);
@@ -56,8 +58,8 @@ export const StockView: React.FC = () => {
   const loadStockData = async () => {
     setLoading(true);
     const [prods, moves] = await Promise.all([
-      stockService.getProductsWithBatches(),
-      stockService.getMovements(),
+      stockService.getProductsWithBatches(municipalityId),
+      stockService.getMovements(municipalityId),
     ]);
     setProducts(prods);
     setMovements(moves);
@@ -70,6 +72,7 @@ export const StockView: React.FC = () => {
     if (!showDispatchModal) return;
 
     const res = await stockService.dispatchProductFEFO({
+      municipalityId,
       productId: showDispatchModal.id,
       quantity: dispatchQty,
       movementType: dispatchType,
@@ -90,6 +93,7 @@ export const StockView: React.FC = () => {
     if (!showEntryModal) return;
 
     const res = await stockService.addBatchEntry({
+      municipalityId,
       productId: showEntryModal.id,
       batchNumber,
       expirationDate,

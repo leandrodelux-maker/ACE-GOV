@@ -14,8 +14,11 @@ import {
 import { supabaseService } from '../../services/supabaseService';
 import { StrategicPoint } from '../../types';
 import { PageHeader } from '../ui';
+import { useAuth, useMunicipalityId } from '../../contexts/AuthContext';
 
 export const StrategicPointsView: React.FC = () => {
+  const { municipality: sessionMunicipality } = useAuth();
+  const municipalityId = useMunicipalityId();
   const [points, setPoints] = useState<StrategicPoint[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [inspectingId, setInspectingId] = useState<string | null>(null);
@@ -23,8 +26,8 @@ export const StrategicPointsView: React.FC = () => {
   const loadStrategicPoints = useCallback(async () => {
     setIsLoading(true);
     try {
-      const muni = await supabaseService.getMunicipality();
-      const muniId = muni?.id || '00000000-0000-0000-0000-000000000001';
+      const muni = sessionMunicipality;
+      const muniId = municipalityId;
 
       const data = await supabaseService.getStrategicPoints(muniId);
       setPoints(data);

@@ -12,6 +12,8 @@ import {
   Lock
 } from 'lucide-react';
 import { publicPortalService, PublicComplaintPayload } from '../../services/publicPortalService';
+import { resolvePublicMunicipalityId } from '../../config/publicMunicipality';
+import { PublicPortalUnavailable } from './PublicPortalUnavailable';
 
 interface PublicComplaintFormViewProps {
   onBackToPortal?: () => void;
@@ -22,7 +24,7 @@ export const PublicComplaintFormView: React.FC<PublicComplaintFormViewProps> = (
   onBackToPortal,
   onNavigateToTracking
 }) => {
-  const municipalityId = '00000000-0000-0000-0000-000000000001';
+  const [municipalityId] = useState<string | null>(() => resolvePublicMunicipalityId());
 
   const [problemType, setProblemType] = useState<PublicComplaintPayload['problemType']>('terreno_baldinho');
   const [neighborhood, setNeighborhood] = useState('');
@@ -42,6 +44,11 @@ export const PublicComplaintFormView: React.FC<PublicComplaintFormViewProps> = (
     e.preventDefault();
     if (!neighborhood || !approximateAddress || !description) {
       setErrorMsg('Por favor, preencha o bairro, o endereço aproximado e a descrição do local.');
+      return;
+    }
+
+    if (!municipalityId) {
+      setErrorMsg('Município não identificado. Acesse o portal pelo link oficial da prefeitura.');
       return;
     }
 
@@ -75,6 +82,8 @@ export const PublicComplaintFormView: React.FC<PublicComplaintFormViewProps> = (
     setCopied(true);
     setTimeout(() => setCopied(false), 2500);
   };
+
+  if (!municipalityId) return <PublicPortalUnavailable />;
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans">

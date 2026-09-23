@@ -79,18 +79,19 @@ export interface Neighborhood {
   municipalityId: string;
   zoneId: string;
   name: string;
-  estimatedPopulation: number;
-  totalProperties: number;
-  totalSectors: number;
-  totalBlocks: number;
-  responsibleAgents: string[];
-  coveragePercentage: number;
-  fociCount: number;
-  pendingVisitsCount: number;
-  riskScore: number; // 0 - 100
-  riskLevel: 'BAIXO' | 'ATENCAO' | 'ALTO' | 'CRITICO';
-  latitude: number;
-  longitude: number;
+  // Indicadores: ausentes (undefined) quando não há dado registrado — exibir "Sem dados".
+  estimatedPopulation?: number;
+  totalProperties?: number;
+  totalSectors?: number;
+  totalBlocks?: number;
+  responsibleAgents?: string[];
+  coveragePercentage?: number;
+  fociCount?: number;
+  pendingVisitsCount?: number;
+  riskScore?: number; // 0 - 100
+  riskLevel?: 'BAIXO' | 'ATENCAO' | 'ALTO' | 'CRITICO';
+  latitude?: number;
+  longitude?: number;
 }
 
 export interface Sector {
@@ -235,13 +236,14 @@ export interface FieldCycle {
   number: number;
   startDate: string;
   endDate: string;
-  goalPercentage: number;
-  currentCoveragePercentage: number;
-  totalTargetProperties: number;
-  visitedProperties: number;
-  fociCount: number;
-  closedCount: number;
-  refusalCount: number;
+  // Progresso do ciclo: ausente quando não calculado a partir das visitas reais.
+  goalPercentage?: number;
+  currentCoveragePercentage?: number;
+  totalTargetProperties?: number;
+  visitedProperties?: number;
+  fociCount?: number;
+  closedCount?: number;
+  refusalCount?: number;
   status: 'PLANEJADO' | 'EM_ANDAMENTO' | 'CONCLUIDO';
 }
 

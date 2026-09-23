@@ -18,8 +18,10 @@ import {
 import { teamService, TeamEntity } from '../../services/teamService';
 import { OperationalLoadAgent } from '../../types';
 import { PageHeader, StatCard } from '../ui';
+import { useMunicipalityId } from '../../contexts/AuthContext';
 
 export const TeamsView: React.FC = () => {
+  const municipalityId = useMunicipalityId();
   const [teams, setTeams] = useState<TeamEntity[]>([]);
   const [loadData, setLoadData] = useState<OperationalLoadAgent[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -34,7 +36,7 @@ export const TeamsView: React.FC = () => {
     setLoading(true);
     try {
       const [fetchedTeams, fetchedLoads] = await Promise.all([
-        teamService.getTeams(),
+        teamService.getTeams(municipalityId),
         teamService.getOperationalLoad(),
       ]);
       setTeams(fetchedTeams);
@@ -56,6 +58,7 @@ export const TeamsView: React.FC = () => {
     setSubmitting(true);
     try {
       const success = await teamService.createTeam({
+        municipality_id: municipalityId,
         name: newTeamName.trim(),
         code: newTeamCode.trim() || undefined,
       });

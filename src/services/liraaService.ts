@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient';
+import { requireMunicipalityId } from './municipalityScope';
 
 export interface LiraaSurvey {
   id: string;
@@ -80,11 +81,10 @@ export interface LiraaIndices {
   }[];
 }
 
-const DEFAULT_MUN_ID = '00000000-0000-0000-0000-000000000001';
 
 export const liraaService = {
   // 1. Listar Levantamentos LIRAa/LIA do município
-  async getSurveys(municipalityId = DEFAULT_MUN_ID): Promise<LiraaSurvey[]> {
+  async getSurveys(municipalityId: string): Promise<LiraaSurvey[]> {
     try {
       const { data, error } = await supabase
         .from('liraa_surveys')
@@ -108,7 +108,7 @@ export const liraaService = {
         .from('liraa_surveys')
         .insert({
           ...survey,
-          municipality_id: survey.municipality_id || DEFAULT_MUN_ID,
+          municipality_id: requireMunicipalityId(survey.municipality_id),
         })
         .select()
         .single();
@@ -160,7 +160,7 @@ export const liraaService = {
     surveyId: string,
     stratumId: string,
     sampleSize: number,
-    municipalityId = DEFAULT_MUN_ID
+    municipalityId: string
   ): Promise<{ success: boolean; count: number; message: string }> {
     try {
       // Obter imóveis elegíveis do município
@@ -274,7 +274,7 @@ export const liraaService = {
   },
 
   // 8. Substituir Amostra (quando fechado ou recusa)
-  async replaceSample(sampleId: string, surveyId: string, stratumId: string, municipalityId = DEFAULT_MUN_ID): Promise<boolean> {
+  async replaceSample(sampleId: string, surveyId: string, stratumId: string, municipalityId: string): Promise<boolean> {
     try {
       // 1. Marcar amostra original como substituida
       await supabase
@@ -440,7 +440,7 @@ export const liraaService = {
   },
 
   // 10. Finalizar Levantamento com Validações e Auditoria
-  async finalizeSurvey(surveyId: string, municipalityId = DEFAULT_MUN_ID): Promise<{ success: boolean; message: string }> {
+  async finalizeSurvey(surveyId: string, municipalityId: string): Promise<{ success: boolean; message: string }> {
     try {
       const { data: samples } = await supabase
         .from('liraa_samples')

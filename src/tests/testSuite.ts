@@ -4,11 +4,61 @@
  */
 
 import 'dotenv/config'; // carrega .env para process.env (fora do runtime Vite)
+import { readdirSync, readFileSync } from 'fs';
+import { join } from 'path';
 import { can, hasRole } from '../services/rbac';
 import { UserRole } from '../types';
 import { DEPOSIT_CATEGORIES, CONDUCT_OPTIONS } from '../services/visitOfficialService';
 import { CORE_MODULES, isCoreModule, CORE_MODULE_DEFINITIONS } from '../config/coreModules';
 import { systemAuditService, ALL_SYSTEM_PAGES } from '../services/systemAuditService';
+import { can as rbacCan, hasRole as rbacHasRole, PERMISSIONS_CATALOG, LEGACY_EN_TO_PT } from '../services/rbac';
+import {
+  ROUTES,
+  HUB_TABS,
+  LEGACY_REDIRECTS,
+  PUBLIC_PATHS,
+  AccessChecker,
+  resolvePath,
+  canAccessRoute,
+  canAccessView,
+  getHomeView,
+  isViewModule,
+  tabForView,
+  viewForTab,
+  toPath,
+  HubId,
+} from '../config/routes';
+import { NAV_GROUPS, getVisibleNavGroups } from '../config/navigation';
+import { requireMunicipalityId, MissingMunicipalityError, EXAMPLE_MUNICIPALITY_ID } from '../services/municipalityScope';
+import { situationRoomService } from '../services/situationRoomService';
+import { auditLogService } from '../services/auditLogService';
+import { userAdminService } from '../services/userAdminService';
+import { enqueueVisit, readQueue, syncQueue, QueueStorage } from '../services/offlineVisitQueue';
+import { isValidMunicipalityId } from '../config/publicMunicipality';
+
+/** Checador de acesso equivalente ao AuthContext para um papel (permissões padrão do papel). */
+function accessFor(role: UserRole): AccessChecker {
+  return {
+    can: (p: string) => rbacCan(role, p),
+    hasRole: (r: UserRole | UserRole[]) => rbacHasRole(role, r),
+  };
+}
+
+/** Armazenamento em memória para testar a fila offline sem navegador. */
+function memoryStorage(): QueueStorage & { data: Record<string, string> } {
+  const data: Record<string, string> = {};
+  return { data, getItem: (k) => data[k] ?? null, setItem: (k, v) => { data[k] = v; } };
+}
+
+async function expectMissingMunicipality(fn: () => Promise<unknown>, label: string) {
+  let threw = false;
+  try {
+    await fn();
+  } catch (err) {
+    threw = err instanceof MissingMunicipalityError;
+  }
+  assert(threw, `${label} deve bloquear chamadas sem município (MissingMunicipalityError)`);
+}
 
 interface TestResult {
   suite: string;
@@ -443,32 +493,29 @@ async function main() {
     const route = CORE_MODULE_DEFINITIONS.ovitraps.canonicalRoute;
     assertEquals(route, '/ovitrampas', 'Rota canônica deve ser /ovitrampas');
 
-    // Teste de resolução de rotas equivalentes
+    // Resolução pelo mapa central de rotas real (src/config/routes.ts)
     const resolveRoute = (path: string): string => {
-      if (path === '/ovitrampas' || path === '/ovitraps') return 'ovitraps';
-      if (path === '/visitas' || path === '/visits') return 'visits';
-      if (path === '/imoveis' || path === '/properties') return 'properties';
-      if (path === '/territorio' || path === '/territory') return 'territory';
-      return 'dashboard';
+      const r = resolvePath(path);
+      return r.kind === 'view' ? r.route.view : r.kind;
     };
 
     assertEquals(resolveRoute('/ovitrampas'), 'ovitraps', '/ovitrampas deve resolver para a view ovitraps');
     assertEquals(resolveRoute('/ovitraps'), 'ovitraps', '/ovitraps alternativo deve resolver para a view ovitraps');
+
+    // Rotas canônicas de TODOS os módulos core resolvem para a própria tela
+    for (const def of Object.values(CORE_MODULE_DEFINITIONS)) {
+      assertEquals(resolveRoute(def.canonicalRoute), def.id, `${def.canonicalRoute} deve abrir ${def.id}`);
+    }
   });
 
   await runTest('Ovitrampas Core', '[MENU] Usuário com permissão ovitraps.view visualiza o módulo no menu', () => {
-    // Simulação do filtro do Sidebar
-    const menuSection = {
-      title: 'VIGILÂNCIA & INTELIGÊNCIA',
-      items: [
-        { id: 'dashboard', label: 'Sala de Situação', requiredPermission: 'dashboard.view' },
-        { id: 'ovitraps', label: 'Ovitrampas (Ovos)', requiredPermission: 'ovitraps.view' },
-      ],
-    };
+    // Configuração REAL do menu (src/config/navigation.ts): Ovitrampas fica no grupo Vigilância
+    const vigilancia = NAV_GROUPS.find(g => g.id === 'vigilancia');
+    assert(!!vigilancia && vigilancia.title === 'Vigilância', 'Grupo Vigilância deve existir no menu');
+    assert(vigilancia!.items.some(i => i.view === 'ovitraps' && i.highlight), 'Ovitrampas deve estar em destaque no grupo Vigilância');
 
-    const filterMenuForRole = (role: UserRole) => {
-      return menuSection.items.filter(item => can(role, item.requiredPermission));
-    };
+    const filterMenuForRole = (role: UserRole) =>
+      getVisibleNavGroups(role, accessFor(role)).flatMap(g => g.items.map(i => ({ id: i.view })));
 
     // ADMIN, COORDENADOR, SUPERVISOR, ACE, EPIDEMIOLOGIA devem ver Ovitrampas
     const coordinatorMenu = filterMenuForRole('ENDEMIAS_COORDINATOR');
@@ -610,8 +657,8 @@ async function main() {
   // -------------------------------------------------------------
   console.log('\n🛡️ 7. CENTRAL DE INTEGRIDADE DO SISTEMA & AUDITORIA:');
 
-  await runTest('Auditoria do Sistema', 'Validação do Catálogo de 58 Páginas/Módulos', () => {
-    assert(ALL_SYSTEM_PAGES.length === 58, `Deve conter 58 páginas mapeadas no catálogo (encontradas: ${ALL_SYSTEM_PAGES.length})`);
+  await runTest('Auditoria do Sistema', 'Validação do Catálogo de 53 Páginas/Módulos', () => {
+    assert(ALL_SYSTEM_PAGES.length === 53, `Deve conter 53 páginas mapeadas no catálogo (encontradas: ${ALL_SYSTEM_PAGES.length})`);
     
     // Nenhuma página pode ter status PARCIAL, SEM_BANCO, MOCK_DATA ou ERRO
     const invalidPages = ALL_SYSTEM_PAGES.filter(p => p.status !== 'FUNCIONAL');
@@ -629,12 +676,192 @@ async function main() {
 
   await runTest('Auditoria do Sistema', 'Execução de Auditoria Completa e Persistência no Banco', async () => {
     const { summary } = await systemAuditService.runCompleteAudit('test-runner-automated');
-    assert(summary.pagesChecked === 58, `Auditoria deve checar 58 páginas (checou: ${summary.pagesChecked})`);
-    assert(summary.functionalCount === 58, `Auditoria deve validar 58 páginas como FUNCIONAIS (validou: ${summary.functionalCount})`);
+    assert(summary.pagesChecked === 53, `Auditoria deve checar 53 páginas (checou: ${summary.pagesChecked})`);
+    assert(summary.functionalCount === 53, `Auditoria deve validar 53 páginas como FUNCIONAIS (validou: ${summary.functionalCount})`);
     assert(summary.partialCount === 0, `Não deve haver páginas parciais`);
     assert(summary.mockCount === 0, `Não deve haver páginas com mock data`);
     assert(summary.errorCount === 0, `Não deve haver páginas com erro`);
     assert(summary.databaseConnected === true, `Conexão com o banco deve estar ativa`);
+  });
+
+  // -------------------------------------------------------------
+  // 8. ROTAS, PERMISSÕES, MÓDULOS REMOVIDOS, ISOLAMENTO E OFFLINE
+  // -------------------------------------------------------------
+  console.log('\n🧭 8. ROTAS, PERMISSÕES, ISOLAMENTO MUNICIPAL E FILA OFFLINE:');
+
+  await runTest('Rotas', 'Toda rota interna declara permissão ou papel (checagem fail-closed possível)', () => {
+    const semRegra = ROUTES.filter(r => !r.permission && !(r.roles && r.roles.length));
+    assertEquals(semRegra.length, 0, `Rotas sem regra de acesso: ${semRegra.map(r => r.path).join(', ')}`);
+  });
+
+  await runTest('Rotas', 'URLs canônicas e aliases são únicos e não colidem com rotas públicas', () => {
+    const all = ROUTES.flatMap(r => [r.path, ...(r.aliases || [])]);
+    const dup = all.filter((p, i) => all.indexOf(p) !== i);
+    assertEquals(dup.length, 0, `URLs duplicadas: ${dup.join(', ')}`);
+    for (const p of all) {
+      assert(!(PUBLIC_PATHS as readonly string[]).includes(p), `${p} não pode ser rota interna e pública ao mesmo tempo`);
+      assert(!LEGACY_REDIRECTS[p], `${p} não pode ser rota ativa e redirecionamento legado`);
+    }
+  });
+
+  await runTest('Rotas', 'Abertura direta/recarga: URLs canônicas, aliases e barra final resolvem para a tela certa', () => {
+    for (const r of ROUTES) {
+      const canonical = resolvePath(r.path);
+      assert(canonical.kind === 'view' && canonical.route.view === r.view && canonical.isCanonical, `${r.path} deve abrir ${r.view}`);
+      for (const alias of r.aliases || []) {
+        const res = resolvePath(alias);
+        assert(res.kind === 'view' && res.route.view === r.view && !res.isCanonical, `Alias ${alias} deve levar a ${r.path}`);
+      }
+    }
+    const trailing = resolvePath('/ovitrampas/');
+    assert(trailing.kind === 'view' && trailing.route.view === 'ovitraps', 'Barra final deve ser ignorada');
+    const withQuery = resolvePath('/visitas?x=1');
+    assert(withQuery.kind === 'view' && withQuery.route.view === 'visits', 'Query string não deve afetar a rota');
+    assertEquals(resolvePath('/').kind, 'home', '/ deve resolver para a tela inicial do perfil');
+    assertEquals(resolvePath('/rota-inexistente').kind, 'not_found', 'URL desconhecida deve ser tratada como não encontrada');
+    assertEquals(toPath('visits'), '/visitas', 'Id de tela deve converter para a URL canônica');
+  });
+
+  await runTest('Rotas', 'Rotas públicas do cidadão e de autenticação continuam públicas', () => {
+    for (const p of ['/login', '/esqueci-senha', '/redefinir-senha', '/primeiro-acesso', '/publico', '/publico/denuncia', '/publico/denuncia/acompanhar']) {
+      assertEquals(resolvePath(p).kind, 'public', `${p} deve ser rota pública`);
+    }
+  });
+
+  await runTest('Rotas', 'Hubs com abas: cada aba tem URL própria e a URL abre a aba correspondente', () => {
+    for (const hub of Object.keys(HUB_TABS) as HubId[]) {
+      for (const [tab, view] of Object.entries(HUB_TABS[hub])) {
+        assert(isViewModule(view), `Aba ${hub}.${tab} aponta para tela inexistente ${view}`);
+        assertEquals(tabForView(hub, view as any), tab, `${view} deve abrir a aba ${tab} do hub ${hub}`);
+        assertEquals(viewForTab(hub as 'territory', tab as any), view, `Aba ${tab} deve atualizar a URL para ${view}`);
+      }
+    }
+  });
+
+  await runTest('Rotas', 'Catálogo de páginas auditadas só referencia rotas existentes', () => {
+    for (const page of ALL_SYSTEM_PAGES) {
+      const res = resolvePath(page.route);
+      assert(res.kind === 'view' || res.kind === 'public', `Página auditada ${page.route} não corresponde a nenhuma rota`);
+    }
+  });
+
+  await runTest('Módulos Removidos', 'TV/Telão, Briefing, Assistente IA, Capacitações e Metas não existem mais', () => {
+    for (const v of ['tv_mode', 'daily_briefing', 'ai_assistant', 'trainings', 'management_targets', 'admin', 'audit', 'public_portal']) {
+      assert(!isViewModule(v), `${v} não deveria mais ser uma tela`);
+    }
+    for (const p of ['/tv', '/briefing', '/assistente', '/capacitacoes', '/metas']) {
+      const res = resolvePath(p);
+      assert(res.kind === 'redirect', `${p} deve redirecionar para um destino válido`);
+      const target = resolvePath((res as any).to);
+      assert(target.kind === 'view' || target.kind === 'home', `Destino de ${p} deve ser válido`);
+      assert(!ALL_SYSTEM_PAGES.some(pg => pg.route === p), `${p} não deve constar do catálogo auditado`);
+    }
+    assert(!PERMISSIONS_CATALOG.some(pe => pe.slug === 'ia_assistente.use'), 'Permissão exclusiva do Assistente IA removida do espelho RBAC');
+    assert(!LEGACY_EN_TO_PT['ai_assistant.use'], 'Alias legado ai_assistant.use removido');
+    const menuViews = NAV_GROUPS.flatMap(g => g.items.map(i => i.view as string));
+    for (const v of ['tv_mode', 'daily_briefing', 'ai_assistant', 'trainings', 'management_targets']) {
+      assert(!menuViews.includes(v), `${v} não pode aparecer no menu`);
+    }
+  });
+
+  await runTest('Permissões', 'Checagem de acesso falha de forma fechada', () => {
+    const throwing: AccessChecker = { can: () => { throw new Error('falha'); }, hasRole: () => true };
+    assert(!canAccessView('dashboard', throwing), 'Erro na checagem de permissão deve negar acesso');
+    assert(!canAccessView('dashboard', null), 'Sem checador de acesso deve negar');
+    assert(!canAccessRoute({ view: 'dashboard', path: '/x', title: 'x' }, accessFor('SUPER_ADMIN')), 'Rota sem regra deve ser negada');
+    const truthy: AccessChecker = { can: () => 'sim' as any, hasRole: () => true };
+    assert(!canAccessView('dashboard', truthy), 'Somente true explícito concede acesso');
+  });
+
+  await runTest('Permissões', 'ACE: rotas administrativas bloqueadas por URL direta; tela inicial é o PWA', () => {
+    const ace = accessFor('ACE');
+    for (const v of ['admin_users', 'admin_roles', 'admin_audit', 'system_settings', 'integrations', 'system_errors', 'database_health', 'data_import'] as const) {
+      assert(!canAccessView(v, ace), `ACE não pode abrir ${v}`);
+    }
+    assert(canAccessView('ace_pwa', ace) && canAccessView('visits', ace) && canAccessView('ovitraps', ace), 'ACE deve abrir PWA, visitas e ovitrampas');
+    assertEquals(getHomeView('ACE', ace), 'ace_pwa', 'Tela inicial do ACE deve ser o PWA');
+    const groups = getVisibleNavGroups('ACE', ace);
+    assertEquals(groups[0]?.id, 'campo', 'Para o ACE o grupo Campo ACE vem primeiro');
+    assert(!groups.some(g => g.id === 'admin'), 'ACE não vê o grupo Administração');
+  });
+
+  await runTest('Permissões', 'Administradores mantêm ferramentas administrativas; restrições de papel preservadas', () => {
+    const admin = accessFor('MUNICIPAL_ADMIN');
+    const adminGroup = getVisibleNavGroups('MUNICIPAL_ADMIN', admin).find(g => g.id === 'admin');
+    assert(!!adminGroup && adminGroup.items.length === 6, 'Administração deve ter 6 itens para o administrador municipal');
+    assert(canAccessView('database_health', admin), 'Admin municipal acessa Integridade do Sistema');
+    assert(!canAccessView('system_errors', admin), 'Logs de erros continuam exclusivos do SUPER_ADMIN');
+    assert(canAccessView('system_errors', accessFor('SUPER_ADMIN')), 'SUPER_ADMIN acessa Logs de erros');
+    assert(!canAccessView('supervisor_mobile', accessFor('HEALTH_SECRETARY')), 'Supervisão restrita aos papéis de supervisão');
+  });
+
+  await runTest('Permissões', 'Menu: sete grupos na ordem definida e itens sem permissão ocultos', () => {
+    assertEquals(NAV_GROUPS.map(g => g.title).join(' | '), 'Início | Campo ACE | Território | Vigilância | Gestão Operacional | Relatórios | Administração', 'Grupos do menu');
+    const auditor = getVisibleNavGroups('AUDITOR_VIEWER', accessFor('AUDITOR_VIEWER')).flatMap(g => g.items.map(i => i.view));
+    assert(!auditor.includes('ace_pwa'), 'Auditor não vê o PWA de campo');
+    assert(auditor.includes('dashboard'), 'Auditor vê a Sala de Situação');
+  });
+
+  await runTest('Isolamento Municipal', 'Serviços bloqueiam chamadas sem município (sem UUID de exemplo como padrão)', async () => {
+    let threw = false;
+    try { requireMunicipalityId(''); } catch (e) { threw = e instanceof MissingMunicipalityError; }
+    assert(threw, 'requireMunicipalityId deve rejeitar vazio');
+    assertEquals(requireMunicipalityId('abc'), 'abc', 'requireMunicipalityId devolve o id informado');
+    await expectMissingMunicipality(() => situationRoomService.getSituationData({ municipalityId: '', periodFilter: 'cycle' }), 'Sala de Situação');
+    await expectMissingMunicipality(() => auditLogService.list(''), 'Auditoria');
+    await expectMissingMunicipality(() => userAdminService.list(''), 'Usuários');
+  });
+
+  await runTest('Isolamento Municipal', 'Código-fonte não usa o UUID de exemplo fora da constante documentada', () => {
+    const fsMod = { readdirSync, readFileSync };
+    const pathMod = { join };
+    const offenders: string[] = [];
+    const walk = (dir: string) => {
+      for (const e of fsMod.readdirSync(dir, { withFileTypes: true })) {
+        const p = pathMod.join(dir, e.name);
+        if (e.isDirectory()) { if (!['tests', 'db'].includes(e.name)) walk(p); continue; }
+        if (!/\.(ts|tsx)$/.test(e.name) || e.name === 'municipalityScope.ts') continue;
+        if (fsMod.readFileSync(p, 'utf8').includes(EXAMPLE_MUNICIPALITY_ID)) offenders.push(p);
+      }
+    };
+    walk(pathMod.join(process.cwd(), 'src'));
+    assertEquals(offenders.length, 0, `UUID de exemplo encontrado em: ${offenders.join(', ')}`);
+  });
+
+  await runTest('Portal do Cidadão', 'Município público só aceita UUID válido', () => {
+    assert(isValidMunicipalityId('3f2b1c9e-8a7d-4e6f-9b0a-1c2d3e4f5a6b'), 'UUID válido aceito');
+    assert(!isValidMunicipalityId(''), 'Vazio rejeitado');
+    assert(!isValidMunicipalityId('municipio-1'), 'Texto arbitrário rejeitado');
+  });
+
+  await runTest('Offline ACE', 'Fila offline: sem duplicidade e sem perda de visita enfileirada durante a sincronização', async () => {
+    const storage = memoryStorage();
+    const mun = 'mun-a';
+    enqueueVisit({ id: 'v1', municipality_id: mun, agent_id: 'p1' }, storage);
+    enqueueVisit({ id: 'v1', municipality_id: mun, agent_id: 'p1' }, storage); // duplicado
+    enqueueVisit({ id: 'v2', municipality_id: mun, agent_id: 'p1' }, storage);
+    enqueueVisit({ id: 'v3', municipality_id: 'mun-b', agent_id: 'p9' }, storage); // outro município
+    assertEquals(readQueue(storage).length, 3, 'Mesmo id não pode entrar duas vezes na fila');
+
+    const sent: string[] = [];
+    const summary = await syncQueue(
+      async (item) => {
+        sent.push(item.id);
+        if (item.id === 'v1') enqueueVisit({ id: 'v4', municipality_id: mun, agent_id: 'p1' }, storage); // chega durante o sync
+        return item.id === 'v2' ? { success: false, message: 'rede' } : { success: true };
+      },
+      { municipalityId: mun, cycleId: 'c1' },
+      storage
+    );
+    const remaining = readQueue(storage).map(v => v.id).sort();
+    assertEquals(summary.synced, 1, 'Uma visita confirmada');
+    assertEquals(summary.failed, 1, 'Uma visita com falha');
+    assert(!sent.includes('v3'), 'Visita de outro município não é enviada com o município atual');
+    assertEquals(remaining.join(','), 'v2,v3,v4', 'Fila mantém falhas, outro município e a visita recebida durante o envio');
+    assertEquals(readQueue(storage).find(v => v.id === 'v2')?.retryCount, 1, 'Falha incrementa tentativas');
+
+    const noCycle = await syncQueue(async () => ({ success: true }), { municipalityId: mun, cycleId: null }, storage);
+    assertEquals(noCycle.synced, 0, 'Sem ciclo em andamento nada é enviado com ciclo inventado');
   });
 
   // -------------------------------------------------------------

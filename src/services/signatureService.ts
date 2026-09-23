@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient';
+import { requireMunicipalityId } from './municipalityScope';
 
 export interface DocumentSignature {
   id: string;
@@ -17,7 +18,6 @@ export interface DocumentSignature {
   createdAt: string;
 }
 
-const DEFAULT_MUN_ID = '00000000-0000-0000-0000-000000000001';
 
 export const signatureService = {
   /**
@@ -55,10 +55,10 @@ export const signatureService = {
     userId: string;
     userName: string;
     userRole?: string;
-    municipalityId?: string;
+    municipalityId: string;
   }): Promise<{ success: boolean; signature?: DocumentSignature; error?: string }> {
     try {
-      const municipalityId = params.municipalityId || DEFAULT_MUN_ID;
+      const municipalityId = requireMunicipalityId(params.municipalityId);
       const documentHash = await this.computeSHA256(params.documentContent);
       const verificationCode = this.generateVerificationCode();
       const signedAt = new Date().toISOString();

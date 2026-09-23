@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Users, TrendingUp } from 'lucide-react';
 import { TabSwitcher } from '../ui';
+import { useHubTab } from '../../hooks/useHubTab';
 import { TeamsView } from './TeamsView';
 import { AgentProductivityView } from './AgentProductivityView';
 
@@ -8,6 +9,7 @@ export type TeamsProductivityTab = 'equipes' | 'produtividade';
 
 interface TeamsProductivityHubViewProps {
   initialTab?: TeamsProductivityTab;
+  onTabChange?: (tab: TeamsProductivityTab) => void;
 }
 
 /**
@@ -15,8 +17,8 @@ interface TeamsProductivityHubViewProps {
  * mesma unidade de análise; unificar evita alternar de tela para ver quem está
  * sobrecarregado e o quanto produziu.
  */
-export const TeamsProductivityHubView: React.FC<TeamsProductivityHubViewProps> = ({ initialTab = 'equipes' }) => {
-  const [activeTab, setActiveTab] = useState<TeamsProductivityTab>(initialTab);
+export const TeamsProductivityHubView: React.FC<TeamsProductivityHubViewProps> = ({ initialTab = 'equipes', onTabChange }) => {
+  const [activeTab, setActiveTab] = useHubTab<TeamsProductivityTab>(initialTab as TeamsProductivityTab, onTabChange);
 
   return (
     <div className="space-y-4">

@@ -10,13 +10,15 @@ import {
   RefreshCw,
   Save,
 } from 'lucide-react';
-import { supabaseService } from '../../services/supabaseService';
 import { riskEngineService, RiskSettings, RiskCalculationResult } from '../../services/riskEngineService';
-import { Neighborhood } from '../../types';
+import { situationRoomService, NeighborhoodSituation } from '../../services/situationRoomService';
 import { PageHeader } from '../ui';
+import { useMunicipalityId } from '../../contexts/AuthContext';
 
 export const RiskEngineView: React.FC = () => {
-  const [neighborhoods, setNeighborhoods] = useState<Neighborhood[]>([]);
+  const municipalityId = useMunicipalityId();
+  const [neighborhoods, setNeighborhoods] = useState<NeighborhoodSituation[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [settings, setSettings] = useState<RiskSettings>({
     weightRecentFoci: 25,
     weightRecurrence: 20,
@@ -38,22 +40,22 @@ export const RiskEngineView: React.FC = () => {
   const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const muni = await supabaseService.getMunicipality();
-      const muniId = muni?.id || '00000000-0000-0000-0000-000000000001';
-
-      const [currentSettings, neighs] = await Promise.all([
-        riskEngineService.getSettings(muniId),
-        supabaseService.getNeighborhoods(muniId),
+      // Entradas reais por bairro (mesma fonte da Sala de Situação, ciclo atual)
+      const [currentSettings, situation] = await Promise.all([
+        riskEngineService.getSettings(municipalityId),
+        situationRoomService.getSituationData({ municipalityId, periodFilter: 'cycle', forceRefresh: true }),
       ]);
 
       setSettings(currentSettings);
-      if (neighs) setNeighborhoods(neighs);
+      setNeighborhoods(situation.neighborhoods);
+      setLoadError(null);
     } catch (err) {
       console.error('Erro ao carregar configurações de risco:', err);
+      setLoadError('Não foi possível carregar os dados dos bairros.');
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [municipalityId]);
 
   useEffect(() => {
     loadData();
@@ -75,12 +77,12 @@ export const RiskEngineView: React.FC = () => {
   const handleSaveSettings = async () => {
     setIsSaving(true);
     try {
-      const muni = await supabaseService.getMunicipality();
-      const muniId = muni?.id || '00000000-0000-0000-0000-000000000001';
-      const ok = await riskEngineService.updateSettings(muniId, settings);
+      const ok = await riskEngineService.updateSettings(municipalityId, settings);
       if (ok) {
         setSaveSuccess(true);
         setTimeout(() => setSaveSuccess(false), 3000);
+      } else {
+        alert('Falha ao salvar pesos no banco.');
       }
     } catch (err) {
       alert('Falha ao salvar pesos no banco.');
@@ -266,23 +268,15 @@ export const RiskEngineView: React.FC = () => {
             <RefreshCw className="w-5 h-5 animate-spin mx-auto text-blue-600 mb-1" />
             <span className="text-xs">Carregando cálculo de risco dos bairros...</span>
           </div>
+        ) : loadError || neighborhoods.length === 0 ? (
+          <div className="py-10 text-center text-slate-500 bg-white rounded-xl border border-slate-200 text-xs" role={loadError ? 'alert' : undefined}>
+            {loadError || 'Sem bairros registrados para o município.'}
+          </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {neighborhoods.map(n => {
-              const riskCalc: RiskCalculationResult = riskEngineService.calculateScore({
-                settings,
-                recentFociCount: n.fociCount || 0,
-                recurrentCount: 0,
-                epidemiologicalCasesCount: 0,
-                positiveOvitrapsCount: 1,
-                eggDensityAverage: 40,
-                openComplaintsCount: 1,
-                closedPropertiesCount: n.pendingVisitsCount || 5,
-                refusalsCount: 0,
-                coveragePercentage: n.coveragePercentage || 70,
-                overduePeCount: 0,
-                daysSinceLastVisit: 12,
-              });
+              // Recalcula com os pesos em edição, sobre as entradas reais do bairro
+              const riskCalc: RiskCalculationResult = riskEngineService.calculateScore({ settings, ...n.riskInputs });
 
               const isCritical = riskCalc.level === 'CRITICO';
               const isHigh = riskCalc.level === 'ALTO';
@@ -325,13 +319,13 @@ export const RiskEngineView: React.FC = () => {
                           </li>
                         ))
                       ) : (
-                        <li>Área monitorada sob parâmetros epidemiológicos normais ({n.coveragePercentage}% de cobertura).</li>
+                        <li>Nenhum fator de risco identificado nos dados registrados.</li>
                       )}
                     </ul>
                   </div>
 
                   <div className="flex justify-between items-center text-xs text-slate-500 pt-2 border-t border-slate-100">
-                    <span>Cobertura: {n.coveragePercentage}%</span>
+                    <span>Cobertura: {n.coveragePercentage === null ? 'sem imóveis' : `${n.coveragePercentage}%`}</span>
                     <span>Focos: {n.fociCount}</span>
                     <span className="font-semibold text-blue-600">Recomendação: {isCritical ? 'Bloqueio Imediato' : 'Varredura'}</span>
                   </div>

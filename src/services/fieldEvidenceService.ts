@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient';
+import { requireMunicipalityId } from './municipalityScope';
 
 export type EvidenceEntityType =
   | 'visita'
@@ -28,7 +29,6 @@ export interface FieldEvidenceItem {
 }
 
 const OFFLINE_EVIDENCE_KEY = 'endemias_gov_offline_evidence';
-const DEFAULT_MUN_ID = '00000000-0000-0000-0000-000000000001';
 
 export const fieldEvidenceService = {
   /**
@@ -78,7 +78,7 @@ export const fieldEvidenceService = {
    * Salvar evidência de campo no banco ou na fila offline
    */
   async saveEvidence(params: {
-    municipalityId?: string;
+    municipalityId: string;
     entityType: EvidenceEntityType;
     entityId: string;
     fileDataUrl: string;
@@ -87,7 +87,7 @@ export const fieldEvidenceService = {
     longitude?: number;
     uploadedBy?: string;
   }): Promise<{ success: boolean; data?: FieldEvidenceItem; error?: string }> {
-    const municipalityId = params.municipalityId || DEFAULT_MUN_ID;
+    const municipalityId = requireMunicipalityId(params.municipalityId);
     const now = new Date().toISOString();
 
     // Se estiver offline ou sem conectividade, salvar no LocalStorage
@@ -188,7 +188,7 @@ export const fieldEvidenceService = {
   async getEvidencesByEntity(
     entityType: EvidenceEntityType,
     entityId: string,
-    municipalityId = DEFAULT_MUN_ID
+    municipalityId: string
   ): Promise<FieldEvidenceItem[]> {
     try {
       // 1. Buscar online

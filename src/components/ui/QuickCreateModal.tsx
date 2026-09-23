@@ -18,7 +18,7 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { supabase } from '../../services/supabaseClient';
-import { supabaseService } from '../../services/supabaseService';
+import { useMunicipalityId } from '../../contexts/AuthContext';
 
 export type QuickCreateEntity =
   | 'property'
@@ -134,16 +134,17 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
   isOpen,
   onClose,
   onNavigate,
-  municipalityId = '00000000-0000-0000-0000-000000000001',
   onSuccess,
 }) => {
+  // Sempre o município da sessão autenticada (sem município padrão)
+  const municipalityId = useMunicipalityId();
   const [selectedEntity, setSelectedEntity] = useState<QuickCreateEntity | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   // Estados de formulários rápidos
   const [bairroNome, setBairroNome] = useState('');
-  const [bairroPopulacao, setBairroPopulacao] = useState(1200);
+  const [bairroPopulacao, setBairroPopulacao] = useState(0);
 
   const [setorNome, setSetorNome] = useState('');
   const [setorCodigo, setSetorCodigo] = useState('');
@@ -159,14 +160,11 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
     if (isOpen) {
       setSelectedEntity(null);
       setFeedback(null);
-      supabaseService.getMunicipality().then(m => {
-        const mId = m?.id || municipalityId;
-        supabase.from('neighborhoods').select('id, name').eq('municipality_id', mId).order('name').then(res => {
-          if (res.data) setNeighborhoodsList(res.data);
-        });
-        supabase.from('sectors').select('id, name, code, neighborhood_id').eq('municipality_id', mId).order('name').then(res => {
-          if (res.data) setSectorsList(res.data);
-        });
+      supabase.from('neighborhoods').select('id, name').eq('municipality_id', municipalityId).order('name').then(res => {
+        if (res.data) setNeighborhoodsList(res.data);
+      });
+      supabase.from('sectors').select('id, name, code, neighborhood_id').eq('municipality_id', municipalityId).order('name').then(res => {
+        if (res.data) setSectorsList(res.data);
       });
     }
   }, [isOpen, municipalityId]);
@@ -191,8 +189,7 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
     setIsSubmitting(true);
     setFeedback(null);
     try {
-      const muni = await supabaseService.getMunicipality();
-      const mId = muni?.id || municipalityId;
+      const mId = municipalityId;
       const { data, error } = await supabase
         .from('neighborhoods')
         .insert({
@@ -225,8 +222,7 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
     setIsSubmitting(true);
     setFeedback(null);
     try {
-      const muni = await supabaseService.getMunicipality();
-      const mId = muni?.id || municipalityId;
+      const mId = municipalityId;
       const { data, error } = await supabase
         .from('sectors')
         .insert({
@@ -261,8 +257,7 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
     setIsSubmitting(true);
     setFeedback(null);
     try {
-      const muni = await supabaseService.getMunicipality();
-      const mId = muni?.id || municipalityId;
+      const mId = municipalityId;
       const { data, error } = await supabase
         .from('blocks')
         .insert({

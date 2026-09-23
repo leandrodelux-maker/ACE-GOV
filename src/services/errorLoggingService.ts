@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient';
+import { requireMunicipalityId } from './municipalityScope';
 
 export interface SystemErrorLog {
   id?: string;
@@ -15,7 +16,6 @@ export interface SystemErrorLog {
   created_at?: string;
 }
 
-const DEFAULT_MUN_ID = '00000000-0000-0000-0000-000000000001';
 
 export const errorLoggingService = {
   /**
@@ -57,7 +57,7 @@ export const errorLoggingService = {
 
     try {
       await supabase.from('system_error_logs').insert({
-        municipality_id: userContext?.municipalityId || DEFAULT_MUN_ID,
+        municipality_id: requireMunicipalityId(userContext?.municipalityId),
         request_id: requestId,
         user_id: userContext?.userId || null,
         user_role: userContext?.role || 'SISTEMA',

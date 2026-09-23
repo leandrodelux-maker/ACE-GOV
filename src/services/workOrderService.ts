@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient';
+import { requireMunicipalityId } from './municipalityScope';
 
 export type WorkOrderType =
   | 'vistoria'
@@ -52,13 +53,12 @@ export interface WorkOrderFilter {
   search?: string;
 }
 
-const DEFAULT_MUN_ID = '00000000-0000-0000-0000-000000000001';
 
 export const workOrderService = {
   /**
    * Gera o próximo número oficial de OS sequencial institucional (OS-END-2026-00001)
    */
-  async generateOrderNumber(municipalityId = DEFAULT_MUN_ID): Promise<string> {
+  async generateOrderNumber(municipalityId: string): Promise<string> {
     const year = new Date().getFullYear();
     const prefix = `OS-END-${year}-`;
 
@@ -88,7 +88,7 @@ export const workOrderService = {
    * Buscar Ordens de Serviço com dados relacionados
    */
   async getWorkOrders(
-    municipalityId = DEFAULT_MUN_ID,
+    municipalityId: string,
     filters?: WorkOrderFilter
   ): Promise<WorkOrderItem[]> {
     try {
@@ -173,7 +173,7 @@ export const workOrderService = {
    * Criar nova Ordem de Serviço
    */
   async createWorkOrder(params: {
-    municipalityId?: string;
+    municipalityId: string;
     type: WorkOrderType;
     title: string;
     description?: string;
@@ -187,7 +187,7 @@ export const workOrderService = {
     plannedDate?: string;
   }): Promise<{ success: boolean; data?: WorkOrderItem; error?: string }> {
     try {
-      const municipalityId = params.municipalityId || DEFAULT_MUN_ID;
+      const municipalityId = requireMunicipalityId(params.municipalityId);
       const orderNumber = await this.generateOrderNumber(municipalityId);
 
       const status: WorkOrderStatus = params.assignedAgentId || params.assignedTeamId ? 'atribuida' : 'aberta';
@@ -242,7 +242,7 @@ export const workOrderService = {
     neighborhoodId?: string;
     propertyId?: string;
     priority?: WorkOrderPriority;
-    municipalityId?: string;
+    municipalityId: string;
   }): Promise<{ success: boolean; orderNumber?: string }> {
     const typeMap: Record<string, WorkOrderType> = {
       denuncia: 'denuncia',

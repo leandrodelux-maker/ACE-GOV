@@ -14,8 +14,12 @@ import {
 import { alertsService, AlertNotificationItem } from '../../services/alertsService';
 import { supabaseService } from '../../services/supabaseService';
 import { PageHeader } from '../ui';
+import { useAuth, useMunicipalityId } from '../../contexts/AuthContext';
 
 export const AlertsView: React.FC = () => {
+  const { user: sessionUser } = useAuth();
+  const { municipality: sessionMunicipality } = useAuth();
+  const municipalityId = useMunicipalityId();
   const [alerts, setAlerts] = useState<AlertNotificationItem[]>([]);
   const [filterType, setFilterType] = useState<string>('ALL');
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -24,8 +28,8 @@ export const AlertsView: React.FC = () => {
   const loadAlerts = useCallback(async () => {
     setIsLoading(true);
     try {
-      const muni = await supabaseService.getMunicipality();
-      const muniId = muni?.id || '00000000-0000-0000-0000-000000000001';
+      const muni = sessionMunicipality;
+      const muniId = municipalityId;
       const data = await alertsService.getAlerts(muniId);
       setAlerts(data);
     } catch (err) {
@@ -42,7 +46,7 @@ export const AlertsView: React.FC = () => {
   const handleResolveAlert = async (id: string) => {
     setResolvingId(id);
     try {
-      const ok = await alertsService.acknowledgeAlert(id, 'Coordenador de Endemias');
+      const ok = await alertsService.acknowledgeAlert(id, sessionUser?.name || 'Usuário autenticado', municipalityId);
       if (ok) {
         setAlerts(prev =>
           prev.map(a => (a.id === id ? { ...a, acknowledged: true, acknowledgedAt: new Date().toISOString() } : a))

@@ -42,7 +42,6 @@ export interface IntegrationJobItem {
   logDetails?: Record<string, any>;
 }
 
-const DEFAULT_MUN_ID = '00000000-0000-0000-0000-000000000001';
 
 export const OFFICIAL_PROVIDERS: Array<{
   provider: IntegrationProvider;
@@ -106,7 +105,7 @@ export const integrationService = {
   /**
    * Buscar integrações configuradas no município
    */
-  async getIntegrations(municipalityId = DEFAULT_MUN_ID): Promise<IntegrationConfigItem[]> {
+  async getIntegrations(municipalityId: string): Promise<IntegrationConfigItem[]> {
     try {
       const { data, error } = await supabase
         .from('integrations')
@@ -152,7 +151,7 @@ export const integrationService = {
   async updateIntegrationStatus(
     provider: IntegrationProvider,
     status: IntegrationStatus,
-    municipalityId = DEFAULT_MUN_ID
+    municipalityId: string
   ): Promise<{ success: boolean; error?: string }> {
     try {
       const now = new Date().toISOString();
@@ -194,97 +193,29 @@ export const integrationService = {
   },
 
   /**
-   * Executar job de sincronização com deduplicação segura
+   * Executar sincronização com o sistema externo.
+   *
+   * Nenhum conector externo (e-SUS, SINAN, GAL, SIVEP, CNES, IBGE...) está
+   * implementado nesta aplicação: não há cliente HTTP, credenciais nem contrato
+   * de API configurados. A versão anterior SIMULAVA a execução (contagens
+   * aleatórias gravadas como "sucesso"); agora a operação é recusada sem gravar
+   * nada, para não registrar sincronizações que não aconteceram.
    */
   async runIntegrationJob(
     provider: IntegrationProvider,
-    municipalityId = DEFAULT_MUN_ID
+    municipalityId: string
   ): Promise<{ success: boolean; job?: IntegrationJobItem; error?: string }> {
-    const startedAt = new Date().toISOString();
-
-    try {
-      // 1. Criar registro de job em andamento
-      const { data: jobData, error: jobErr } = await supabase
-        .from('integration_jobs')
-        .insert({
-          municipality_id: municipalityId,
-          provider,
-          started_at: startedAt,
-          status: 'em_andamento',
-        })
-        .select()
-        .single();
-
-      if (jobErr) throw jobErr;
-
-      // 2. Simular processamento real / ETL com deduplicação
-      // Lê dados do provider oficial com checagem de integridade
-      const recordsRead = Math.floor(40 + Math.random() * 60);
-      const recordsCreated = Math.floor(recordsRead * 0.7);
-      const recordsUpdated = recordsRead - recordsCreated;
-      const errors = 0;
-      const finishedAt = new Date().toISOString();
-
-      // 3. Atualizar o job concluído
-      const { data: updatedJob, error: updErr } = await supabase
-        .from('integration_jobs')
-        .update({
-          finished_at: finishedAt,
-          records_read: recordsRead,
-          records_created: recordsCreated,
-          records_updated: recordsUpdated,
-          errors,
-          status: 'sucesso',
-          log_details: {
-            deduplication: '100% verificada sem duplicação de chave primária',
-            protocol: 'Padrão Oficial MS / DATASUS',
-          },
-        })
-        .eq('id', jobData.id)
-        .select()
-        .single();
-
-      if (updErr) throw updErr;
-
-      // 4. Atualizar registro da integração
-      await supabase
-        .from('integrations')
-        .update({
-          last_sync: finishedAt,
-          last_success: finishedAt,
-          last_error: null,
-          status: 'ativo',
-          updated_at: finishedAt,
-        })
-        .eq('municipality_id', municipalityId)
-        .eq('provider', provider);
-
-      return {
-        success: true,
-        job: {
-          id: updatedJob.id,
-          municipalityId: updatedJob.municipality_id,
-          provider: updatedJob.provider,
-          startedAt: updatedJob.started_at,
-          finishedAt: updatedJob.finished_at,
-          recordsRead: updatedJob.records_read,
-          recordsCreated: updatedJob.records_created,
-          recordsUpdated: updatedJob.records_updated,
-          errors: updatedJob.errors,
-          status: updatedJob.status,
-          logDetails: updatedJob.log_details,
-        },
-      };
-    } catch (err: any) {
-      console.error('Erro ao executar job de integração:', err);
-      return { success: false, error: err.message };
-    }
+    void municipalityId;
+    return {
+      success: false,
+      error: `Integração com ${provider} indisponível: o conector não está implementado neste ambiente. Nenhum dado foi sincronizado. Use Administração > Importação de Dados para cargas por arquivo (CSV).`,
+    };
   },
 
   /**
    * Buscar histórico de jobs de sincronização
    */
-  async getIntegrationJobs(municipalityId = DEFAULT_MUN_ID): Promise<IntegrationJobItem[]> {
+  async getIntegrationJobs(municipalityId: string): Promise<IntegrationJobItem[]> {
     try {
       const { data, error } = await supabase
         .from('integration_jobs')

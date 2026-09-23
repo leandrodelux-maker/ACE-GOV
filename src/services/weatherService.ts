@@ -18,7 +18,7 @@ export interface ClimateSummary {
   rainfall30d: number;
   avgTempRecent: number;
   avgHumidityRecent: number;
-  environmentalTendency: 'alta_proliferacao' | 'moderada' | 'baixa_atividade';
+  environmentalTendency: 'alta_proliferacao' | 'moderada' | 'baixa_atividade' | 'sem_dados';
   tendencyLabel: string;
   tendencyDescription: string;
   riskFactorWeight: number; // 1.0 a 1.5
@@ -30,13 +30,12 @@ export interface WeatherProviderAdapter {
   fetchDailyWeather(municipalityId: string, targetDate: string): Promise<Partial<WeatherDailyRecord>>;
 }
 
-const DEFAULT_MUN_ID = '00000000-0000-0000-0000-000000000001';
 
 export const weatherService = {
   /**
    * Obtém histórico meteorológico diário dos últimos N dias
    */
-  async getDailyWeather(municipalityId = DEFAULT_MUN_ID, limitDays = 30): Promise<WeatherDailyRecord[]> {
+  async getDailyWeather(municipalityId: string, limitDays = 30): Promise<WeatherDailyRecord[]> {
     try {
       const { data, error } = await supabase
         .from('weather_daily')
@@ -45,8 +44,9 @@ export const weatherService = {
         .order('date', { ascending: false })
         .limit(limitDays);
 
+      // Sem registros: devolve lista vazia (nunca clima sintético apresentado como real)
       if (error || !data || data.length === 0) {
-        return this.getFallbackRecentWeather();
+        return [];
       }
 
       return data.map((d: any) => ({
@@ -54,36 +54,45 @@ export const weatherService = {
         municipality_id: d.municipality_id,
         date: d.date,
         rainfall_mm: Number(d.rainfall_mm) || 0,
-        temp_min: Number(d.temp_min) || 20,
-        temp_max: Number(d.temp_max) || 30,
-        temp_avg: Number(d.temp_avg) || 25,
-        humidity_avg: Number(d.humidity_avg) || 70,
-        source: d.source || 'INMET',
+        temp_min: Number(d.temp_min),
+        temp_max: Number(d.temp_max),
+        temp_avg: Number(d.temp_avg),
+        humidity_avg: Number(d.humidity_avg),
+        source: d.source || 'Não informada',
         created_at: d.created_at
       }));
     } catch (err) {
-      console.warn('Fallback para histórico meteorológico:', err);
-      return this.getFallbackRecentWeather();
+      console.warn('Histórico meteorológico indisponível:', err);
+      return [];
     }
   },
 
   /**
    * Obtém o resumo climático para o Painel de Inteligência e Motor de Risco
    */
-  async getClimateSummary(municipalityId = DEFAULT_MUN_ID): Promise<ClimateSummary> {
+  async getClimateSummary(municipalityId: string): Promise<ClimateSummary> {
     const list = await this.getDailyWeather(municipalityId, 30);
+
+    if (list.length === 0) {
+      return {
+        rainfall7d: 0,
+        rainfall30d: 0,
+        avgTempRecent: 0,
+        avgHumidityRecent: 0,
+        environmentalTendency: 'sem_dados',
+        tendencyLabel: 'Sem dados meteorológicos registrados',
+        tendencyDescription: 'Não há registros de clima para o município; o fator climático não foi considerado.',
+        riskFactorWeight: 1,
+        recentDays: [],
+      };
+    }
 
     const last7 = list.slice(0, 7);
     const rain7d = Math.round(last7.reduce((acc, cur) => acc + cur.rainfall_mm, 0) * 10) / 10;
     const rain30d = Math.round(list.reduce((acc, cur) => acc + cur.rainfall_mm, 0) * 10) / 10;
 
-    const avgTemp = last7.length > 0
-      ? Math.round((last7.reduce((acc, cur) => acc + cur.temp_avg, 0) / last7.length) * 10) / 10
-      : 25.4;
-
-    const avgHum = last7.length > 0
-      ? Math.round(last7.reduce((acc, cur) => acc + cur.humidity_avg, 0) / last7.length)
-      : 72;
+    const avgTemp = Math.round((last7.reduce((acc, cur) => acc + cur.temp_avg, 0) / last7.length) * 10) / 10;
+    const avgHum = Math.round(last7.reduce((acc, cur) => acc + cur.humidity_avg, 0) / last7.length);
 
     // Avaliação do potencial biológico do vetor (Aedes: 22°C - 32°C com chuva > 20mm nos 7d acelera eclosão)
     let tendency: ClimateSummary['environmentalTendency'] = 'moderada';
@@ -116,30 +125,4 @@ export const weatherService = {
     };
   },
 
-  /**
-   * Fallback sintético baseado no clima médio brasileiro
-   */
-  getFallbackRecentWeather(): WeatherDailyRecord[] {
-    const list: WeatherDailyRecord[] = [];
-    const now = new Date();
-    for (let i = 0; i < 14; i++) {
-      const d = new Date(now);
-      d.setDate(d.getDate() - i);
-      const dateStr = d.toISOString().split('T')[0];
-      const rain = i === 4 ? 24.5 : i === 5 ? 12.0 : i === 10 ? 32.4 : 0.0;
-      list.push({
-        id: `wt-${i}`,
-        municipality_id: DEFAULT_MUN_ID,
-        date: dateStr,
-        rainfall_mm: rain,
-        temp_min: 20.0,
-        temp_max: 30.5,
-        temp_avg: 25.2,
-        humidity_avg: rain > 0 ? 84 : 68,
-        source: 'INMET',
-        created_at: d.toISOString()
-      });
-    }
-    return list;
-  }
 };

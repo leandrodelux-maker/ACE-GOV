@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { AlertCircle, Send } from 'lucide-react';
 import { TabSwitcher } from '../ui';
+import { useHubTab } from '../../hooks/useHubTab';
 import { CitizenPortalView } from './CitizenPortalView';
 import { ReferralsView } from './ReferralsView';
 
@@ -8,6 +9,7 @@ export type ComplaintsReferralsTab = 'denuncias' | 'encaminhamentos';
 
 interface ComplaintsReferralsHubViewProps {
   initialTab?: ComplaintsReferralsTab;
+  onTabChange?: (tab: ComplaintsReferralsTab) => void;
 }
 
 /**
@@ -15,8 +17,8 @@ interface ComplaintsReferralsHubViewProps {
  * mesmo fluxo de triagem de uma denúncia, então as duas telas passam a viver
  * num único item de menu.
  */
-export const ComplaintsReferralsHubView: React.FC<ComplaintsReferralsHubViewProps> = ({ initialTab = 'denuncias' }) => {
-  const [activeTab, setActiveTab] = useState<ComplaintsReferralsTab>(initialTab);
+export const ComplaintsReferralsHubView: React.FC<ComplaintsReferralsHubViewProps> = ({ initialTab = 'denuncias', onTabChange }) => {
+  const [activeTab, setActiveTab] = useHubTab<ComplaintsReferralsTab>(initialTab as ComplaintsReferralsTab, onTabChange);
 
   return (
     <div className="space-y-4">

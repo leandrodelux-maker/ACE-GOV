@@ -24,8 +24,10 @@ import {
 } from '../../services/chemicalOperationsService';
 import { stockService, Product } from '../../services/stockService';
 import { PageHeader } from '../ui';
+import { useMunicipalityId } from '../../contexts/AuthContext';
 
 export const ChemicalOperationsView: React.FC = () => {
+  const municipalityId = useMunicipalityId();
   const [operations, setOperations] = useState<ChemicalOperation[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -77,8 +79,8 @@ export const ChemicalOperationsView: React.FC = () => {
     setLoading(true);
     try {
       const [ops, prods] = await Promise.all([
-        chemicalOperationsService.getOperations(),
-        stockService.getProductsWithBatches(),
+        chemicalOperationsService.getOperations(municipalityId),
+        stockService.getProductsWithBatches(municipalityId),
       ]);
 
       setOperations(ops);

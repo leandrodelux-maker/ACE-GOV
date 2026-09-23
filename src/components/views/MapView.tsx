@@ -23,6 +23,7 @@ import { supabaseService } from '../../services/supabaseService';
 import { systemSettingsService } from '../../services/systemSettingsService';
 import { Neighborhood } from '../../types';
 import { PageHeader } from '../ui';
+import { useAuth, useMunicipalityId } from '../../contexts/AuthContext';
 
 const getInitialMapConfig = () => {
   try {
@@ -46,6 +47,8 @@ const getInitialMapConfig = () => {
 };
 
 export const MapView: React.FC = () => {
+  const { municipality: sessionMunicipality } = useAuth();
+  const municipalityId = useMunicipalityId();
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
   const markersLayerRef = useRef<any>(null);
@@ -105,7 +108,7 @@ export const MapView: React.FC = () => {
   // Carregar lista de bairros
   useEffect(() => {
     const loadNeighs = async () => {
-      const muni = await supabaseService.getMunicipality();
+      const muni = sessionMunicipality;
       if (muni) {
         const list = await supabaseService.getNeighborhoods(muni.id);
         if (list) setNeighborhoodsList(list);
@@ -118,7 +121,7 @@ export const MapView: React.FC = () => {
   useEffect(() => {
     const loadMapSettings = async () => {
       try {
-        const muni = await supabaseService.getMunicipality();
+        const muni = sessionMunicipality;
         const cfg = await systemSettingsService.getCategorySettings('MAPA', muni?.id);
         if (cfg) {
           const lat = typeof cfg.centerLatitude === 'number' ? cfg.centerLatitude : parseFloat(cfg.centerLatitude) || -29.7180;
@@ -169,8 +172,8 @@ export const MapView: React.FC = () => {
   const loadMapData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const muni = await supabaseService.getMunicipality();
-      const muniId = muni?.id || '00000000-0000-0000-0000-000000000001';
+      const muni = sessionMunicipality;
+      const muniId = municipalityId;
 
       let propQuery = supabase
         .from('properties')
@@ -284,15 +287,19 @@ export const MapView: React.FC = () => {
 
   const renderLayers = (L: any, map: any, layerGroup: any) => {
     layerGroup.clearLayers();
-    const defLat = mapConfig.centerLatitude;
-    const defLng = mapConfig.centerLongitude;
+    // Só desenha o que tem coordenada registrada: nunca posiciona itens no centro
+    // do mapa ou em posição aleatória (isso criaria pontos falsos no território).
+    const hasCoords = (o: any) =>
+      o && o.latitude !== null && o.latitude !== undefined && o.longitude !== null && o.longitude !== undefined &&
+      !Number.isNaN(Number(o.latitude)) && !Number.isNaN(Number(o.longitude));
 
     // 1. Círculos de Risco Territorial por Bairro
     if (showTerritoryRisk) {
       neighborhoodsList.forEach(n => {
+        if (!hasCoords(n)) return;
         if (selectedRiskLevel !== 'ALL' && n.riskLevel !== selectedRiskLevel) return;
         const color = n.riskLevel === 'CRITICO' ? '#ef4444' : n.riskLevel === 'ALTO' ? '#f97316' : '#10b981';
-        const circle = L.circle([n.latitude || defLat, n.longitude || defLng], {
+        const circle = L.circle([n.latitude, n.longitude], {
           radius: 500,
           color: color,
           fillColor: color,
@@ -308,7 +315,8 @@ export const MapView: React.FC = () => {
     // 2. Raios de Bloqueio Epidemiológico (150m a 300m)
     if (showBlocks) {
       mapData.blocks.forEach(blk => {
-        const circle = L.circle([blk.latitude || defLat, blk.longitude || defLng], {
+        if (!hasCoords(blk)) return;
+        const circle = L.circle([blk.latitude, blk.longitude], {
           radius: blk.radius_meters || 150,
           color: '#ef4444',
           fillColor: '#f87171',
@@ -325,6 +333,7 @@ export const MapView: React.FC = () => {
     // 3. Imóveis, Focos e Reincidências
     if (showProperties) {
       mapData.properties.forEach(prop => {
+        if (!hasCoords(prop)) return;
         const isFoci = prop.status === 'FOCO';
         const isRecurrent = (prop.recurrence_count || 0) >= 2;
         const isClosed = prop.status === 'FECHADO';
@@ -333,7 +342,7 @@ export const MapView: React.FC = () => {
         if (isRecurrent && !showRecurrences) return;
 
         const color = isFoci ? '#ef4444' : isRecurrent ? '#9333ea' : isClosed ? '#f59e0b' : '#3b82f6';
-        const marker = L.circleMarker([prop.latitude || defLat, prop.longitude || defLng], {
+        const marker = L.circleMarker([prop.latitude, prop.longitude], {
           radius: isFoci ? 8 : isRecurrent ? 7 : 5,
           fillColor: color,
           color: '#ffffff',
@@ -351,6 +360,7 @@ export const MapView: React.FC = () => {
     // 4. Ovitrampas
     if (showOvitraps) {
       mapData.ovitraps.forEach(ovi => {
+        if (!hasCoords(ovi)) return;
         const hasEggs = (ovi.eggs_count || 0) > 0 || ovi.positive;
         const iconHtml = `<div style="background-color: ${hasEggs ? '#dc2626' : '#0284c7'}; width: 22px; height: 22px; border-radius: 50%; border: 2px solid white; display: flex; align-items: center; justify-content: center; color: white; font-size: 10px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">🥚</div>`;
         const customIcon = L.divIcon({
@@ -360,7 +370,7 @@ export const MapView: React.FC = () => {
           iconAnchor: [11, 11],
         });
 
-        const marker = L.marker([ovi.latitude || defLat, ovi.longitude || defLng], { icon: customIcon });
+        const marker = L.marker([ovi.latitude, ovi.longitude], { icon: customIcon });
         marker.bindTooltip(`<b>Ovitrampa ${ovi.code}</b><br/>Ovos: ${ovi.eggs_count || 0}`);
         marker.on('click', () => setSelectedItem({ type: 'OVITRAP', data: ovi }));
         marker.addTo(layerGroup);
@@ -370,6 +380,7 @@ export const MapView: React.FC = () => {
     // 5. Pontos Estratégicos (PE)
     if (showStrategicPoints) {
       mapData.strategicPoints.forEach(pe => {
+        if (!hasCoords(pe)) return;
         const iconHtml = `<div style="background-color: #d97706; width: 24px; height: 24px; border-radius: 6px; border: 2px solid white; display: flex; align-items: center; justify-content: center; color: white; font-size: 12px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">⚠️</div>`;
         const customIcon = L.divIcon({
           className: 'custom-pe-icon',
@@ -378,7 +389,7 @@ export const MapView: React.FC = () => {
           iconAnchor: [12, 12],
         });
 
-        const marker = L.marker([pe.latitude || defLat, pe.longitude || defLng], { icon: customIcon });
+        const marker = L.marker([pe.latitude, pe.longitude], { icon: customIcon });
         marker.bindTooltip(`<b>PE: ${pe.name}</b><br/>Tipo: ${pe.type}`);
         marker.on('click', () => setSelectedItem({ type: 'PE', data: pe }));
         marker.addTo(layerGroup);
@@ -388,6 +399,7 @@ export const MapView: React.FC = () => {
     // 6. Imóveis Especiais (IE)
     if (showSpecialProperties) {
       mapData.specialProperties.forEach(ie => {
+        if (!hasCoords(ie)) return;
         const iconHtml = `<div style="background-color: #4f46e5; width: 22px; height: 22px; border-radius: 6px; border: 2px solid white; display: flex; align-items: center; justify-content: center; color: white; font-size: 11px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">🏢</div>`;
         const customIcon = L.divIcon({
           className: 'custom-ie-icon',
@@ -396,7 +408,7 @@ export const MapView: React.FC = () => {
           iconAnchor: [11, 11],
         });
 
-        const marker = L.marker([ie.latitude || defLat, ie.longitude || defLng], { icon: customIcon });
+        const marker = L.marker([ie.latitude, ie.longitude], { icon: customIcon });
         marker.bindTooltip(`<b>IE: ${ie.name}</b><br/>Tipo: ${ie.type}`);
         marker.on('click', () => setSelectedItem({ type: 'IE', data: ie }));
         marker.addTo(layerGroup);
@@ -426,8 +438,9 @@ export const MapView: React.FC = () => {
     if (showLiraa) {
       mapData.liraaSamples.forEach(sample => {
         const prop = sample.properties;
-        const lat = prop?.latitude || defLat + (Math.random() - 0.5) * 0.005;
-        const lng = prop?.longitude || defLng + (Math.random() - 0.5) * 0.005;
+        if (!hasCoords(prop)) return;
+        const lat = prop.latitude;
+        const lng = prop.longitude;
 
         const isPositive = sample.positive || sample.larvae_found;
         const color = isPositive ? '#dc2626' : sample.status === 'visitado' ? '#16a34a' : '#d97706';
