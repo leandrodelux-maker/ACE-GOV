@@ -24,7 +24,7 @@ import { PageHeader } from '../ui';
 const PROTECTED_ROLES: UserRole[] = ['SUPER_ADMIN', 'MUNICIPAL_ADMIN'];
 
 export const RolesPermissionsView: React.FC = () => {
-  const { user } = useAuth();
+  const { user, realRole } = useAuth();
   const [selectedRole, setSelectedRole] = useState<UserRole>('FIELD_SUPERVISOR');
   const [activePermissions, setActivePermissions] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -33,6 +33,9 @@ export const RolesPermissionsView: React.FC = () => {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const isProtected = PROTECTED_ROLES.includes(selectedRole);
+  // A matriz é global (vale para todos os municípios): só a plataforma altera (migration 31).
+  const canEditMatrix = realRole === 'SUPER_ADMIN';
+  const readOnly = isProtected || !canEditMatrix;
 
   // Módulos agrupados para a matriz (slugs canônicos em PT)
   const MODULES = [
@@ -83,7 +86,7 @@ export const RolesPermissionsView: React.FC = () => {
   };
 
   const handleTogglePermission = (slug: string) => {
-    if (isProtected) return; // papéis de plataforma têm tudo, sempre
+    if (readOnly) return; // papéis de plataforma têm tudo; matriz global só pela plataforma
 
     setActivePermissions((prev) =>
       prev.includes(slug) ? prev.filter((p) => p !== slug) : [...prev, slug]
@@ -92,7 +95,7 @@ export const RolesPermissionsView: React.FC = () => {
   };
 
   const handleToggleActionForModule = (moduleKey: string, actionPattern: string) => {
-    if (isProtected) return;
+    if (readOnly) return;
 
     const modulePerms = PERMISSIONS_CATALOG.filter(
       (p) => p.module === moduleKey && (p.slug.endsWith(`.${actionPattern}`) || p.action === actionPattern)
@@ -121,7 +124,7 @@ export const RolesPermissionsView: React.FC = () => {
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (e: any) {
       setErrorMsg(e?.message?.includes('forbidden')
-        ? 'Você não tem permissão (perfis.manage) para alterar a matriz RBAC.'
+        ? 'A matriz de permissões é global e só pode ser alterada pelo administrador da plataforma.'
         : 'Falha ao salvar as permissões no banco. Tente novamente.');
     } finally {
       setSaving(false);
@@ -129,12 +132,12 @@ export const RolesPermissionsView: React.FC = () => {
   };
 
   const handleSave = () => {
-    if (isProtected) return;
+    if (readOnly) return;
     persist(activePermissions);
   };
 
   const handleResetDefault = () => {
-    if (isProtected) return;
+    if (readOnly) return;
     persist(ROLES_REGISTRY[selectedRole]?.defaultPermissions || []);
   };
 
@@ -151,7 +154,7 @@ export const RolesPermissionsView: React.FC = () => {
           <>
             <button
               onClick={handleResetDefault}
-              disabled={isProtected || saving || loading}
+              disabled={readOnly || saving || loading}
               className="px-3 py-2 rounded-xl text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               title="Restaurar permissões oficiais recomendadas pelo SUS"
             >
@@ -161,7 +164,7 @@ export const RolesPermissionsView: React.FC = () => {
 
             <button
               onClick={handleSave}
-              disabled={isProtected || saving || loading}
+              disabled={readOnly || saving || loading}
               className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-sky-600 hover:bg-sky-500 transition shadow-sm flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Save className="w-3.5 h-3.5" />
@@ -175,6 +178,13 @@ export const RolesPermissionsView: React.FC = () => {
         <div className="p-3.5 rounded-xl bg-slate-100 border border-slate-200 text-slate-600 text-xs flex items-center gap-2">
           <Shield className="w-4 h-4 text-slate-500 shrink-0" />
           <span>Perfis de plataforma (<strong>SUPER_ADMIN</strong> / <strong>MUNICIPAL_ADMIN</strong>) têm acesso total e não podem ser editados aqui.</span>
+        </div>
+      )}
+
+      {!isProtected && !canEditMatrix && (
+        <div role="note" className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs flex items-center gap-2">
+          <Shield className="w-4 h-4 text-amber-600 shrink-0" />
+          <span>Somente leitura: a matriz de permissões vale para <strong>todos os municípios</strong> e só pode ser alterada pelo administrador da plataforma (SUPER_ADMIN). Para mudar o acesso de uma pessoa, altere o perfil dela em Usuários.</span>
         </div>
       )}
 

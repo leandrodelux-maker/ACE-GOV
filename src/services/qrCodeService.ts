@@ -1,4 +1,6 @@
 import { supabase } from './supabaseClient';
+import { auditLogService } from './auditLogService';
+import { AGENT_EMBED, agentName, formatAddress } from './schemaHelpers';
 import { requireMunicipalityId } from './municipalityScope';
 
 export type QrEntityType =
@@ -109,11 +111,12 @@ export const qrCodeService = {
     userName?: string;
   }) {
     try {
-      await supabase.from('audit_logs').insert({
-        municipality_id: requireMunicipalityId(config.municipalityId),
-        entity_name: 'etiquetas_qrcode',
+      await auditLogService.log({
+        municipalityId: requireMunicipalityId(config.municipalityId),
         action: 'GERAR_ETIQUETAS',
-        details: `Geração de ${config.quantity} etiquetas de QR Code (${config.entityType}) no formato ${config.format} por ${config.userName || 'Usuário Autenticado'}.`,
+        module: 'etiquetas',
+        entity: 'etiquetas_qrcode',
+        newData: { descricao: `Geração de ${config.quantity} etiquetas de QR Code (${config.entityType}) no formato ${config.format} por ${config.userName || 'Usuário Autenticado'}.` },
       });
     } catch (err) {
       console.warn('Erro ao registrar auditoria de etiquetas:', err);
@@ -137,11 +140,11 @@ export const qrCodeService = {
             type: 'property',
             data: {
               id: data.id,
-              code: data.code || `IMO-${data.id.substring(0, 6)}`,
-              address: data.address,
+              code: data.property_code || `IMO-${data.id.substring(0, 6)}`,
+              address: data.street,
               number: data.number,
               neighborhood: data.neighborhoods?.name,
-              type: data.type,
+              type: data.property_type,
               status: data.status,
             },
           };
@@ -156,7 +159,7 @@ export const qrCodeService = {
                 id,
                 collection_date,
                 status,
-                egg_count,
+                eggs_count,
                 created_at
               )
             `)
@@ -174,12 +177,12 @@ export const qrCodeService = {
             data: {
               id: data.id,
               code: data.code,
-              location: data.location_description || data.address,
+              location: data.address || data.reference_point,
               status: data.status,
-              installedAt: data.installation_date,
+              installedAt: data.last_installation_date,
               nextCollection: data.next_collection_date,
               lastCollectionDate: latest?.collection_date,
-              lastEggs: latest?.egg_count,
+              lastEggs: latest?.eggs_count,
             },
           };
         }
@@ -189,10 +192,11 @@ export const qrCodeService = {
             .from('strategic_points')
             .select(`
               *,
+              properties(street, number),
               strategic_point_inspections (
                 id,
                 inspection_date,
-                result,
+                positive_deposits,
                 created_at
               )
             `)
@@ -208,12 +212,12 @@ export const qrCodeService = {
             type: 'strategic_point',
             data: {
               id: data.id,
-              code: data.code,
+              code: `PE-${data.id.substring(0, 4).toUpperCase()}`,
               name: data.name,
-              type: data.type,
-              address: data.address,
-              lastInspection: inspections[0]?.inspection_date || 'Não realizada',
-              nextInspection: data.next_inspection_date,
+              type: data.category,
+              address: formatAddress(data.properties),
+              lastInspection: inspections[0]?.inspection_date || data.last_inspection || 'Não realizada',
+              nextInspection: data.next_inspection,
               inspectionsCount: inspections.length,
             },
           };
@@ -222,7 +226,7 @@ export const qrCodeService = {
         case 'special_property': {
           const { data, error } = await supabase
             .from('special_properties')
-            .select('*')
+            .select('*, properties(street, number)')
             .eq('id', id)
             .single();
           if (error) throw error;
@@ -230,11 +234,11 @@ export const qrCodeService = {
             type: 'special_property',
             data: {
               id: data.id,
-              code: data.code,
+              code: `IE-${data.id.substring(0, 4).toUpperCase()}`,
               name: data.name,
               category: data.category,
-              address: data.address,
-              contactName: data.contact_name,
+              address: formatAddress(data.properties),
+              contactName: undefined,
             },
           };
         }
@@ -244,8 +248,8 @@ export const qrCodeService = {
             .from('entomological_samples')
             .select(`
               *,
-              properties(address),
-              agents(name),
+              properties(street, number),
+              agents(${AGENT_EMBED}),
               entomological_identifications(*)
             `)
             .eq('id', id)
@@ -259,8 +263,8 @@ export const qrCodeService = {
               collectionType: data.collection_type,
               collectionDate: data.collection_date,
               status: data.status,
-              agentName: data.agents?.name,
-              address: data.properties?.address,
+              agentName: agentName(data.agents),
+              address: formatAddress(data.properties),
               receivedAt: data.received_at,
               identifications: data.entomological_identifications || [],
             },
@@ -272,7 +276,7 @@ export const qrCodeService = {
             .from('equipment')
             .select(`
               *,
-              agents:assigned_to_agent_id (name)
+              agents:assigned_to_agent_id (${AGENT_EMBED})
             `)
             .eq('id', id)
             .single();
@@ -286,7 +290,7 @@ export const qrCodeService = {
               category: data.category || data.type,
               serialNumber: data.serial_number,
               status: data.status,
-              assignedAgent: data.agents?.name || 'Almoxarifado Central',
+              assignedAgent: agentName(data.agents) || 'Sem responsável atribuído',
               nextMaintenance: data.next_maintenance,
             },
           };

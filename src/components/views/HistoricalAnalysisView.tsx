@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import {
   historicalAnalysisService,
-  ComparativeAnalysisResult,
+  ComparativeAnalysisResult, ComparisonMode,
   HistoricalIndicatorKey,
   HISTORICAL_INDICATORS
 } from '../../services/historicalAnalysisService';
@@ -31,7 +31,8 @@ export const HistoricalAnalysisView: React.FC = () => {
   const municipalityId = useMunicipalityId();
   
   const [selectedIndicator, setSelectedIndicator] = useState<HistoricalIndicatorKey>('cobertura');
-  const [selectedMode, setSelectedMode] = useState<'2026_vs_2025' | 'ciclo_atual_vs_anterior' | 'ultimas_4semanas_vs_anteriores'>('2026_vs_2025');
+  const [selectedMode, setSelectedMode] = useState<ComparisonMode>('ano_atual_vs_anterior');
+  const currentYear = new Date().getFullYear();
   const [selectedNeighborhood, setSelectedNeighborhood] = useState<string>('ALL');
   const [neighborhoods, setNeighborhoods] = useState<Array<{ id: string; name: string }>>([]);
 
@@ -150,9 +151,9 @@ export const HistoricalAnalysisView: React.FC = () => {
                   onChange={e => setSelectedMode(e.target.value as any)}
                   className="w-full py-2 px-3 rounded-xl border border-slate-200 bg-white font-medium focus:ring-1 focus:ring-blue-500"
                 >
-                  <option value="2026_vs_2025">Anos: 2026 vs 2025</option>
-                  <option value="ciclo_atual_vs_anterior">Ciclos: Ciclo 05 (Atual) vs Ciclo 04</option>
-                  <option value="ultimas_4semanas_vs_anteriores">Semanas: Últimas 4 SEs vs 4 Anteriores</option>
+                  <option value="ano_atual_vs_anterior">Anos: {currentYear} vs {currentYear - 1}</option>
+                  <option value="ciclo_atual_vs_anterior">Ciclos: atual vs anterior</option>
+                  <option value="ultimas_4semanas_vs_anteriores">Semanas: últimas 4 vs 4 anteriores</option>
                 </select>
               </div>
 
@@ -180,8 +181,14 @@ export const HistoricalAnalysisView: React.FC = () => {
             </p>
           </div>
 
+          {analysis && !analysis.available && (
+            <div role="status" className="p-4 rounded-2xl border border-amber-200 bg-amber-50 text-amber-800 text-xs">
+              {analysis.unavailableReason}
+            </div>
+          )}
+
           {/* Cards de Resumo da Comparação */}
-          {analysis && (
+          {analysis?.available && (
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
               <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
                 <span className="text-xs text-slate-400 font-bold uppercase block">Período Atual</span>
@@ -246,7 +253,7 @@ export const HistoricalAnalysisView: React.FC = () => {
           )}
 
           {/* Gráfico Visual de Barras Comparativas Nativas */}
-          {analysis && (
+          {analysis?.available && (
             <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-100">
                 <div>
@@ -310,7 +317,7 @@ export const HistoricalAnalysisView: React.FC = () => {
           )}
 
           {/* Tabela de Dados Período a Período */}
-          {analysis && (
+          {analysis?.available && (
             <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-3">
               <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
                 Detalhamento Estatístico das Séries

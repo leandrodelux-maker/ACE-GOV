@@ -111,22 +111,6 @@ export const ALL_SYSTEM_PAGES: PageAuditDefinition[] = [
     },
   },
   {
-    route: '/centro-comando',
-    name: 'Centro de Comando e Controle Operacional',
-    module: 'Vigilância & Inteligência',
-    component: 'CommandCenterView.tsx',
-    tables: ['visits', 'field_supervisions', 'alerts', 'notifications'],
-    supportsRead: true,
-    supportsCreate: true,
-    supportsUpdate: true,
-    supportsDelete: false,
-    status: 'FUNCIONAL',
-    details: {
-      services: ['commandCenterService.ts'],
-      actions: ['Telemetria ao Vivo', 'Status da Frota e ACE', 'Despacho de Incidentes'],
-    },
-  },
-  {
     route: '/inteligencia/historico',
     name: 'Análise Histórica & Séries Temporais',
     module: 'Vigilância & Inteligência',
@@ -515,22 +499,6 @@ export const ALL_SYSTEM_PAGES: PageAuditDefinition[] = [
     details: {
       services: ['supabaseService.ts'],
       actions: ['Encaminhar para Obras/Vigilância Sanitária', 'Histórico de Providências'],
-    },
-  },
-  {
-    route: '/transparencia',
-    name: 'Endemias em Números & Transparência Pública',
-    module: 'Epidemiologia & Cidadão',
-    component: 'TransparencyPortalView.tsx',
-    tables: ['visits', 'ovitraps', 'field_cycles'],
-    supportsRead: true,
-    supportsCreate: false,
-    supportsUpdate: false,
-    supportsDelete: false,
-    status: 'FUNCIONAL',
-    details: {
-      services: ['supabaseService.ts'],
-      actions: ['Indicadores Consolidados de Acesso Livre', 'Gráficos Oficiais'],
     },
   },
 

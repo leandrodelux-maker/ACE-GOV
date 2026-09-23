@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient';
+import { auditLogService } from './auditLogService';
 import { requireMunicipalityId } from './municipalityScope';
 
 export interface DocumentSignature {
@@ -86,12 +87,13 @@ export const signatureService = {
       if (error) throw error;
 
       // Registrar auditoria
-      await supabase.from('audit_logs').insert({
-        municipality_id: municipalityId,
-        entity_name: 'document_signatures',
-        entity_id: data.id,
+      await auditLogService.log({
+        municipalityId: municipalityId,
         action: 'ASSINATURA_ELETRONICA_DOCUMENTO',
-        details: `Documento ${params.documentId} (${params.documentType}) assinado eletronicamente por ${params.userName} [Hash SHA-256: ${documentHash.substring(0, 16)}...].`,
+        module: 'documentos',
+        entity: 'document_signatures',
+        entityId: data.id,
+        newData: { descricao: `Documento ${params.documentId} (${params.documentType}) assinado eletronicamente por ${params.userName} [Hash SHA-256: ${documentHash.substring(0, 16)}...].` },
       });
 
       return {

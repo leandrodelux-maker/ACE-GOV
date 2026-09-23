@@ -1,4 +1,6 @@
 import { supabase } from './supabaseClient';
+import { auditLogService } from './auditLogService';
+import { AGENT_EMBED, agentName, formatAddress } from './schemaHelpers';
 import { alertsService } from './alertsService';
 import { requireMunicipalityId } from './municipalityScope';
 
@@ -109,10 +111,12 @@ export const entomologyService = {
         .select(`
           *,
           properties:property_id (
-            address,
+            street,
+            number,
+            complement,
             neighborhoods:neighborhood_id (name)
           ),
-          agents:agent_id (name),
+          agents:agent_id (${AGENT_EMBED}),
           received_profile:received_by (full_name),
           identifications:entomological_identifications (*)
         `)
@@ -168,13 +172,13 @@ export const entomologyService = {
           originType: item.origin_type,
           originId: item.origin_id,
           propertyId: item.property_id,
-          propertyAddress: item.properties?.address,
+          propertyAddress: formatAddress(item.properties),
           neighborhoodName: item.properties?.neighborhoods?.name,
           visitId: item.visit_id,
           ovitrapCollectionId: item.ovitrap_collection_id,
           liraaSurveyId: item.liraa_survey_id,
           agentId: item.agent_id,
-          agentName: item.agents?.name,
+          agentName: agentName(item.agents),
           collectionDate: item.collection_date,
           receivedAt: item.received_at,
           receivedBy: item.received_by,
@@ -446,7 +450,7 @@ export const entomologyService = {
       if (fetchErr || !sample) throw new Error('Amostra não encontrada');
 
       const isPositiveForAedes = (sample.identifications || []).some(
-        (i: any) => i.positive_for_aedes || i.species.toLowerCase().includes('aedes')
+        (i: any) => i.positive_for_aedes || (i.species || '').toLowerCase().includes('aedes')
       );
 
       // 2. Atualizar status para finalizada
@@ -467,8 +471,9 @@ export const entomologyService = {
         await supabase
           .from('breeding_sites')
           .update({
-            has_larvae: true,
-            status: 'CONFIRMADO_POSITIVO',
+            // Espécie confirmada em laboratório; a situação do criadouro (ativo/eliminado) é preservada
+            species: [...new Set((sample.identifications || []).map((i: any) => i.species).filter(Boolean))].join(', ') || null,
+            updated_at: now,
           })
           .eq('visit_id', sample.visit_id);
       }
@@ -483,7 +488,7 @@ export const entomologyService = {
           .from('ovitrap_results')
           .insert({
             collection_id: sample.ovitrap_collection_id,
-            egg_count: totalEggs,
+            eggs_count: totalEggs,
             positive: true,
             notes: `Laudo confirmado pelo laboratório (${sample.sample_code})`,
           });
@@ -527,12 +532,13 @@ export const entomologyService = {
     details: string;
   }) {
     try {
-      await supabase.from('audit_logs').insert({
-        municipality_id: requireMunicipalityId(params.municipalityId),
-        entity_name: 'entomological_samples',
-        entity_id: params.entityId,
+      await auditLogService.log({
+        municipalityId: requireMunicipalityId(params.municipalityId),
         action: params.action,
-        details: params.details,
+        module: 'entomologia',
+        entity: 'entomological_samples',
+        entityId: params.entityId,
+        newData: { descricao: params.details },
       });
     } catch (e) {
       console.warn('Falha no log de auditoria entomológica:', e);

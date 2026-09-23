@@ -31,6 +31,7 @@ import { epidemiologicalWeekService } from '../../services/epidemiologicalWeekSe
 import { EpidemiologyImportModal } from './EpidemiologyImportModal';
 import { PageHeader } from '../ui';
 import { useMunicipalityId } from '../../contexts/AuthContext';
+import { ibgeService } from '../../services/ibgeService';
 
 export const EpidemiologyView: React.FC = () => {
   const municipalityId = useMunicipalityId();
@@ -46,6 +47,7 @@ export const EpidemiologyView: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [ibgePopulation, setIbgePopulation] = useState<{ value: number; year: string | null } | null>(null);
 
   // Form para novo bloqueio
   const [newBlockDisease, setNewBlockDisease] = useState<'DENGUE' | 'ZIKA' | 'CHIKUNGUNYA' | 'FEBRE_AMARELA'>('DENGUE');
@@ -56,9 +58,17 @@ export const EpidemiologyView: React.FC = () => {
   const currentSE = epidemiologicalWeekService.getEpidemiologicalWeek();
   const quickFilters = epidemiologicalWeekService.getQuickFilterOptions();
 
-  // População de referência = soma da população cadastrada dos bairros (sem valor fixo).
-  // Sem população cadastrada, a incidência não é calculada.
-  const municipalityPopulation = neighborhoods.reduce((acc, n) => acc + (n.estimatedPopulation || 0), 0);
+  // População de referência: estimativa oficial do IBGE (Integrações > IBGE) ou, sem ela,
+  // a soma da população cadastrada dos bairros. Sem nenhuma das duas, não há incidência.
+  const neighborhoodsPopulation = neighborhoods.reduce((acc, n) => acc + (n.estimatedPopulation || 0), 0);
+  const municipalityPopulation = ibgePopulation?.value ?? neighborhoodsPopulation;
+
+  useEffect(() => {
+    ibgeService
+      .getStored(municipalityId)
+      .then((d) => setIbgePopulation(d?.population ? { value: d.population, year: d.populationYear } : null))
+      .catch(() => setIbgePopulation(null));
+  }, [municipalityId]);
 
   useEffect(() => {
     loadData();
@@ -223,19 +233,26 @@ export const EpidemiologyView: React.FC = () => {
   // Taxa de Incidência por 100 mil habitantes = (Casos Notificados / População) * 100.000
   const incidenceRate = municipalityPopulation > 0 ? ((totalNotified / municipalityPopulation) * 100000).toFixed(1) : null;
 
-  // Curva de casos por SE (Semanas 30 a 37 para demonstração de curva epidêmica)
-  const epiCurveData = [
-    { week: 30, year2025: 12, year2026: 8 },
-    { week: 31, year2025: 18, year2026: 14 },
-    { week: 32, year2025: 25, year2026: 22 },
-    { week: 33, year2025: 34, year2026: 38 },
-    { week: 34, year2025: 45, year2026: 49 },
-    { week: 35, year2025: 41, year2026: 42 },
-    { week: 36, year2025: 32, year2026: 29 },
-    { week: 37, year2025: 28, year2026: 18 },
-  ];
-
-  const maxCurveVal = Math.max(...epiCurveData.map(d => Math.max(d.year2025, d.year2026)));
+  // Curva epidêmica real: casos notificados por semana epidemiológica (últimas 8 SE),
+  // ano atual x mesmas semanas do ano anterior
+  const curYear = currentSE.year;
+  const prevYear = curYear - 1;
+  const casesBySE = new Map<string, number>();
+  cases.forEach((c) => {
+    if (!c.notification_date) return;
+    const se = epidemiologicalWeekService.getEpidemiologicalWeek(c.notification_date);
+    const key = `${se.year}-${se.week}`;
+    casesBySE.set(key, (casesBySE.get(key) || 0) + 1);
+  });
+  const epiCurveData = Array.from({ length: 8 }, (_, i) => currentSE.week - 7 + i)
+    .filter((w) => w >= 1)
+    .map((week) => ({
+      week,
+      current: casesBySE.get(`${curYear}-${week}`) || 0,
+      previous: casesBySE.get(`${prevYear}-${week}`) || 0,
+    }));
+  const hasCurveData = epiCurveData.some((d) => d.current > 0 || d.previous > 0);
+  const maxCurveVal = Math.max(1, ...epiCurveData.map((d) => Math.max(d.current, d.previous)));
 
   return (
     <div className="space-y-6">
@@ -417,7 +434,11 @@ export const EpidemiologyView: React.FC = () => {
         <div className="bg-white p-3 rounded-xl border border-rose-300 shadow-xs bg-rose-50/30">
           <span className="text-[10px] text-rose-900 uppercase font-bold block">Incidência</span>
           <div className="text-xl font-black text-rose-700 mt-1">{incidenceRate ?? '—'}</div>
-          <span className="text-[10px] text-slate-500">{incidenceRate ? '/ 100k hab.' : 'Sem população cadastrada'}</span>
+          <span className="text-[10px] text-slate-500">
+            {incidenceRate
+              ? `/ 100k hab. (${ibgePopulation ? `IBGE ${ibgePopulation.year ?? ''}`.trim() : 'população dos bairros'})`
+              : 'Sem população: sincronize o IBGE em Integrações'}
+          </span>
         </div>
       </div>
 
@@ -463,28 +484,31 @@ export const EpidemiologyView: React.FC = () => {
                   <span>Curva Epidêmica por Semana Epidemiológica (Ano Atual vs. Ano Anterior)</span>
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Comparação direta de novos casos notificados entre 2026 e 2025 para detecção precoce de surtos
+                  Casos notificados por semana epidemiológica: {curYear} x {prevYear} (mesmas semanas)
                 </p>
               </div>
 
               <div className="flex items-center gap-4 text-xs font-semibold">
                 <div className="flex items-center gap-1.5">
                   <div className="w-3 h-3 bg-rose-600 rounded-xs" />
-                  <span className="text-slate-800">Ano Atual (2026)</span>
+                  <span className="text-slate-800">Ano Atual ({curYear})</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <div className="w-3 h-3 bg-slate-300 rounded-xs" />
-                  <span className="text-slate-500">Ano Anterior (2025)</span>
+                  <span className="text-slate-500">Ano Anterior ({prevYear})</span>
                 </div>
               </div>
             </div>
 
             {/* Gráfico de Barras por SE */}
             <div className="pt-4">
+              {!hasCurveData && (
+                <p className="text-xs text-slate-500 pb-2">Sem casos registrados nessas semanas epidemiológicas.</p>
+              )}
               <div className="grid grid-cols-8 gap-2 h-44 items-end pb-2 border-b border-slate-200">
                 {epiCurveData.map(d => {
-                  const height2026 = (d.year2026 / maxCurveVal) * 100;
-                  const height2025 = (d.year2025 / maxCurveVal) * 100;
+                  const height2026 = (d.current / maxCurveVal) * 100;
+                  const height2025 = (d.previous / maxCurveVal) * 100;
 
                   return (
                     <div key={d.week} className="flex flex-col items-center h-full justify-end group relative">
@@ -493,13 +517,13 @@ export const EpidemiologyView: React.FC = () => {
                         <div
                           className="w-3 sm:w-5 bg-slate-300 rounded-t-xs transition hover:bg-slate-400 relative"
                           style={{ height: `${height2025}%` }}
-                          title={`2025 (SE ${d.week}): ${d.year2025} casos`}
+                          title={`${prevYear} (SE ${d.week}): ${d.previous} casos`}
                         />
                         {/* 2026 */}
                         <div
                           className="w-3 sm:w-5 bg-rose-600 rounded-t-xs transition hover:bg-rose-700 relative"
                           style={{ height: `${height2026}%` }}
-                          title={`2026 (SE ${d.week}): ${d.year2026} casos`}
+                          title={`${curYear} (SE ${d.week}): ${d.current} casos`}
                         />
                       </div>
                       <span className="text-[10px] font-mono font-bold text-slate-600 mt-2">SE {d.week}</span>

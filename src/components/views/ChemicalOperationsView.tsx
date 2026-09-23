@@ -112,7 +112,7 @@ export const ChemicalOperationsView: React.FC = () => {
       return;
     }
 
-    const res = await chemicalOperationsService.createOperation(formData);
+    const res = await chemicalOperationsService.createOperation({ ...formData, municipality_id: municipalityId });
     if (res.success) {
       alert(res.message);
       setShowCreateModal(false);

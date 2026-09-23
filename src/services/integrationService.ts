@@ -1,4 +1,6 @@
 import { supabase } from './supabaseClient';
+import { auditLogService } from './auditLogService';
+import { ibgeService } from './ibgeService';
 
 export type IntegrationProvider =
   | 'esus_aps'
@@ -87,8 +89,8 @@ export const OFFICIAL_PROVIDERS: Array<{
   },
   {
     provider: 'ibge',
-    name: 'IBGE (Malha Censitária e Território)',
-    description: 'Importação oficial de setores censitários, contagem populacional e coordenadas de quadras.',
+    name: 'IBGE (Localidades e Estimativa Populacional)',
+    description: 'API pública do IBGE: nome/UF oficiais e população estimada do município (usada no cálculo de incidência). Não exige credencial.',
     type: 'api_rest',
     officialDocUrl: 'https://servicodados.ibge.gov.br/api/docs/',
   },
@@ -178,11 +180,12 @@ export const integrationService = {
         });
       }
 
-      await supabase.from('audit_logs').insert({
-        municipality_id: municipalityId,
-        entity_name: 'integrations',
+      await auditLogService.log({
+        municipalityId: municipalityId,
         action: 'ALTERAR_STATUS_INTEGRACAO',
-        details: `Integração ${provider} alterada para ${status}.`,
+        module: 'integracoes',
+        entity: 'integrations',
+        newData: { descricao: `Integração ${provider} alterada para ${status}.` },
       });
 
       return { success: true };
@@ -195,7 +198,9 @@ export const integrationService = {
   /**
    * Executar sincronização com o sistema externo.
    *
-   * Nenhum conector externo (e-SUS, SINAN, GAL, SIVEP, CNES, IBGE...) está
+   * IBGE: conector real (API pública, sem credencial) — ibgeService.syncMunicipality.
+   *
+   * Os demais conectores (e-SUS, SINAN, GAL, SIVEP, CNES, estadual) não estão
    * implementado nesta aplicação: não há cliente HTTP, credenciais nem contrato
    * de API configurados. A versão anterior SIMULAVA a execução (contagens
    * aleatórias gravadas como "sucesso"); agora a operação é recusada sem gravar
@@ -205,7 +210,27 @@ export const integrationService = {
     provider: IntegrationProvider,
     municipalityId: string
   ): Promise<{ success: boolean; job?: IntegrationJobItem; error?: string }> {
-    void municipalityId;
+    if (provider === 'ibge') {
+      const res = await ibgeService.syncMunicipality(municipalityId);
+      if (!res.success || !res.data) return { success: false, error: res.error };
+      const now = new Date().toISOString();
+      return {
+        success: true,
+        job: {
+          id: `ibge-${now}`,
+          municipalityId,
+          provider: 'ibge',
+          startedAt: now,
+          finishedAt: now,
+          recordsRead: 1,
+          recordsCreated: 0,
+          recordsUpdated: 1,
+          errors: 0,
+          status: 'sucesso',
+          logDetails: { mensagem: `${res.data.name}/${res.data.uf}: população estimada ${res.data.population?.toLocaleString('pt-BR') ?? 'indisponível'} (${res.data.populationYear ?? '-'})` },
+        },
+      };
+    }
     return {
       success: false,
       error: `Integração com ${provider} indisponível: o conector não está implementado neste ambiente. Nenhum dado foi sincronizado. Use Administração > Importação de Dados para cargas por arquivo (CSV).`,

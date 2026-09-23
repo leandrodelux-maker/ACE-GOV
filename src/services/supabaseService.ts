@@ -1,5 +1,6 @@
 import { requireMunicipalityId } from './municipalityScope';
 import { supabase } from './supabaseClient';
+import { AGENT_EMBED, agentName, formatAddress, isInspectionOverdue } from './schemaHelpers';
 import {
   Municipality,
   Neighborhood,
@@ -92,6 +93,7 @@ export const supabaseService = {
           municipalityId: n.municipality_id,
           zoneId: n.zone_id || '',
           name: n.name,
+          code: n.code || undefined,
           estimatedPopulation: typeof n.population === 'number' && n.population > 0 ? n.population : undefined,
           totalProperties: propsRes.error ? undefined : neighProps.length,
           totalSectors: sectorsRes.error ? undefined : sectors.filter((sc: any) => sc.neighborhood_id === n.id).length,
@@ -537,7 +539,7 @@ export const supabaseService = {
             id, property_code, street, number, complement, neighborhood_id, neighborhoods (name)
           ),
           agents (
-            id, full_name, registration_number
+            id, ${AGENT_EMBED}
           ),
           visit_deposits (*),
           visit_actions (*)
@@ -591,7 +593,7 @@ export const supabaseService = {
           propertyType: (v.properties?.property_type || 'RESIDENCIA') as any,
           neighborhood: neighborhood,
           agentId: v.agent_id || '',
-          agentName: v.agents?.full_name || 'Agente não informado',
+          agentName: agentName(v.agents) || 'Agente não informado',
           date: v.visit_date,
           time: v.started_at ? new Date(v.started_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '—',
           situation: (v.result || 'TRABALHADO') as any,
@@ -899,34 +901,36 @@ export const supabaseService = {
     try {
       const { data, error } = await supabase
         .from('strategic_points')
-        .select('*, neighborhoods(name)')
-        .eq('municipality_id', municipalityId);
+        .select('*, properties(street, number, complement, latitude, longitude, neighborhoods(name))')
+        .eq('municipality_id', municipalityId)
+        .is('deleted_at', null);
 
       if (error || !data) return [];
 
       return data.map((sp: any) => {
         // Sem inspeção registrada => vistoria vencida (nunca uma data inventada)
-        const lastVisit = sp.last_inspection_at ? new Date(sp.last_inspection_at) : null;
-        const daysSince = lastVisit ? Math.floor((Date.now() - lastVisit.getTime()) / 86400000) : null;
-        const isDue = daysSince === null || daysSince > 15;
+        const isDue = isInspectionOverdue(sp);
+        const frequency = Number(sp.inspection_frequency_days) || 15;
+        const nextDate = sp.next_inspection
+          || (sp.last_inspection ? new Date(new Date(`${sp.last_inspection}T00:00:00`).getTime() + frequency * 86400000).toISOString().split('T')[0] : '');
 
         return {
           id: sp.id,
           municipalityId: sp.municipality_id,
           name: sp.name,
-          type: (sp.type || 'FERRO_VELHO') as any,
-          contactName: sp.responsible_person || '',
-          contactPhone: sp.responsible_phone || '',
-          address: sp.address || '',
-          neighborhood: sp.neighborhoods?.name || 'Bairro não informado',
-          latitude: (sp.latitude ?? null) as any,
-          longitude: (sp.longitude ?? null) as any,
-          inspectionFrequencyDays: 15,
+          type: (sp.category || 'OUTRO') as any,
+          contactName: '',
+          contactPhone: '',
+          address: formatAddress(sp.properties) || '',
+          neighborhood: sp.properties?.neighborhoods?.name || 'Bairro não informado',
+          latitude: (sp.properties?.latitude ?? null) as any,
+          longitude: (sp.properties?.longitude ?? null) as any,
+          inspectionFrequencyDays: frequency,
           responsibleAgentId: sp.agent_id || '',
           responsibleAgentName: '',
           riskLevel: isDue ? 'ALTO' : ((sp.risk_level || 'MEDIO') as any),
-          lastInspectionDate: sp.last_inspection_at || '',
-          nextInspectionDate: lastVisit ? new Date(lastVisit.getTime() + 15 * 86400000).toISOString().split('T')[0] : '',
+          lastInspectionDate: sp.last_inspection || '',
+          nextInspectionDate: nextDate,
           isInspectionOverdue: isDue,
           totalInspections: (sp.total_inspections ?? undefined) as any,
           fociHistoryCount: (sp.foci_history_count ?? undefined) as any,
@@ -944,8 +948,9 @@ export const supabaseService = {
     try {
       const { data, error } = await supabase
         .from('special_properties')
-        .select('*, neighborhoods(name)')
-        .eq('municipality_id', municipalityId);
+        .select('*, properties(street, number, complement, latitude, longitude, neighborhoods(name))')
+        .eq('municipality_id', municipalityId)
+        .is('deleted_at', null);
 
       if (error || !data) return [];
 
@@ -953,14 +958,14 @@ export const supabaseService = {
         id: ip.id,
         municipalityId: ip.municipality_id,
         name: ip.name,
-        type: (ip.type || 'HOSPITAL_UBS') as any,
-        address: ip.address || '',
-        neighborhood: ip.neighborhoods?.name || 'Bairro não informado',
-        responsiblePerson: ip.responsible_person || '',
-        contactPhone: ip.contact_phone || '',
-        latitude: (ip.latitude ?? null) as any,
-        longitude: (ip.longitude ?? null) as any,
-        lastInspectionDate: ip.last_inspection_at || '',
+        type: (ip.category || 'OUTRO') as any,
+        address: formatAddress(ip.properties) || '',
+        neighborhood: ip.properties?.neighborhoods?.name || 'Bairro não informado',
+        responsiblePerson: '',
+        contactPhone: '',
+        latitude: (ip.properties?.latitude ?? null) as any,
+        longitude: (ip.properties?.longitude ?? null) as any,
+        lastInspectionDate: ip.last_inspection || '',
         fociCount: 0,
       }));
     } catch {
@@ -1224,7 +1229,7 @@ export const supabaseService = {
     try {
       const { data, error } = await supabase
         .from('microareas')
-        .select('*, sectors(name, neighborhoods(name)), agents(employee_number, profiles(full_name))')
+        .select('*, sectors(name, neighborhoods(name)), responsible:profiles(full_name)')
         .eq('municipality_id', municipalityId)
         .order('name');
 

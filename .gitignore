@@ -6,3 +6,10 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Homologação local do banco (scripts/homologacao)
+scripts/homologacao/data/
+scripts/homologacao/results-*.json
+scripts/homologacao/all-queries.json
+scripts/homologacao/probe-results.json
+scripts/homologacao/package-lock.json

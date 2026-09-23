@@ -25,11 +25,12 @@ import {
   WorkOrderType,
   WorkOrderPriority,
   WorkOrderStatus,
+  AutoOrderTrigger,
 } from '../../services/workOrderService';
 import { PageHeader } from '../ui';
 
 interface WorkOrdersViewProps {
-  municipalityId?: string;
+  municipalityId: string;
 }
 
 export const WorkOrdersView: React.FC<WorkOrdersViewProps> = ({ municipalityId }) => {
@@ -45,6 +46,17 @@ export const WorkOrdersView: React.FC<WorkOrdersViewProps> = ({ municipalityId }
   // Modais
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isAutoGenerateOpen, setIsAutoGenerateOpen] = useState(false);
+  const [autoTriggers, setAutoTriggers] = useState<AutoOrderTrigger[] | null>(null);
+
+  // Gatilhos reais carregados ao abrir o modal de geração automática
+  useEffect(() => {
+    if (!isAutoGenerateOpen) return;
+    setAutoTriggers(null);
+    workOrderService
+      .getAutoTriggers(municipalityId)
+      .then(setAutoTriggers)
+      .catch(() => setAutoTriggers([]));
+  }, [isAutoGenerateOpen, municipalityId]);
   const [selectedOrder, setSelectedOrder] = useState<WorkOrderItem | null>(null);
   const [isCompleteOpen, setIsCompleteOpen] = useState(false);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
@@ -106,18 +118,15 @@ export const WorkOrdersView: React.FC<WorkOrdersViewProps> = ({ municipalityId }
     }
   };
 
-  const handleAutoGenerate = async (
-    source: 'denuncia' | 'foco' | 'caso_sinan' | 'reincidencia' | 'pe_vencido' | 'alerta',
-    title: string,
-    desc: string,
-    priority: WorkOrderPriority = 'alta'
-  ) => {
+  const handleAutoGenerate = async (trigger: AutoOrderTrigger) => {
     const res = await workOrderService.createAutoOrderFromTrigger({
-      source,
-      sourceId: `trig-${Date.now()}`,
-      title,
-      description: desc,
-      priority,
+      source: trigger.source,
+      sourceId: trigger.sourceId,
+      title: trigger.title,
+      description: trigger.description,
+      priority: trigger.priority,
+      neighborhoodId: trigger.neighborhoodId,
+      propertyId: trigger.propertyId,
       municipalityId,
     });
 
@@ -372,68 +381,33 @@ export const WorkOrdersView: React.FC<WorkOrdersViewProps> = ({ municipalityId }
               Selecione o gatilho operacional para despachar uma OS prioritária de campo:
             </p>
 
-            <div className="space-y-3">
-              {[
-                {
-                  source: 'caso_sinan' as const,
-                  title: 'Bloqueio Imediato: Caso Suspeito de Dengue com Sinal de Alarme',
-                  desc: 'Paciente residente na Rua das Flores, 420. Requer bloqueio perifocal em raio de 150m.',
-                  priority: 'critica' as const,
-                  label: 'Caso Epidemiológico SINAN',
-                },
-                {
-                  source: 'denuncia' as const,
-                  title: 'Atendimento à Denúncia: Piscina Abandonada com Larvas',
-                  desc: 'Protocolo de Ouvidoria #842. Terreno baldio ao lado do Colégio São Pedro.',
-                  priority: 'urgente' as const,
-                  label: 'Denúncia de Cidadão',
-                },
-                {
-                  source: 'foco' as const,
-                  title: 'Controle Vetorial: Foco Positivo de Aedes Confirmado',
-                  desc: 'Laudo entomológico ENT-2026-000001 confirmou Aedes aegypti. Tratamento focal com larvicida.',
-                  priority: 'alta' as const,
-                  label: 'Foco Ativo Confirmado',
-                },
-                {
-                  source: 'reincidencia' as const,
-                  title: 'Reincidência de Criadouros em Imóvel Comercial',
-                  desc: 'Imóvel com 3 ciclos consecutivos de focos de pernilongo/Aedes. Notificação e termo sanitário.',
-                  priority: 'alta' as const,
-                  label: 'Imóvel Reincidente',
-                },
-                {
-                  source: 'pe_vencido' as const,
-                  title: 'Inspeção em Ponto Estratégico com Prazo Vencido',
-                  desc: 'Ferro-velho Central sem inspeção quinzenal há 18 dias.',
-                  priority: 'alta' as const,
-                  label: 'Ponto Estratégico (PE) Vencido',
-                },
-              ].map((item, idx) => (
+            <div className="space-y-3 max-h-[60vh] overflow-y-auto">
+              {autoTriggers === null ? (
+                <p className="text-xs text-slate-500" role="status">Buscando gatilhos nos registros...</p>
+              ) : autoTriggers.length === 0 ? (
+                <p className="text-xs text-slate-500">Nenhum gatilho encontrado: sem denúncias abertas, PEs vencidos, imóveis reincidentes ou casos recentes.</p>
+              ) : (
+                autoTriggers.map((item) => (
                 <div
-                  key={idx}
+                  key={`${item.source}-${item.sourceId}`}
                   className="p-3 bg-slate-50 dark:bg-slate-900/60 rounded-lg border border-slate-200 dark:border-slate-700 flex justify-between items-start gap-3"
                 >
                   <div>
                     <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
                       {item.label}
                     </span>
-                    <h4 className="text-xs font-bold text-slate-900 dark:text-white mt-1">
-                      {item.title}
-                    </h4>
-                    <p className="text-xs text-slate-500 mt-0.5">{item.desc}</p>
+                    <h4 className="text-xs font-bold text-slate-900 dark:text-white mt-1">{item.title}</h4>
+                    <p className="text-xs text-slate-500 mt-0.5">{item.description}</p>
                   </div>
-
                   <button
-                    onClick={() =>
-                      handleAutoGenerate(item.source, item.title, item.desc, item.priority)
-                    }
+                    onClick={() => handleAutoGenerate(item)}
                     className="px-3 py-1.5 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded shrink-0"
                   >
                     Gerar OS
                   </button>
                 </div>
-              ))}
+                ))
+              )}
             </div>
 
             <div className="flex justify-end mt-6">

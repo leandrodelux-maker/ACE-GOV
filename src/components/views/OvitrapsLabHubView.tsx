@@ -11,7 +11,7 @@ interface OvitrapsLabHubViewProps {
   initialTab?: OvitrapsLabTab;
   onTabChange?: (tab: OvitrapsLabTab) => void;
   onNavigate: (view: string) => void;
-  municipalityId?: string;
+  municipalityId: string;
 }
 
 /**

@@ -238,7 +238,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate, redirectTo }) 
         {/* Rodapé Institucional */}
         <div className="mt-4 text-center">
           <p className="text-[11px] text-slate-500">
-            Plataforma homologada pelo Ministério da Saúde para vigilância de arboviroses
+            Sistema municipal de vigilância e controle de arboviroses
           </p>
         </div>
       </div>

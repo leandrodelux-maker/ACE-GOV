@@ -35,6 +35,10 @@ import { auditLogService } from '../services/auditLogService';
 import { userAdminService } from '../services/userAdminService';
 import { enqueueVisit, readQueue, syncQueue, QueueStorage } from '../services/offlineVisitQueue';
 import { isValidMunicipalityId } from '../config/publicMunicipality';
+import { historicalAnalysisService } from '../services/historicalAnalysisService';
+import { db } from '../services/storage';
+import { agentName, isInspectionOverdue, normResult, PENDING_STATUSES } from '../services/schemaHelpers';
+import { ibgeService } from '../services/ibgeService';
 
 /** Checador de acesso equivalente ao AuthContext para um papel (permissões padrão do papel). */
 function accessFor(role: UserRole): AccessChecker {
@@ -657,8 +661,8 @@ async function main() {
   // -------------------------------------------------------------
   console.log('\n🛡️ 7. CENTRAL DE INTEGRIDADE DO SISTEMA & AUDITORIA:');
 
-  await runTest('Auditoria do Sistema', 'Validação do Catálogo de 53 Páginas/Módulos', () => {
-    assert(ALL_SYSTEM_PAGES.length === 53, `Deve conter 53 páginas mapeadas no catálogo (encontradas: ${ALL_SYSTEM_PAGES.length})`);
+  await runTest('Auditoria do Sistema', 'Validação do Catálogo de 51 Páginas/Módulos', () => {
+    assert(ALL_SYSTEM_PAGES.length === 51, `Deve conter 51 páginas mapeadas no catálogo (encontradas: ${ALL_SYSTEM_PAGES.length})`);
     
     // Nenhuma página pode ter status PARCIAL, SEM_BANCO, MOCK_DATA ou ERRO
     const invalidPages = ALL_SYSTEM_PAGES.filter(p => p.status !== 'FUNCIONAL');
@@ -674,10 +678,12 @@ async function main() {
     }
   });
 
-  await runTest('Auditoria do Sistema', 'Execução de Auditoria Completa e Persistência no Banco', async () => {
+  // Observação: sem sessão autenticada a gravação em system_audits é recusada pela RLS;
+  // este teste valida o resumo calculado e a conectividade, não a persistência.
+  await runTest('Auditoria do Sistema', 'Execução da auditoria completa (resumo e conectividade)', async () => {
     const { summary } = await systemAuditService.runCompleteAudit('test-runner-automated');
-    assert(summary.pagesChecked === 53, `Auditoria deve checar 53 páginas (checou: ${summary.pagesChecked})`);
-    assert(summary.functionalCount === 53, `Auditoria deve validar 53 páginas como FUNCIONAIS (validou: ${summary.functionalCount})`);
+    assert(summary.pagesChecked === 51, `Auditoria deve checar 51 páginas (checou: ${summary.pagesChecked})`);
+    assert(summary.functionalCount === 51, `Auditoria deve validar 51 páginas como FUNCIONAIS (validou: ${summary.functionalCount})`);
     assert(summary.partialCount === 0, `Não deve haver páginas parciais`);
     assert(summary.mockCount === 0, `Não deve haver páginas com mock data`);
     assert(summary.errorCount === 0, `Não deve haver páginas com erro`);
@@ -862,6 +868,153 @@ async function main() {
 
     const noCycle = await syncQueue(async () => ({ success: true }), { municipalityId: mun, cycleId: null }, storage);
     assertEquals(noCycle.synced, 0, 'Sem ciclo em andamento nada é enviado com ciclo inventado');
+  });
+
+  // -------------------------------------------------------------
+  // 9. DADOS REAIS: SEM VALORES FABRICADOS
+  // -------------------------------------------------------------
+  console.log('\n📊 9. DADOS REAIS (SEM VALORES FABRICADOS):');
+
+  await runTest('Dados Reais', 'Análise histórica: indicadores sem série temporal são declarados indisponíveis', async () => {
+    for (const key of ['iip', 'ib', 'reincidencia'] as const) {
+      const res = await historicalAnalysisService.getComparativeAnalysis(key, 'ultimas_4semanas_vs_anteriores', undefined, 'mun-teste');
+      assert(!res.available && res.series.length === 0, `${key} não pode gerar série sem dados`);
+      assert(!!res.unavailableReason, `${key} deve explicar a indisponibilidade`);
+    }
+  });
+
+  await runTest('Dados Reais', 'Análise histórica: janelas de comparação contíguas e sem sobreposição', async () => {
+    const weeks = await historicalAnalysisService.buildBuckets('ultimas_4semanas_vs_anteriores', 'mun-teste');
+    assert(weeks.ok, 'Janela semanal deve ser construída sem consultar o banco');
+    if (!weeks.ok) return;
+    assertEquals(weeks.items.length, 4, 'Quatro semanas comparadas');
+    for (let i = 1; i < weeks.items.length; i++) {
+      assertEquals(weeks.items[i].cur[0], weeks.items[i - 1].cur[1], 'Semanas atuais devem ser contíguas');
+    }
+    assert(weeks.items[3].prev[1] <= weeks.items[0].cur[0], 'Período anterior não pode sobrepor o atual');
+    const year = await historicalAnalysisService.buildBuckets('ano_atual_vs_anterior', 'mun-teste');
+    assert(year.ok && year.items.length === new Date().getMonth() + 1, 'Comparação anual vai de janeiro até o mês atual');
+  });
+
+  await runTest('Dados Reais', 'Cache local não semeia dados de exemplo', () => {
+    assertEquals(db.getNeighborhoods().length, 0, 'Sem hidratação não há bairros');
+    assertEquals(db.getAlerts().length, 0, 'Sem hidratação não há alertas');
+    assertEquals(db.getComplaints().length, 0, 'Sem hidratação não há denúncias');
+    assert(db.getMunicipality() === null, 'Sem sessão não há município em cache');
+  });
+
+  await runTest('Dados Reais', 'Código-fonte sem valores de demonstração conhecidos', () => {
+    const forbidden: [RegExp, string][] = [
+      [/-29\.71|-52\.42/, 'coordenada fixa de município'],
+      [/Carlos (Alberto|Eduardo) Silva|Mariana Duarte|Roberto Silveira|Dr\. Fernando Albuquerque/, 'pessoa fictícia'],
+      [/1º Ciclo 2026|Ciclo 05 \/ 2026/, 'ciclo fixo'],
+      [/Santa Cruz do Sul|santacruz\.rs\.gov\.br|4316808/, 'município fixo'],
+      [/Math\.random\(\)\s*\*\s*60|WPP-\$\{/, 'contagem/protocolo sorteado'],
+      [/Hash SHA-256 de Autenticidade: 9f8e/, 'hash fixo'],
+      [/municipalityPopulation = 128500/, 'população fixa'],
+    ];
+    const offenders: string[] = [];
+    const walk = (dir: string) => {
+      for (const e of readdirSync(dir, { withFileTypes: true })) {
+        const p = join(dir, e.name);
+        if (e.isDirectory()) { if (!['tests', 'db'].includes(e.name)) walk(p); continue; }
+        if (!/\.(ts|tsx)$/.test(e.name)) continue;
+        const content = readFileSync(p, 'utf8');
+        for (const [re, label] of forbidden) if (re.test(content)) offenders.push(`${p} (${label})`);
+      }
+    };
+    walk(join(process.cwd(), 'src'));
+    assertEquals(offenders.length, 0, `Valores de demonstração encontrados: ${offenders.join('; ')}`);
+  });
+
+  // -------------------------------------------------------------
+  // 10. RODADA 3: ESQUEMA REAL, MENU E REGRAS DO BANCO
+  // -------------------------------------------------------------
+  console.log('\n🗄️ 10. ESQUEMA REAL, MENU E REGRAS DO BANCO:');
+
+  await runTest('Rodada 3', 'Telas duplicadas redirecionam (Centro de Comando e Endemias em Números)', () => {
+    for (const [from, to] of [['/centro-comando', '/dashboard'], ['/transparencia', '/relatorios'], ['/command_center', '/dashboard']]) {
+      const r = resolvePath(from);
+      assert(r.kind === 'redirect' && (r as any).to === to, `${from} deve redirecionar para ${to}`);
+    }
+    assert(!isViewModule('command_center') && !isViewModule('transparency'), 'Views removidas não podem continuar registradas');
+  });
+
+  await runTest('Rodada 3', 'Menu inclui Painel do Gestor, Alertas, Motor de Risco e Análise Histórica', () => {
+    const views = NAV_GROUPS.flatMap((g) => g.items.map((i) => i.view));
+    for (const v of ['executive', 'alerts', 'risk_engine', 'historical_analysis']) assert(views.includes(v as any), `${v} deve estar no menu`);
+    const inicio = NAV_GROUPS.find((g) => g.id === 'inicio')!.items.map((i) => i.view);
+    assert(inicio.includes('executive') && inicio.includes('alerts'), 'Painel do Gestor e Alertas ficam em Início');
+  });
+
+  await runTest('Rodada 3', 'Vistoria de PE vencida usa next_inspection / frequência (sem data inventada)', () => {
+    const now = new Date('2026-09-23T12:00:00Z');
+    assert(isInspectionOverdue({}, now), 'Sem vistoria registrada = vencida');
+    assert(isInspectionOverdue({ next_inspection: '2026-09-22' }, now), 'Próxima vistoria no passado = vencida');
+    assert(!isInspectionOverdue({ next_inspection: '2026-09-30' }, now), 'Próxima vistoria futura = em dia');
+    assert(!isInspectionOverdue({ last_inspection: '2026-09-15', inspection_frequency_days: 15 }, now), 'Dentro da frequência = em dia');
+    assert(isInspectionOverdue({ last_inspection: '2026-09-01', inspection_frequency_days: 15 }, now), 'Frequência excedida = vencida');
+  });
+
+  await runTest('Rodada 3', 'Resultado de visita normalizado (RPC grava minúsculas)', () => {
+    assertEquals(normResult('trabalhado'), 'TRABALHADO', 'minúsculo');
+    assertEquals(normResult('RECUSADO'), 'RECUSA', 'recusado = recusa');
+    assertEquals(normResult('recusa'), 'RECUSA', 'recusa');
+    assert(PENDING_STATUSES.includes('pendente') && PENDING_STATUSES.includes('PENDENTE'), 'Pendência aceita as duas grafias');
+  });
+
+  await runTest('Rodada 3', 'Nome do agente vem do perfil vinculado (agents não tem coluna de nome)', () => {
+    assertEquals(agentName({ employee_number: '12', profiles: { full_name: 'Maria' } }), 'Maria', 'nome do perfil');
+    assertEquals(agentName({ employee_number: '12' }), 'Matrícula 12', 'sem perfil, usa matrícula');
+    assert(agentName(null) === undefined, 'sem agente');
+  });
+
+  await runTest('Rodada 3', 'Código-fonte sem colunas/tabelas inexistentes no banco real', () => {
+    // Cada padrão abaixo retornava erro de esquema (42703/PGRST200/PGRST205) no projeto Supabase.
+    const forbidden: [RegExp, string][] = [
+      [/recurrence_count|foci_count/, 'properties não tem contagem de focos (usar breeding_sites)'],
+      [/last_inspection_at/, 'coluna é last_inspection'],
+      [/epidemiological_blocks|property_visits|chemical_blockades/, 'tabela inexistente'],
+      [/agents\s*\(\s*(id,\s*)?name|agent_id\s*\(\s*name|assigned_to_agent_id\s*\(\s*name|full_name,\s*registration_number/, 'agents não tem nome'],
+      [/from\('audit_logs'\)\.insert\(\{[^}]{0,300}(entity_name|details):/, 'audit_logs não tem entity_name/details (usar auditLogService.log)'],
+      [/from\('audit_logs'\)\.insert\(\{\s*\n\s*action:/, 'audit_logs exige municipality_id/module/entity'],
+      [/egg_count\b/, 'coluna é eggs_count'],
+      [/block_number/, 'blocks não tem block_number'],
+      [/[^_]cycles\(id, name/, 'tabela é field_cycles'],
+    ];
+    const offenders: string[] = [];
+    const walk = (dir: string) => {
+      for (const e of readdirSync(dir, { withFileTypes: true })) {
+        const p = join(dir, e.name);
+        if (e.isDirectory()) { if (!['tests', 'db'].includes(e.name)) walk(p); continue; }
+        if (!/\.(ts|tsx)$/.test(e.name)) continue;
+        const content = readFileSync(p, 'utf8');
+        for (const [re, label] of forbidden) if (re.test(content)) offenders.push(`${p} (${label})`);
+      }
+    };
+    walk(join(process.cwd(), 'src'));
+    assertEquals(offenders.length, 0, `Referências a esquema inexistente: ${offenders.join('; ')}`);
+  });
+
+  await runTest('Rodada 3', 'IBGE (API pública): nome, UF e população estimada reais', async () => {
+    let invalid = '';
+    try { await ibgeService.lookupMunicipality('12'); } catch (e: any) { invalid = e.message; }
+    assert(/inválido/.test(invalid), 'Código com formato inválido é recusado sem chamada externa');
+    const poa = await ibgeService.lookupMunicipality('4314902');
+    assertEquals(poa.name, 'Porto Alegre', 'Nome oficial');
+    assertEquals(poa.uf, 'RS', 'UF oficial');
+    assert(poa.population === null || poa.population > 100000, 'População estimada coerente (ou indisponível)');
+  });
+
+  await runTest('Rodada 3', 'Migrações de segurança versionadas em supabase/migrations', () => {
+    const files = readdirSync(join(process.cwd(), 'supabase', 'migrations'));
+    for (const f of ['20260923000031_tenant_isolation_hardening.sql', '20260923000032_intersectoral_referrals.sql', '20260923000033_public_portal_complaint_token.sql', '20260923000034_agents_link_and_write_policy.sql', '20260923000035_deprecate_unused_tables.sql']) {
+      assert(files.includes(f), `${f} deve existir`);
+    }
+    const m31 = readFileSync(join(process.cwd(), 'supabase', 'migrations', '20260923000031_tenant_isolation_hardening.sql'), 'utf8');
+    assert(/ARRAY\['SUPER_ADMIN'\];/.test(m31), 'is_platform_admin restrito a SUPER_ADMIN');
+    const m33 = readFileSync(join(process.cwd(), 'supabase', 'migrations', '20260923000033_public_portal_complaint_token.sql'), 'utf8');
+    assert(!/gen_random_bytes\(/.test(m33.split('\n').filter((l) => !l.trim().startsWith('--')).join('\n')), 'Token do portal sem pgcrypto');
   });
 
   // -------------------------------------------------------------

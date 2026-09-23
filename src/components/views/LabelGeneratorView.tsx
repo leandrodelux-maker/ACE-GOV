@@ -22,7 +22,7 @@ import { supabase } from '../../services/supabaseClient';
 import { PageHeader } from '../ui';
 
 interface LabelGeneratorViewProps {
-  municipalityId?: string;
+  municipalityId: string;
 }
 
 interface PrintableItem {
@@ -63,14 +63,16 @@ export const LabelGeneratorView: React.FC<LabelGeneratorViewProps> = ({ municipa
           case 'property': {
             const { data } = await supabase
               .from('properties')
-              .select('id, address, number, type, neighborhoods(name)')
+              .select('id, property_code, street, number, property_type, neighborhoods(name)')
+              .eq('municipality_id', municipalityId)
+              .is('deleted_at', null)
               .limit(50);
             loadedItems = (data || []).map((p: any) => ({
               id: p.id,
-              code: `IMO-${p.id.substring(0, 6).toUpperCase()}`,
-              title: `${p.address}, ${p.number || 'S/N'}`,
-              subtitle: p.neighborhoods?.name || 'Zona Urbana',
-              category: p.type || 'Residencial',
+              code: p.property_code || `IMO-${p.id.substring(0, 6).toUpperCase()}`,
+              title: `${p.street}, ${p.number || 'S/N'}`,
+              subtitle: p.neighborhoods?.name || 'Bairro não informado',
+              category: p.property_type || 'Tipo não informado',
               type: 'property',
             }));
             break;
@@ -79,15 +81,17 @@ export const LabelGeneratorView: React.FC<LabelGeneratorViewProps> = ({ municipa
           case 'ovitrap': {
             const { data } = await supabase
               .from('ovitraps')
-              .select('id, code, location_description, status, installation_date')
+              .select('id, code, address, reference_point, status, last_installation_date')
+              .eq('municipality_id', municipalityId)
+              .is('deleted_at', null)
               .limit(50);
             loadedItems = (data || []).map((o: any) => ({
               id: o.id,
               code: o.code || `OVI-${o.id.substring(0, 4)}`,
-              title: `Ovitrampa ${o.code}`,
-              subtitle: o.location_description || 'Área Peridomiciliar',
-              category: o.status || 'Ativa',
-              date: o.installation_date,
+              title: `Ovitrampa ${o.code || ''}`.trim(),
+              subtitle: o.address || o.reference_point || 'Local não informado',
+              category: o.status || 'Situação não informada',
+              date: o.last_installation_date,
               type: 'ovitrap',
             }));
             break;
@@ -96,14 +100,16 @@ export const LabelGeneratorView: React.FC<LabelGeneratorViewProps> = ({ municipa
           case 'strategic_point': {
             const { data } = await supabase
               .from('strategic_points')
-              .select('id, code, name, type, address')
+              .select('id, name, category, properties(street, number)')
+              .eq('municipality_id', municipalityId)
+              .is('deleted_at', null)
               .limit(50);
             loadedItems = (data || []).map((pe: any) => ({
               id: pe.id,
-              code: pe.code || `PE-${pe.id.substring(0, 4)}`,
+              code: `PE-${pe.id.substring(0, 4).toUpperCase()}`,
               title: pe.name,
-              subtitle: pe.address,
-              category: pe.type,
+              subtitle: pe.properties ? `${pe.properties.street}, ${pe.properties.number || 'S/N'}` : 'Endereço não vinculado',
+              category: pe.category,
               type: 'strategic_point',
             }));
             break;
@@ -112,13 +118,15 @@ export const LabelGeneratorView: React.FC<LabelGeneratorViewProps> = ({ municipa
           case 'special_property': {
             const { data } = await supabase
               .from('special_properties')
-              .select('id, code, name, category, address')
+              .select('id, name, category, properties(street, number)')
+              .eq('municipality_id', municipalityId)
+              .is('deleted_at', null)
               .limit(50);
             loadedItems = (data || []).map((ie: any) => ({
               id: ie.id,
-              code: ie.code || `IE-${ie.id.substring(0, 4)}`,
+              code: `IE-${ie.id.substring(0, 4).toUpperCase()}`,
               title: ie.name,
-              subtitle: ie.address,
+              subtitle: ie.properties ? `${ie.properties.street}, ${ie.properties.number || 'S/N'}` : 'Endereço não vinculado',
               category: ie.category,
               type: 'special_property',
             }));
@@ -128,13 +136,14 @@ export const LabelGeneratorView: React.FC<LabelGeneratorViewProps> = ({ municipa
           case 'sample': {
             const { data } = await supabase
               .from('entomological_samples')
-              .select('id, sample_code, collection_type, collection_date, properties(address)')
+              .select('id, sample_code, collection_type, collection_date, properties(street, number)')
+              .eq('municipality_id', municipalityId)
               .limit(50);
             loadedItems = (data || []).map((s: any) => ({
               id: s.id,
               code: s.sample_code,
               title: `Amostra ${s.sample_code}`,
-              subtitle: s.properties?.address || 'Ponto de Coleta',
+              subtitle: s.properties ? `${s.properties.street}, ${s.properties.number || 'S/N'}` : 'Ponto de coleta',
               category: s.collection_type,
               date: s.collection_date,
               type: 'sample',
@@ -146,6 +155,8 @@ export const LabelGeneratorView: React.FC<LabelGeneratorViewProps> = ({ municipa
             const { data } = await supabase
               .from('equipment')
               .select('id, code, name, category, type, serial_number')
+              .eq('municipality_id', municipalityId)
+              .is('deleted_at', null)
               .limit(50);
             loadedItems = (data || []).map((eq: any) => ({
               id: eq.id,

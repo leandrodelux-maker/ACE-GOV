@@ -70,6 +70,9 @@ export const DataQualityView: React.FC = () => {
           </button>
         }
       />
+      {report?.error && (
+        <div role="alert" className="p-3 rounded-xl border border-rose-200 bg-rose-50 text-rose-800 text-xs">{report.error}</div>
+      )}
 
       {actionSuccess && (
         <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs font-bold text-emerald-800 flex items-center gap-2">

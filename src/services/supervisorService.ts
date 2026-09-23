@@ -1,4 +1,6 @@
 import { supabase } from './supabaseClient';
+import { auditLogService } from './auditLogService';
+import { AGENT_EMBED, PENDING_STATUSES, agentName, formatAddress } from './schemaHelpers';
 import { requireMunicipalityId } from './municipalityScope';
 
 export interface FieldSupervision {
@@ -56,7 +58,7 @@ export const supervisorService = {
           .from('pending_visits')
           .select('id, properties!inner(municipality_id)', { count: 'exact', head: true })
           .eq('properties.municipality_id', munId)
-          .eq('status', 'PENDENTE'),
+          .in('status', PENDING_STATUSES),
         supabase
           .from('work_orders')
           .select('id', { count: 'exact', head: true })
@@ -118,7 +120,7 @@ export const supervisorService = {
           .from('pending_visits')
           .select('responsible_agent_id, assigned_agent_id, properties!inner(municipality_id)')
           .eq('properties.municipality_id', munId)
-          .eq('status', 'PENDENTE'),
+          .in('status', PENDING_STATUSES),
       ]);
 
       if (agentsRes.error || !agentsRes.data) return [];
@@ -174,11 +176,12 @@ export const supervisorService = {
 
       if (error) throw error;
 
-      await supabase.from('audit_logs').insert({
-        municipality_id: municipalityId,
-        entity_name: 'field_supervisions',
+      await auditLogService.log({
+        municipalityId: municipalityId,
         action: 'REGISTRAR_SUPERVISAO',
-        details: `Supervisão de campo registrada para o agente. Resultado: ${supervision.result}.`,
+        module: 'supervisao',
+        entity: 'field_supervisions',
+        newData: { descricao: `Supervisão de campo registrada para o agente. Resultado: ${supervision.result}.` },
       });
 
       return { success: true };
@@ -198,8 +201,8 @@ export const supervisorService = {
         .select(`
           *,
           supervisor:supervisor_id (full_name),
-          agent:agent_id (name),
-          property:property_id (address)
+          agent:agent_id (${AGENT_EMBED}),
+          property:property_id (street, number, complement)
         `)
         .eq('municipality_id', municipalityId)
         .order('created_at', { ascending: false });
@@ -212,10 +215,10 @@ export const supervisorService = {
         supervisorId: s.supervisor_id,
         supervisorName: s.supervisor?.full_name,
         agentId: s.agent_id,
-        agentName: s.agent?.name,
+        agentName: agentName(s.agent),
         date: s.date,
         propertyId: s.property_id,
-        propertyAddress: s.property?.address,
+        propertyAddress: formatAddress(s.property),
         activityType: s.activity_type,
         result: s.result,
         notes: s.notes,

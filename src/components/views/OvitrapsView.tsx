@@ -714,7 +714,7 @@ export const OvitrapsView: React.FC<OvitrapsViewProps> = ({ onNavigate }) => {
               onChange={(e) => setGlobalCycle(e.target.value)}
               className="w-full p-2 border border-slate-200 rounded-lg bg-slate-50 font-medium text-slate-700"
             >
-              <option value="ciclo_atual">Ciclo Atual 2026</option>
+              <option value="ciclo_atual">Ciclo Atual</option>
               <option value="ciclo_anterior">Ciclo Anterior</option>
               <option value="todos">Todos os Ciclos</option>
             </select>
@@ -2086,7 +2086,7 @@ export const OvitrapsView: React.FC<OvitrapsViewProps> = ({ onNavigate }) => {
                 Coordenação Municipal de Vigilância em Saúde e Controle de Endemias
               </p>
               <p className="text-[11px] text-slate-400">
-                Período Epidemiológico: Ciclo 2026 | Gerado em: {new Date().toLocaleDateString('pt-BR')}
+                Gerado em: {new Date().toLocaleDateString('pt-BR')}
               </p>
             </div>
 

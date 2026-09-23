@@ -1,5 +1,4 @@
 import { supabase } from './supabaseClient';
-import { db } from './storage';
 
 export interface DataQualityIssue {
   id: string;
@@ -13,6 +12,8 @@ export interface DataQualityIssue {
 }
 
 export interface DataQualityReport {
+  /** Preenchido quando a auditoria não pôde ser executada (os números ficam zerados) */
+  error?: string;
   score: number; // 0 a 100
   totalEvaluated: number;
   criticalCount: number;
@@ -38,8 +39,10 @@ export const dataQualityService = {
         supabase.from('epidemiological_cases').select('*').eq('municipality_id', municipalityId),
       ]);
 
-      const properties = propsRes.data && propsRes.data.length > 0 ? propsRes.data : db.getProperties();
-      const visits = visitsRes.data && visitsRes.data.length > 0 ? visitsRes.data : db.getVisits();
+      const failed = [propsRes, visitsRes, fociRes, peRes, casesRes].find((r) => r.error);
+      if (failed?.error) throw failed.error;
+      const properties = propsRes.data || [];
+      const visits = visitsRes.data || [];
       const foci = fociRes.data || [];
       const pes = peRes.data || [];
       const cases = casesRes.data || [];
@@ -139,24 +142,15 @@ export const dataQualityService = {
       };
     } catch (err) {
       console.error('Erro na auditoria de qualidade de dados:', err);
+      // Sem dados não há nota: nunca um relatório de exemplo
       return {
-        score: 88,
-        totalEvaluated: 1200,
-        criticalCount: 1,
-        warningCount: 2,
-        suggestionCount: 1,
-        issues: [
-          {
-            id: 'dq-fallback-01',
-            category: 'CRITICO',
-            entity: 'Imóveis',
-            recordId: 'p-01',
-            recordIdentifier: '2 imóveis com código idêntico',
-            title: 'Duplicidade de Código Cadastral',
-            description: 'Códigos repetidos detectados no setor comercial.',
-            suggestedAction: 'Renumerar imóvel conforme sequência da quadra.',
-          },
-        ],
+        error: 'Não foi possível executar a auditoria de qualidade de dados.',
+        score: 0,
+        totalEvaluated: 0,
+        criticalCount: 0,
+        warningCount: 0,
+        suggestionCount: 0,
+        issues: [],
       };
     }
   },

@@ -37,7 +37,7 @@ export const TeamsView: React.FC = () => {
     try {
       const [fetchedTeams, fetchedLoads] = await Promise.all([
         teamService.getTeams(municipalityId),
-        teamService.getOperationalLoad(),
+        teamService.getOperationalLoad(municipalityId),
       ]);
       setTeams(fetchedTeams);
       setLoadData(fetchedLoads);
@@ -241,7 +241,7 @@ export const TeamsView: React.FC = () => {
                       {item.teamName} {item.ruralArea && <span className="text-amber-700 font-bold ml-1">(Zona Rural)</span>}
                     </td>
                     <td className="py-3 px-4 text-slate-800 font-semibold">
-                      {item.totalVisits} visitas ({item.coveragePercentage}%)
+                      {item.totalVisits} visitas{item.coveragePercentage !== null ? ` (${item.coveragePercentage}%)` : ''}
                     </td>
                     <td className="py-3 px-4 text-amber-700 font-semibold">{item.pendingReturns}</td>
                     <td className="py-3 px-4 text-rose-600 font-bold">{item.fociFound}</td>

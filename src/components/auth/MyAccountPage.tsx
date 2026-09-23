@@ -197,10 +197,10 @@ export const MyAccountPage: React.FC<MyAccountPageProps> = ({ onNavigate }) => {
               </div>
               <div className="min-w-0 flex-1">
                 <h3 className="font-black text-slate-900 text-base truncate">
-                  {user?.name || 'Dr. Fernando Albuquerque'}
+                  {user?.name || 'Usuário'}
                 </h3>
                 <span className="text-xs text-slate-500 font-mono block truncate">
-                  {user?.email || 'secretario.saude@santacruz.rs.gov.br'}
+                  {user?.email || ''}
                 </span>
                 <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 mt-1.5 uppercase">
                   {user?.role || 'ACE'}
@@ -215,7 +215,7 @@ export const MyAccountPage: React.FC<MyAccountPageProps> = ({ onNavigate }) => {
                   <Building2 className="w-4 h-4 text-slate-400" />
                   Município
                 </span>
-                <span className="text-slate-900 font-bold">{municipality?.name || 'Santa Cruz do Sul - RS'}</span>
+                <span className="text-slate-900 font-bold">{municipality?.name || 'Município não informado'}</span>
               </div>
 
               <div className="flex items-center justify-between py-1 border-b border-slate-50 text-slate-600">
@@ -224,7 +224,7 @@ export const MyAccountPage: React.FC<MyAccountPageProps> = ({ onNavigate }) => {
                   Código IBGE
                 </span>
                 <span className="text-slate-800 font-mono font-bold">
-                  {municipality?.ibgeCode || '4316808'}
+                  {municipality?.ibgeCode || 'Não informado'}
                 </span>
               </div>
 

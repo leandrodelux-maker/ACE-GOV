@@ -79,6 +79,7 @@ export interface Neighborhood {
   municipalityId: string;
   zoneId: string;
   name: string;
+  code?: string;
   // Indicadores: ausentes (undefined) quando não há dado registrado — exibir "Sem dados".
   estimatedPopulation?: number;
   totalProperties?: number;
@@ -231,7 +232,7 @@ export interface Visit {
 export interface FieldCycle {
   id: string;
   municipalityId: string;
-  name: string; // Ex: 1º Ciclo 2026 (LIRAa / LIA)
+  name: string; // Ex.: 1º Ciclo (LIRAa / LIA)
   year: number;
   number: number;
   startDate: string;
@@ -511,7 +512,8 @@ export interface OperationalLoadAgent {
   agentName: string;
   teamName: string;
   totalVisits: number;
-  coveragePercentage: number;
+  /** null = sem imóveis atribuídos ao agente para calcular cobertura */
+  coveragePercentage: number | null;
   pendingReturns: number;
   fociFound: number;
   blocksAssigned: number;

@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient';
+import { auditLogService } from './auditLogService';
 
 export interface ColumnMapping {
   notificationNumber: string;
@@ -124,12 +125,12 @@ export const epidemiologyImportService = {
     // Buscar números de notificação já existentes no banco do município para evitar duplicação
     const { data: existingCases } = await supabase
       .from('epidemiological_cases')
-      .select('id, case_number')
+      .select('id, notification_number')
       .eq('municipality_id', municipalityId);
 
     const existingMap = new Map<string, string>();
     (existingCases || []).forEach((c: any) => {
-      if (c.case_number) existingMap.set(c.case_number.trim().toUpperCase(), c.id);
+      if (c.notification_number) existingMap.set(c.notification_number.trim().toUpperCase(), c.id);
     });
 
     let newRecords = 0;
@@ -242,7 +243,7 @@ export const epidemiologyImportService = {
             // Inserção de novo caso
             await supabase.from('epidemiological_cases').insert({
               municipality_id: municipalityId,
-              case_number: row.case_number,
+              notification_number: row.case_number,
               disease: row.disease,
               notification_date: row.notification_date,
               classification: row.classification,
@@ -259,11 +260,12 @@ export const epidemiologyImportService = {
       // Registrar auditoria e job de importação
       const summary = `Importação de dados epidemiológicos concluída: ${importedCount} novos, ${updatedCount} atualizados, ${errorCount} falhas. Arquivo: ${fileName}.`;
 
-      await supabase.from('audit_logs').insert({
-        municipality_id: municipalityId,
-        entity_name: 'epidemiological_cases',
+      await auditLogService.log({
+        municipalityId: municipalityId,
         action: 'IMPORTACAO_EPIDEMIOLOGICA',
-        details: summary,
+        module: 'epidemiologia',
+        entity: 'epidemiological_cases',
+        newData: { descricao: summary },
       });
 
       return {

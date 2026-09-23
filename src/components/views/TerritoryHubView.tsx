@@ -511,7 +511,7 @@ export const TerritoryHubView: React.FC<TerritoryHubViewProps> = ({
                 <div className="grid grid-cols-2 gap-2 pt-2 border-t text-xs text-slate-600">
                   <div>
                     <span className="text-[10px] text-slate-400 block">População</span>
-                    <span className="font-semibold">{n.population?.toLocaleString('pt-BR') || '—'} hab.</span>
+                    <span className="font-semibold">{n.estimatedPopulation ? `${n.estimatedPopulation.toLocaleString('pt-BR')} hab.` : 'Sem dados'}</span>
                   </div>
                   <div>
                     <span className="text-[10px] text-slate-400 block">Setores Vinculados</span>
@@ -730,7 +730,6 @@ export const TerritoryHubView: React.FC<TerritoryHubViewProps> = ({
         isOpen={quickCreateOpen}
         onClose={() => setQuickCreateOpen(false)}
         onNavigate={onNavigate}
-        municipalityId={municipality?.id}
         onSuccess={() => loadHubData()}
       />
     </div>

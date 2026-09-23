@@ -35,6 +35,7 @@ export const UsersManagementView: React.FC = () => {
   const municipalityId = useMunicipalityId();
   const canCreate = can('users.create');
   const canUpdate = can('users.update');
+  const canManageAgents = can('agents.manage');
   const isSuperAdmin = hasRole('SUPER_ADMIN');
 
   const [users, setUsers] = useState<ManagedUser[]>([]);
@@ -51,7 +52,12 @@ export const UsersManagementView: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState(EMPTY_FORM);
 
-  const assignableRoles = Object.values(ROLES_REGISTRY).filter((r) => isSuperAdmin || !RESTRICTED_ROLES.includes(r.slug));
+  // Espelha a política user_roles_write (migration 31): SUPER_ADMIN só pela plataforma;
+  // MUNICIPAL_ADMIN só por outro administrador municipal; nunca o próprio perfil.
+  const isMunicipalAdmin = hasRole('MUNICIPAL_ADMIN');
+  const canGrant = (slug: UserRole) => isSuperAdmin || (!RESTRICTED_ROLES.includes(slug) && (slug !== 'MUNICIPAL_ADMIN' || isMunicipalAdmin));
+  const assignableRoles = Object.values(ROLES_REGISTRY).filter((r) => canGrant(r.slug));
+  const editingSelf = !!editingUser && editingUser.id === currentUser?.id;
 
   const showFeedback = (f: Feedback) => {
     setFeedback(f);
@@ -103,8 +109,12 @@ export const UsersManagementView: React.FC = () => {
 
   const handleSaveUser = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (RESTRICTED_ROLES.includes(formData.role) && !isSuperAdmin) {
-      showFeedback({ kind: 'error', text: 'Somente um Super Administrador pode atribuir esse perfil.' });
+    if (!canGrant(formData.role)) {
+      showFeedback({ kind: 'error', text: 'Seu perfil não pode atribuir esse perfil de acesso.' });
+      return;
+    }
+    if (editingSelf && editingUser && editingUser.roles[0] !== formData.role) {
+      showFeedback({ kind: 'error', text: 'Você não pode alterar o próprio perfil de acesso; peça a outro administrador.' });
       return;
     }
     setIsSaving(true);
@@ -145,6 +155,17 @@ export const UsersManagementView: React.FC = () => {
       await loadUsers();
     } catch (err: any) {
       showFeedback({ kind: 'error', text: `Não foi possível alterar o status: ${err?.message || 'erro desconhecido'}.` });
+    }
+  };
+
+  const handleLinkAgent = async (u: ManagedUser) => {
+    try {
+      const agentId = await userAdminService.linkAgent(municipalityId, u.id, u.registrationNumber);
+      await audit('VINCULO_AGENTE', u.id, null, { agent_id: agentId });
+      showFeedback({ kind: 'success', text: `${u.name} vinculado como agente de campo. As visitas do PWA passam a ser registradas em seu nome.` });
+      await loadUsers();
+    } catch (err: any) {
+      showFeedback({ kind: 'error', text: `Não foi possível vincular o agente: ${err?.message || 'erro desconhecido'}.` });
     }
   };
 
@@ -266,6 +287,7 @@ export const UsersManagementView: React.FC = () => {
                 <th className="p-3.5">E-mail</th>
                 <th className="p-3.5">Perfil</th>
                 <th className="p-3.5 text-center">Login</th>
+                <th className="p-3.5 text-center">Agente de campo</th>
                 <th className="p-3.5 text-center">Status</th>
                 <th className="p-3.5">Último Acesso</th>
                 <th className="p-3.5 text-right pr-5">Ações</th>
@@ -274,26 +296,26 @@ export const UsersManagementView: React.FC = () => {
             <tbody className="divide-y divide-slate-100 text-slate-700">
               {isLoading ? (
                 <tr>
-                  <td colSpan={7} className="p-8 text-center text-slate-400" role="status">
+                  <td colSpan={8} className="p-8 text-center text-slate-400" role="status">
                     Carregando usuários do município...
                   </td>
                 </tr>
               ) : loadError ? (
                 <tr>
-                  <td colSpan={7} className="p-8 text-center text-rose-600" role="alert">
+                  <td colSpan={8} className="p-8 text-center text-rose-600" role="alert">
                     {loadError}
                   </td>
                 </tr>
               ) : filteredUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="p-8 text-center text-slate-400">
+                  <td colSpan={8} className="p-8 text-center text-slate-400">
                     {users.length === 0 ? 'Sem usuários registrados para o município.' : 'Nenhum usuário corresponde aos filtros.'}
                   </td>
                 </tr>
               ) : (
                 filteredUsers.map((u) => {
                   const roleDef = u.roles[0] ? ROLES_REGISTRY[u.roles[0]] : undefined;
-                  const protectedRow = !isSuperAdmin && u.roles.some((r) => RESTRICTED_ROLES.includes(r));
+                  const protectedRow = !isSuperAdmin && u.roles.some((r) => !canGrant(r));
                   return (
                     <tr key={u.id} className="hover:bg-slate-50/70 transition">
                       <td className="p-3.5 pl-5">
@@ -324,6 +346,21 @@ export const UsersManagementView: React.FC = () => {
                           <span className="text-amber-700" title="Perfil ainda sem conta de acesso — aguarda provisionamento">
                             Pendente
                           </span>
+                        )}
+                      </td>
+                      <td className="p-3.5 text-center text-[11px]">
+                        {u.agentId ? (
+                          <span className="text-emerald-700 font-semibold">Vinculado</span>
+                        ) : canManageAgents && u.active ? (
+                          <button
+                            onClick={() => handleLinkAgent(u)}
+                            className="px-2 py-0.5 rounded border border-emerald-300 text-emerald-700 hover:bg-emerald-50 font-semibold"
+                            title="Criar o cadastro de agente (necessário para registrar visitas e ovitrampas no PWA)"
+                          >
+                            Vincular
+                          </button>
+                        ) : (
+                          <span className="text-slate-400">—</span>
                         )}
                       </td>
                       <td className="p-3.5 text-center">
@@ -441,6 +478,8 @@ export const UsersManagementView: React.FC = () => {
                     id="uf-role"
                     value={formData.role}
                     onChange={(e) => setFormData({ ...formData, role: e.target.value as UserRole })}
+                    disabled={editingSelf}
+                    title={editingSelf ? 'O próprio perfil de acesso só pode ser alterado por outro administrador.' : undefined}
                     className="w-full p-2.5 rounded-xl border border-slate-200 font-medium"
                   >
                     {assignableRoles.map((r) => (

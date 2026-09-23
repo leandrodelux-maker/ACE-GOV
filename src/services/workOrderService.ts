@@ -1,4 +1,6 @@
 import { supabase } from './supabaseClient';
+import { auditLogService } from './auditLogService';
+import { AGENT_EMBED, RECURRENCE_MIN_FOCI, agentName, fetchFociByProperty, formatAddress, isInspectionOverdue } from './schemaHelpers';
 import { requireMunicipalityId } from './municipalityScope';
 
 export type WorkOrderType =
@@ -54,6 +56,17 @@ export interface WorkOrderFilter {
 }
 
 
+export interface AutoOrderTrigger {
+  source: 'denuncia' | 'foco' | 'caso_sinan' | 'reincidencia' | 'pe_vencido' | 'alerta';
+  sourceId: string;
+  label: string;
+  title: string;
+  description: string;
+  priority: WorkOrderPriority;
+  neighborhoodId?: string;
+  propertyId?: string;
+}
+
 export const workOrderService = {
   /**
    * Gera o próximo número oficial de OS sequencial institucional (OS-END-2026-00001)
@@ -96,10 +109,10 @@ export const workOrderService = {
         .from('work_orders')
         .select(`
           *,
-          agents:assigned_agent_id (name),
+          agents:assigned_agent_id (${AGENT_EMBED}),
           teams:assigned_team_id (name),
           neighborhoods:neighborhood_id (name),
-          properties:property_id (address),
+          properties:property_id (street, number, complement),
           profiles:requested_by (full_name)
         `)
         .eq('municipality_id', municipalityId)
@@ -136,12 +149,12 @@ export const workOrderService = {
         assignedTeamId: d.assigned_team_id,
         assignedTeamName: d.teams?.name,
         assignedAgentId: d.assigned_agent_id,
-        assignedAgentName: d.agents?.name,
+        assignedAgentName: agentName(d.agents),
         neighborhoodId: d.neighborhood_id,
         neighborhoodName: d.neighborhoods?.name,
         sectorId: d.sector_id,
         propertyId: d.property_id,
-        propertyAddress: d.properties?.address,
+        propertyAddress: formatAddress(d.properties),
         plannedDate: d.planned_date,
         startedAt: d.started_at,
         completedAt: d.completed_at,
@@ -216,12 +229,13 @@ export const workOrderService = {
       if (error) throw error;
 
       // Registrar auditoria
-      await supabase.from('audit_logs').insert({
-        municipality_id: municipalityId,
-        entity_name: 'work_orders',
-        entity_id: data.id,
+      await auditLogService.log({
+        municipalityId: municipalityId,
         action: 'CRIAR_ORDEM_SERVICO',
-        details: `Criada OS ${orderNumber} do tipo ${params.type} com prioridade ${params.priority || 'normal'}.`,
+        module: 'ordens_servico',
+        entity: 'work_orders',
+        entityId: data.id,
+        newData: { descricao: `Criada OS ${orderNumber} do tipo ${params.type} com prioridade ${params.priority || 'normal'}.` },
       });
 
       return { success: true, data: data as any };
@@ -234,6 +248,107 @@ export const workOrderService = {
   /**
    * Criar Ordem de Serviço automaticamente a partir de gatilhos do sistema
    */
+  /**
+   * Gatilhos para OS automática, obtidos dos registros do município:
+   * denúncias em aberto, pontos estratégicos com vistoria vencida, imóveis
+   * reincidentes e casos notificados nos últimos 14 dias (sem dados do paciente).
+   */
+  async getAutoTriggers(municipalityId: string): Promise<AutoOrderTrigger[]> {
+    const munId = requireMunicipalityId(municipalityId);
+    const since = new Date(Date.now() - 14 * 86400000).toISOString().split('T')[0];
+    const [complaintsRes, peRes, fociByProperty, casesRes] = await Promise.all([
+      supabase
+        .from('complaints')
+        .select('id, protocol, street, number, neighborhood_id, priority, neighborhoods(name)')
+        .eq('municipality_id', munId)
+        .not('status', 'in', '(RESOLVIDA,ARQUIVADA)')
+        .order('created_at', { ascending: true })
+        .limit(5),
+      supabase
+        .from('strategic_points')
+        .select('id, name, last_inspection, next_inspection, inspection_frequency_days, property_id, properties(street, number, neighborhood_id)')
+        .eq('municipality_id', munId)
+        .eq('active', true)
+        .is('deleted_at', null),
+      fetchFociByProperty(munId).catch(() => new Map<string, number>()),
+      supabase
+        .from('epidemiological_cases')
+        .select('id, notification_date, neighborhood_id, neighborhoods(name)')
+        .eq('municipality_id', munId)
+        .gte('notification_date', since)
+        .order('notification_date', { ascending: false })
+        .limit(5),
+    ]);
+
+    // Imóveis reincidentes: 2+ focos (breeding_sites) nos últimos 12 meses
+    const recurrentIds = [...fociByProperty.entries()]
+      .filter(([, n]) => n >= RECURRENCE_MIN_FOCI)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5);
+    const recurrentProps = recurrentIds.length
+      ? ((await supabase
+          .from('properties')
+          .select('id, property_code, street, number, neighborhood_id')
+          .eq('municipality_id', munId)
+          .in('id', recurrentIds.map(([id]) => id))).data || [])
+      : [];
+
+    const triggers: AutoOrderTrigger[] = [];
+    (casesRes.data || []).forEach((c: any) =>
+      triggers.push({
+        source: 'caso_sinan',
+        sourceId: c.id,
+        label: 'Caso notificado',
+        title: `Bloqueio: caso notificado em ${c.neighborhoods?.name || 'bairro não informado'}`,
+        description: `Notificação de ${new Date(c.notification_date + 'T00:00:00').toLocaleDateString('pt-BR')}. Avaliar bloqueio conforme protocolo.`,
+        priority: 'critica',
+        neighborhoodId: c.neighborhood_id || undefined,
+      })
+    );
+    (complaintsRes.data || []).forEach((c: any) =>
+      triggers.push({
+        source: 'denuncia',
+        sourceId: c.id,
+        label: 'Denúncia em aberto',
+        title: `Atendimento à denúncia ${c.protocol}`,
+        description: `${c.street}${c.number ? `, ${c.number}` : ''}${c.neighborhoods?.name ? ` — ${c.neighborhoods.name}` : ''}`,
+        priority: c.priority === 'ALTA' || c.priority === 'URGENTE' ? 'urgente' : 'alta',
+        neighborhoodId: c.neighborhood_id || undefined,
+      })
+    );
+    (peRes.data || [])
+      .filter((p: any) => isInspectionOverdue(p))
+      .slice(0, 5)
+      .forEach((p: any) => {
+        const address = formatAddress(p.properties);
+        triggers.push({
+          source: 'pe_vencido',
+          sourceId: p.id,
+          label: 'Ponto Estratégico vencido',
+          title: `Inspeção no ponto estratégico ${p.name}`,
+          description: p.last_inspection
+            ? `Última inspeção em ${new Date(`${p.last_inspection}T00:00:00`).toLocaleDateString('pt-BR')}.${address ? ` ${address}.` : ''}`
+            : `Sem inspeção registrada.${address ? ` ${address}.` : ''}`,
+          priority: 'alta',
+          neighborhoodId: p.properties?.neighborhood_id || undefined,
+          propertyId: p.property_id || undefined,
+        });
+      });
+    recurrentProps.forEach((p: any) =>
+      triggers.push({
+        source: 'reincidencia',
+        sourceId: p.id,
+        label: 'Imóvel reincidente',
+        title: `Reincidência no imóvel ${p.property_code}`,
+        description: `${p.street}${p.number ? `, ${p.number}` : ''} — ${fociByProperty.get(p.id)} foco(s) registrados nos últimos 12 meses.`,
+        priority: 'alta',
+        neighborhoodId: p.neighborhood_id || undefined,
+        propertyId: p.id,
+      })
+    );
+    return triggers;
+  },
+
   async createAutoOrderFromTrigger(trigger: {
     source: 'denuncia' | 'foco' | 'caso_sinan' | 'reincidencia' | 'pe_vencido' | 'alerta';
     sourceId: string;
@@ -284,7 +399,7 @@ export const workOrderService = {
       const actionsStr = params.actionsExecuted ? `\n\nAções executadas: ${params.actionsExecuted.join(', ')}` : '';
       const finalNotes = `${params.completionNotes || ''}${actionsStr}`.trim();
 
-      const { error } = await supabase
+      const { data: updated, error } = await supabase
         .from('work_orders')
         .update({
           status: 'concluida',
@@ -293,15 +408,19 @@ export const workOrderService = {
           completion_notes: finalNotes,
           updated_at: now,
         })
-        .eq('id', params.orderId);
+        .eq('id', params.orderId)
+        .select('municipality_id')
+        .single();
 
       if (error) throw error;
 
-      await supabase.from('audit_logs').insert({
-        entity_name: 'work_orders',
-        entity_id: params.orderId,
+      await auditLogService.log({
+        municipalityId: updated.municipality_id,
         action: 'CONCLUIR_ORDEM_SERVICO',
-        details: `OS concluída com resultado: "${params.completionResult}".`,
+        module: 'ordens_servico',
+        entity: 'work_orders',
+        entityId: params.orderId,
+        newData: { descricao: `OS concluída com resultado: "${params.completionResult}".` },
       });
 
       return { success: true };

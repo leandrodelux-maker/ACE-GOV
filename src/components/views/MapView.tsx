@@ -24,26 +24,39 @@ import { systemSettingsService } from '../../services/systemSettingsService';
 import { Neighborhood } from '../../types';
 import { PageHeader } from '../ui';
 import { useAuth, useMunicipalityId } from '../../contexts/AuthContext';
+import { PENDING_STATUSES, RECURRENCE_MIN_FOCI, fetchFociByProperty } from '../../services/schemaHelpers';
+
+/** Visão do Brasil: usada só enquanto o município não configurou o centro do mapa. */
+const BRAZIL_VIEW = { lat: -14.235, lng: -51.925, zoom: 4 };
+
+const toNum = (v: unknown): number | null => {
+  if (v === null || v === undefined || v === '') return null;
+  const n = typeof v === 'number' ? v : parseFloat(String(v));
+  return Number.isFinite(n) ? n : null;
+};
+
+/** Configuração do mapa; `configured` = o município definiu o centro em Configurações > Mapas. */
+const parseMapConfig = (raw: any) => {
+  const lat = toNum(raw?.centerLatitude);
+  const lng = toNum(raw?.centerLongitude);
+  const configured = lat !== null && lng !== null;
+  return {
+    centerLatitude: configured ? (lat as number) : BRAZIL_VIEW.lat,
+    centerLongitude: configured ? (lng as number) : BRAZIL_VIEW.lng,
+    defaultZoom: configured ? toNum(raw?.defaultZoom) ?? 14 : BRAZIL_VIEW.zoom,
+    defaultLayer: raw?.defaultLayer || 'RISK_HEATMAP',
+    configured,
+  };
+};
 
 const getInitialMapConfig = () => {
   try {
     const cached = localStorage.getItem('endemias_settings_MAPA');
-    if (cached) {
-      const parsed = JSON.parse(cached);
-      return {
-        centerLatitude: typeof parsed.centerLatitude === 'number' ? parsed.centerLatitude : parseFloat(parsed.centerLatitude) || -29.7180,
-        centerLongitude: typeof parsed.centerLongitude === 'number' ? parsed.centerLongitude : parseFloat(parsed.centerLongitude) || -52.4280,
-        defaultZoom: typeof parsed.defaultZoom === 'number' ? parsed.defaultZoom : parseInt(parsed.defaultZoom) || 14,
-        defaultLayer: parsed.defaultLayer || 'RISK_HEATMAP',
-      };
-    }
-  } catch {}
-  return {
-    centerLatitude: -29.7180,
-    centerLongitude: -52.4280,
-    defaultZoom: 14,
-    defaultLayer: 'RISK_HEATMAP',
-  };
+    if (cached) return parseMapConfig(JSON.parse(cached));
+  } catch {
+    /* sem cache */
+  }
+  return parseMapConfig(null);
 };
 
 export const MapView: React.FC = () => {
@@ -55,6 +68,7 @@ export const MapView: React.FC = () => {
 
   // Configurações dinâmicas de centro e zoom carregadas da Central de Configurações
   const [mapConfig, setMapConfig] = useState(getInitialMapConfig);
+  const autoFittedRef = useRef(false);
 
   // Layer toggles
   const [showProperties, setShowProperties] = useState(true);
@@ -124,21 +138,11 @@ export const MapView: React.FC = () => {
         const muni = sessionMunicipality;
         const cfg = await systemSettingsService.getCategorySettings('MAPA', muni?.id);
         if (cfg) {
-          const lat = typeof cfg.centerLatitude === 'number' ? cfg.centerLatitude : parseFloat(cfg.centerLatitude) || -29.7180;
-          const lng = typeof cfg.centerLongitude === 'number' ? cfg.centerLongitude : parseFloat(cfg.centerLongitude) || -52.4280;
-          const zoom = typeof cfg.defaultZoom === 'number' ? cfg.defaultZoom : parseInt(cfg.defaultZoom) || 14;
-          const layer = cfg.defaultLayer || 'RISK_HEATMAP';
-
-          setMapConfig({
-            centerLatitude: lat,
-            centerLongitude: lng,
-            defaultZoom: zoom,
-            defaultLayer: layer,
-          });
-
-          // Se a instância do mapa já foi criada, reposiciona imediatamente
-          if (mapInstanceRef.current) {
-            mapInstanceRef.current.setView([lat, lng], zoom);
+          const next = parseMapConfig(cfg);
+          setMapConfig(next);
+          // Reposiciona apenas quando há centro configurado (senão o ajuste é pelos dados)
+          if (mapInstanceRef.current && next.configured) {
+            mapInstanceRef.current.setView([next.centerLatitude, next.centerLongitude], next.defaultZoom);
           }
         }
       } catch (err) {
@@ -199,22 +203,44 @@ export const MapView: React.FC = () => {
       ] = await Promise.all([
         propQuery,
         supabase.from('visits').select('*, properties(street, number, neighborhood_id)').eq('municipality_id', muniId).limit(100),
-        supabase.from('pending_visits').select('*, properties(*)').eq('status', 'PENDENTE').limit(100),
-        supabase.from('ovitraps').select('*, neighborhoods(name)').eq('municipality_id', muniId),
-        supabase.from('strategic_points').select('*, neighborhoods(name)').eq('municipality_id', muniId),
-        supabase.from('special_properties').select('*, neighborhoods(name)').eq('municipality_id', muniId),
-        supabase.from('complaints').select('*').eq('municipality_id', muniId).neq('status', 'RESOLVIDA'),
-        supabase.from('epidemiological_blocks').select('*').eq('municipality_id', muniId),
-        supabase.from('liraa_samples').select('*, properties(street, number, latitude, longitude)').limit(150),
+        // pending_visits e liraa_samples não têm municipality_id: filtra pelo município do imóvel
+        supabase
+          .from('pending_visits')
+          .select('*, properties!inner(*)')
+          .in('status', PENDING_STATUSES)
+          .eq('properties.municipality_id', muniId)
+          .limit(100),
+        supabase.from('ovitraps').select('*, neighborhoods(name)').eq('municipality_id', muniId).is('deleted_at', null),
+        supabase
+          .from('strategic_points')
+          .select('*, properties(street, number, latitude, longitude, neighborhoods(name))')
+          .eq('municipality_id', muniId)
+          .is('deleted_at', null),
+        supabase
+          .from('special_properties')
+          .select('*, properties(street, number, latitude, longitude, neighborhoods(name))')
+          .eq('municipality_id', muniId)
+          .is('deleted_at', null),
+        supabase.from('complaints').select('*').eq('municipality_id', muniId).not('status', 'in', '(RESOLVIDA,ARQUIVADA)'),
+        supabase.from('blockade_operations').select('*').eq('municipality_id', muniId).is('deleted_at', null).is('ended_at', null),
+        supabase
+          .from('liraa_samples')
+          .select('*, properties!inner(street, number, latitude, longitude, municipality_id)')
+          .eq('properties.municipality_id', muniId)
+          .limit(150),
       ]);
+      // PE e IE não têm coordenadas próprias: usam as do imóvel vinculado
+      const withPropertyCoords = (rows: any[] | null) =>
+        (rows || []).map((r: any) => ({ ...r, type: r.category, latitude: r.properties?.latitude ?? null, longitude: r.properties?.longitude ?? null }));
+      const fociByProperty = await fetchFociByProperty(muniId).catch(() => new Map<string, number>());
 
       setMapData({
-        properties: propsRes.data || [],
+        properties: (propsRes.data || []).map((p: any) => ({ ...p, fociLast12m: fociByProperty.get(p.id) || 0 })),
         visits: visitsRes.data || [],
         pendencies: pendingRes.data || [],
         ovitraps: ovitrapsRes.data || [],
-        strategicPoints: peRes.data || [],
-        specialProperties: ieRes.data || [],
+        strategicPoints: withPropertyCoords(peRes.data),
+        specialProperties: withPropertyCoords(ieRes.data),
         complaints: complaintsRes.data || [],
         blocks: blocksRes.data || [],
         liraaSamples: liraaRes.data || [],
@@ -317,14 +343,14 @@ export const MapView: React.FC = () => {
       mapData.blocks.forEach(blk => {
         if (!hasCoords(blk)) return;
         const circle = L.circle([blk.latitude, blk.longitude], {
-          radius: blk.radius_meters || 150,
+          radius: 150,
           color: '#ef4444',
           fillColor: '#f87171',
           fillOpacity: 0.25,
           weight: 2,
           dashArray: '5, 5',
         });
-        circle.bindTooltip(`Bloqueio: ${blk.code || 'BLQ'} (${blk.disease || 'Dengue'}) - Raio ${blk.radius_meters || 150}m`);
+        circle.bindTooltip(`Bloqueio: ${blk.code || 'sem código'} (${blk.disease || 'doença não informada'})`);
         circle.on('click', () => setSelectedItem({ type: 'BLOCK', data: blk }));
         circle.addTo(layerGroup);
       });
@@ -335,7 +361,7 @@ export const MapView: React.FC = () => {
       mapData.properties.forEach(prop => {
         if (!hasCoords(prop)) return;
         const isFoci = prop.status === 'FOCO';
-        const isRecurrent = (prop.recurrence_count || 0) >= 2;
+        const isRecurrent = (prop.fociLast12m || 0) >= RECURRENCE_MIN_FOCI;
         const isClosed = prop.status === 'FECHADO';
 
         if (isFoci && !showFoci) return;
@@ -361,7 +387,7 @@ export const MapView: React.FC = () => {
     if (showOvitraps) {
       mapData.ovitraps.forEach(ovi => {
         if (!hasCoords(ovi)) return;
-        const hasEggs = (ovi.eggs_count || 0) > 0 || ovi.positive;
+        const hasEggs = (ovi.last_eggs_count || 0) > 0 || ovi.is_positive === true;
         const iconHtml = `<div style="background-color: ${hasEggs ? '#dc2626' : '#0284c7'}; width: 22px; height: 22px; border-radius: 50%; border: 2px solid white; display: flex; align-items: center; justify-content: center; color: white; font-size: 10px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">🥚</div>`;
         const customIcon = L.divIcon({
           className: 'custom-ovitrap-icon',
@@ -371,7 +397,7 @@ export const MapView: React.FC = () => {
         });
 
         const marker = L.marker([ovi.latitude, ovi.longitude], { icon: customIcon });
-        marker.bindTooltip(`<b>Ovitrampa ${ovi.code}</b><br/>Ovos: ${ovi.eggs_count || 0}`);
+        marker.bindTooltip(`<b>Ovitrampa ${ovi.code}</b><br/>Ovos (última leitura): ${ovi.last_eggs_count ?? 'sem leitura'}`);
         marker.on('click', () => setSelectedItem({ type: 'OVITRAP', data: ovi }));
         marker.addTo(layerGroup);
       });
@@ -457,6 +483,19 @@ export const MapView: React.FC = () => {
         circle.on('click', () => setSelectedItem({ type: 'PROPERTY', data: prop }));
         circle.addTo(layerGroup);
       });
+    }
+
+    // Sem centro configurado: enquadra uma vez os pontos reais do município
+    if (!mapConfig.configured && !autoFittedRef.current && layerGroup.getLayers().length > 0) {
+      try {
+        const bounds = L.featureGroup(layerGroup.getLayers()).getBounds();
+        if (bounds.isValid()) {
+          map.fitBounds(bounds, { padding: [24, 24], maxZoom: 15 });
+          autoFittedRef.current = true;
+        }
+      } catch {
+        /* camadas sem limites calculáveis */
+      }
     }
   };
 

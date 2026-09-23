@@ -1,5 +1,6 @@
 import { supabase } from './supabaseClient';
 import { db } from './storage';
+import { auditLogService } from './auditLogService';
 import { MissingMunicipalityError } from './municipalityScope';
 
 export interface SystemSettingsCategory {
@@ -8,14 +9,15 @@ export interface SystemSettingsCategory {
 }
 
 export const DEFAULT_SETTINGS: Record<string, Record<string, any>> = {
+  // Identificação: vazia por padrão; nome, IBGE e UF vêm da tabela municipalities
   GERAL: {
-    municipalityName: 'Santa Cruz do Sul',
-    ibgeCode: '4316808',
-    stateUf: 'RS',
+    municipalityName: '',
+    ibgeCode: '',
+    stateUf: '',
     healthSecretaryName: 'Secretaria Municipal de Saúde',
-    cnesCode: '2234567',
-    contactEmail: 'vigilancia.endemias@santacruz.rs.gov.br',
-    contactPhone: '(51) 3715-9500',
+    cnesCode: '',
+    contactEmail: '',
+    contactPhone: '',
     logoUrl: '',
     showCoatOfArms: true,
   },
@@ -60,8 +62,9 @@ export const DEFAULT_SETTINGS: Record<string, Record<string, any>> = {
   MAPA: {
     defaultLayer: 'RISK_HEATMAP',
     defaultZoom: 13,
-    centerLatitude: -29.718,
-    centerLongitude: -52.428,
+    // Sem padrão geográfico: cada município define o próprio centro
+    centerLatitude: null,
+    centerLongitude: null,
   },
   RELATORIOS: {
     institutionalFooter: 'Sistema Oficial de Vigilância Entomológica e Controle Vetorial - Endemias GOV / SUS',
@@ -243,7 +246,13 @@ export const systemSettingsService = {
 
       // 5. Registra trilha de auditoria
       try {
-        db.addAuditLog('EDICAO', 'Configurações do Sistema', `Parâmetros da categoria "${category}" atualizados.`);
+        await auditLogService.log({
+          municipalityId: targetMunId,
+          action: 'EDICAO',
+          module: 'Configurações do Sistema',
+          entity: 'system_settings',
+          entityId: category,
+        });
       } catch {}
 
       return { 

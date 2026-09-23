@@ -38,6 +38,10 @@ import {
   Settings,
   Server,
   HeartPulse,
+  Briefcase,
+  Bell,
+  Gauge,
+  LineChart,
 } from 'lucide-react';
 import type { UserRole } from '../types';
 import { AccessChecker, ViewModule, canAccessView } from './routes';
@@ -62,7 +66,11 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     id: 'inicio',
     title: 'Início',
-    items: [{ view: 'dashboard', label: 'Sala de Situação', icon: LayoutDashboard }],
+    items: [
+      { view: 'dashboard', label: 'Sala de Situação', icon: LayoutDashboard },
+      { view: 'executive', label: 'Painel do Gestor', icon: Briefcase },
+      { view: 'alerts', label: 'Central de Alertas', icon: Bell },
+    ],
   },
   {
     id: 'campo',
@@ -104,6 +112,8 @@ export const NAV_GROUPS: NavGroup[] = [
       { view: 'cycles', label: 'Ciclos', icon: RefreshCcw },
       { view: 'epidemiology', label: 'Epidemiologia', icon: Activity },
       { view: 'foci_recurrence', label: 'Focos e Reincidências', icon: Flame },
+      { view: 'risk_engine', label: 'Motor de Risco', icon: Gauge },
+      { view: 'historical_analysis', label: 'Análise Histórica', icon: LineChart },
     ],
   },
   {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
 import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
 import { db } from './services/storage';
@@ -29,51 +29,51 @@ import { FirstAccessPage } from './components/auth/FirstAccessPage';
 import { AccessDeniedPage } from './components/auth/AccessDeniedPage';
 import { MyAccountPage } from './components/auth/MyAccountPage';
 
+// Telas internas carregadas sob demanda (uma parte do bundle por tela)
 // Telas Administrativas RBAC
-import { RolesPermissionsView } from './components/admin/RolesPermissionsView';
-import { UsersManagementView } from './components/admin/UsersManagementView';
-import { AuditLogsAdminView } from './components/admin/AuditLogsAdminView';
-import { DataImportView } from './components/admin/DataImportView';
-import { SystemSettingsView } from './components/admin/SystemSettingsView';
-import { SystemHealthHubView } from './components/admin/SystemHealthHubView';
+const RolesPermissionsView = lazy(() => import('./components/admin/RolesPermissionsView').then((m) => ({ default: m.RolesPermissionsView })));
+const UsersManagementView = lazy(() => import('./components/admin/UsersManagementView').then((m) => ({ default: m.UsersManagementView })));
+const AuditLogsAdminView = lazy(() => import('./components/admin/AuditLogsAdminView').then((m) => ({ default: m.AuditLogsAdminView })));
+const DataImportView = lazy(() => import('./components/admin/DataImportView').then((m) => ({ default: m.DataImportView })));
+const SystemSettingsView = lazy(() => import('./components/admin/SystemSettingsView').then((m) => ({ default: m.SystemSettingsView })));
+const SystemHealthHubView = lazy(() => import('./components/admin/SystemHealthHubView').then((m) => ({ default: m.SystemHealthHubView })));
 
 // Views Internas do Sistema
-import { DashboardView } from './components/views/DashboardView';
-import { AcePwaView } from './components/views/AcePwaView';
-import { MapView } from './components/views/MapView';
-import { TerritoryHubView, TerritoryHubTab } from './components/views/TerritoryHubView';
-import { PropertiesView } from './components/views/PropertiesView';
-import { VisitsView } from './components/views/VisitsView';
+const DashboardView = lazy(() => import('./components/views/DashboardView').then((m) => ({ default: m.DashboardView })));
+const AcePwaView = lazy(() => import('./components/views/AcePwaView').then((m) => ({ default: m.AcePwaView })));
+const MapView = lazy(() => import('./components/views/MapView').then((m) => ({ default: m.MapView })));
+const TerritoryHubView = lazy(() => import('./components/views/TerritoryHubView').then((m) => ({ default: m.TerritoryHubView })));
+import type { TerritoryHubTab } from './components/views/TerritoryHubView';
+const PropertiesView = lazy(() => import('./components/views/PropertiesView').then((m) => ({ default: m.PropertiesView })));
+const VisitsView = lazy(() => import('./components/views/VisitsView').then((m) => ({ default: m.VisitsView })));
 import { QuickCreateModal } from './components/ui';
-import { PlanningView } from './components/views/PlanningView';
-import { RoutesView } from './components/views/RoutesView';
-import { OvitrapsLabHubView } from './components/views/OvitrapsLabHubView';
-import { FociAndRecurrenceView } from './components/views/FociAndRecurrenceView';
-import { EpidemiologyView } from './components/views/EpidemiologyView';
-import { TeamsProductivityHubView } from './components/views/TeamsProductivityHubView';
-import { StockSuppliesHubView } from './components/views/StockSuppliesHubView';
-import { ComplaintsReferralsHubView } from './components/views/ComplaintsReferralsHubView';
-import { EquipmentView } from './components/views/EquipmentView';
-import { RiskEngineView } from './components/views/RiskEngineView';
-import { ExecutiveDashboardView } from './components/views/ExecutiveDashboardView';
-import { AlertsView } from './components/views/AlertsView';
-import { CyclesView } from './components/views/CyclesView';
-import { TransparencyPortalView } from './components/views/TransparencyPortalView';
-import { LiraaView } from './components/views/LiraaView';
-import { VectorControlHubView } from './components/views/VectorControlHubView';
-import { LabelGeneratorView } from './components/views/LabelGeneratorView';
-import { WorkOrdersView } from './components/views/WorkOrdersView';
-import { SupervisorMobileView } from './components/views/SupervisorMobileView';
-import { DocumentsReportsHubView } from './components/views/DocumentsReportsHubView';
-import { IntegrationsView } from './components/views/IntegrationsView';
-import { CommandCenterView } from './components/views/CommandCenterView';
-import { CommunicationAdminView } from './components/views/CommunicationAdminView';
+const PlanningView = lazy(() => import('./components/views/PlanningView').then((m) => ({ default: m.PlanningView })));
+const RoutesView = lazy(() => import('./components/views/RoutesView').then((m) => ({ default: m.RoutesView })));
+const OvitrapsLabHubView = lazy(() => import('./components/views/OvitrapsLabHubView').then((m) => ({ default: m.OvitrapsLabHubView })));
+const FociAndRecurrenceView = lazy(() => import('./components/views/FociAndRecurrenceView').then((m) => ({ default: m.FociAndRecurrenceView })));
+const EpidemiologyView = lazy(() => import('./components/views/EpidemiologyView').then((m) => ({ default: m.EpidemiologyView })));
+const TeamsProductivityHubView = lazy(() => import('./components/views/TeamsProductivityHubView').then((m) => ({ default: m.TeamsProductivityHubView })));
+const StockSuppliesHubView = lazy(() => import('./components/views/StockSuppliesHubView').then((m) => ({ default: m.StockSuppliesHubView })));
+const ComplaintsReferralsHubView = lazy(() => import('./components/views/ComplaintsReferralsHubView').then((m) => ({ default: m.ComplaintsReferralsHubView })));
+const EquipmentView = lazy(() => import('./components/views/EquipmentView').then((m) => ({ default: m.EquipmentView })));
+const RiskEngineView = lazy(() => import('./components/views/RiskEngineView').then((m) => ({ default: m.RiskEngineView })));
+const ExecutiveDashboardView = lazy(() => import('./components/views/ExecutiveDashboardView').then((m) => ({ default: m.ExecutiveDashboardView })));
+const AlertsView = lazy(() => import('./components/views/AlertsView').then((m) => ({ default: m.AlertsView })));
+const CyclesView = lazy(() => import('./components/views/CyclesView').then((m) => ({ default: m.CyclesView })));
+const LiraaView = lazy(() => import('./components/views/LiraaView').then((m) => ({ default: m.LiraaView })));
+const VectorControlHubView = lazy(() => import('./components/views/VectorControlHubView').then((m) => ({ default: m.VectorControlHubView })));
+const LabelGeneratorView = lazy(() => import('./components/views/LabelGeneratorView').then((m) => ({ default: m.LabelGeneratorView })));
+const WorkOrdersView = lazy(() => import('./components/views/WorkOrdersView').then((m) => ({ default: m.WorkOrdersView })));
+const SupervisorMobileView = lazy(() => import('./components/views/SupervisorMobileView').then((m) => ({ default: m.SupervisorMobileView })));
+const DocumentsReportsHubView = lazy(() => import('./components/views/DocumentsReportsHubView').then((m) => ({ default: m.DocumentsReportsHubView })));
+const IntegrationsView = lazy(() => import('./components/views/IntegrationsView').then((m) => ({ default: m.IntegrationsView })));
+const CommunicationAdminView = lazy(() => import('./components/views/CommunicationAdminView').then((m) => ({ default: m.CommunicationAdminView })));
 import { PublicPortalView } from './components/public/PublicPortalView';
 import { PublicComplaintFormView } from './components/public/PublicComplaintFormView';
 import { PublicComplaintTrackingView } from './components/public/PublicComplaintTrackingView';
-import { HistoricalAnalysisView } from './components/views/HistoricalAnalysisView';
-import { GeographicReconnaissanceView } from './components/views/GeographicReconnaissanceView';
-import { FieldPendenciesView } from './components/views/FieldPendenciesView';
+const HistoricalAnalysisView = lazy(() => import('./components/views/HistoricalAnalysisView').then((m) => ({ default: m.HistoricalAnalysisView })));
+const GeographicReconnaissanceView = lazy(() => import('./components/views/GeographicReconnaissanceView').then((m) => ({ default: m.GeographicReconnaissanceView })));
+const FieldPendenciesView = lazy(() => import('./components/views/FieldPendenciesView').then((m) => ({ default: m.FieldPendenciesView })));
 
 /** Visitas guardadas no aparelho aguardando envio (mesma fila usada pelo PWA). */
 function readPendingOfflineCount(): number {
@@ -310,7 +310,7 @@ function AppContent() {
     switch (route.view) {
       // Início
       case 'dashboard':
-        return <DashboardView onNavigate={navigate} municipalityId={municipalityId} />;
+        return <DashboardView onNavigate={(target) => navigate(target)} />;
 
       // Campo ACE
       case 'ace_pwa':
@@ -324,7 +324,7 @@ function AppContent() {
       case 'field_pendencies':
         return <FieldPendenciesView />;
       case 'supervisor_mobile':
-        return <SupervisorMobileView municipalityId={municipalityId} />;
+        return <SupervisorMobileView municipalityId={municipalityId} onNavigate={(target) => navigate(target)} />;
 
       // Território
       case 'properties':
@@ -342,7 +342,7 @@ function AppContent() {
           <TerritoryHubView
             initialTab={(tabForView('territory', route.view) ?? 'overview') as TerritoryHubTab}
             onTabChange={tabNavigator('territory')}
-            onNavigate={navigate}
+            onNavigate={(target) => navigate(target)}
           />
         );
       case 'geographic_reconnaissance':
@@ -399,7 +399,7 @@ function AppContent() {
           <StockSuppliesHubView initialTab={tabForView('stock', route.view) ?? 'estoque'} onTabChange={tabNavigator('stock')} />
         );
       case 'equipments':
-        return <EquipmentView />;
+        return <EquipmentView municipalityId={municipalityId} />;
       case 'work_orders':
         return <WorkOrdersView municipalityId={municipalityId} />;
 
@@ -444,9 +444,7 @@ function AppContent() {
       case 'communication':
         return <CommunicationAdminView />;
 
-      // Mantidas fora do menu principal
-      case 'command_center':
-        return <CommandCenterView />;
+      // Início, Vigilância (risco/tendências) e alertas
       case 'executive':
         return <ExecutiveDashboardView />;
       case 'risk_engine':
@@ -455,8 +453,6 @@ function AppContent() {
         return <HistoricalAnalysisView />;
       case 'alerts':
         return <AlertsView />;
-      case 'transparency':
-        return <TransparencyPortalView />;
 
       default: {
         // Garante em tempo de compilação que toda rota registrada tem renderização.
@@ -499,14 +495,15 @@ function AppContent() {
         />
 
         <main id="conteudo-principal" className="flex-1 overflow-y-auto p-3 sm:p-6 lg:p-8">
-          <div className="max-w-7xl mx-auto">{renderView()}</div>
+          <div className="max-w-7xl mx-auto">
+            <Suspense fallback={<p className="text-xs text-slate-500" role="status">Carregando tela...</p>}>{renderView()}</Suspense>
+          </div>
         </main>
       </div>
 
       <QuickCreateModal
         isOpen={isQuickCreateOpen}
         onClose={() => setIsQuickCreateOpen(false)}
-        municipalityId={municipalityId}
         onNavigate={(view) => navigate(view)}
       />
     </div>

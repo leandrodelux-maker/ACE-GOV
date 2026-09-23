@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { ACTIVE_FOCUS_STATUSES, ELIMINATED_FOCUS_STATUSES, RECURRENCE_MIN_FOCI } from '../../services/schemaHelpers';
 import {
   Flame,
   Repeat,
@@ -12,7 +13,6 @@ import {
   ShieldAlert,
   RefreshCw,
 } from 'lucide-react';
-import { db } from '../../services/storage';
 import { Property } from '../../types';
 import { supabase } from '../../services/supabaseClient';
 import { supabaseService } from '../../services/supabaseService';
@@ -20,9 +20,10 @@ import { PageHeader } from '../ui';
 import { useAuth, useMunicipalityId } from '../../contexts/AuthContext';
 
 export const FociAndRecurrenceView: React.FC = () => {
-  const { municipality: sessionMunicipality } = useAuth();
+  const { municipality: sessionMunicipality, user: sessionUser } = useAuth();
   const municipalityId = useMunicipalityId();
-  const [properties, setProperties] = useState<Property[]>(db.getProperties());
+  const [properties, setProperties] = useState<Property[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [eliminatedFociCount, setEliminatedFociCount] = useState<number>(0);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
@@ -31,57 +32,71 @@ export const FociAndRecurrenceView: React.FC = () => {
 
   const loadFociData = useCallback(async () => {
     setIsLoading(true);
+    setLoadError(null);
     try {
-      const muni = sessionMunicipality;
-      const muniId = municipalityId;
+      // Fonte: breeding_sites (criadouros gravados pela RPC oficial de visita), últimos 12 meses.
+      // A RPC grava situação em minúsculas ('ativo'/'eliminado'); a tabela tem padrão 'ATIVO'.
+      const since = new Date(Date.now() - 365 * 86400000).toISOString();
+      const [sitesRes, eliminatedRes] = await Promise.all([
+        supabase
+          .from('breeding_sites')
+          .select('property_id, status, identified_at, properties(id, property_code, property_type, street, number, complement, neighborhood_id, latitude, longitude, resident_name, created_at, updated_at, neighborhoods(name), blocks(code), sectors(name))')
+          .eq('municipality_id', municipalityId)
+          .gte('identified_at', since)
+          .not('property_id', 'is', null),
+        supabase
+          .from('breeding_sites')
+          .select('id', { count: 'exact', head: true })
+          .eq('municipality_id', municipalityId)
+          .in('status', ELIMINATED_FOCUS_STATUSES),
+      ]);
+      if (sitesRes.error) throw sitesRes.error;
 
-      // 1. Buscar propriedades com foco ou reincidência do Supabase
-      const { data: dbProps } = await supabase
-        .from('properties')
-        .select('*, neighborhoods(name)')
-        .eq('municipality_id', muniId)
-        .order('foci_count', { ascending: false });
+      const byProperty = new Map<string, { prop: any; count: number; active: boolean }>();
+      (sitesRes.data || []).forEach((s: any) => {
+        if (!s.properties) return;
+        const cur = byProperty.get(s.property_id) || { prop: s.properties, count: 0, active: false };
+        cur.count += 1;
+        if (ACTIVE_FOCUS_STATUSES.includes(s.status)) cur.active = true;
+        byProperty.set(s.property_id, cur);
+      });
 
-      if (dbProps && dbProps.length > 0) {
-        const mapped: Property[] = dbProps.map((p: any) => ({
+      const mapped: Property[] = [...byProperty.values()]
+        .sort((a, b) => b.count - a.count)
+        .map(({ prop: p, count, active }) => ({
           id: p.id,
-          municipalityId: p.municipality_id,
+          municipalityId,
           neighborhoodId: p.neighborhood_id || '',
-          code: p.code,
-          type: (p.type as any) || 'RESIDENCIAL',
-          status: p.status || 'NORMAL',
-          address: p.street || 'Rua sem nome',
+          code: p.property_code || 'Sem código',
+          type: (p.property_type as any) || 'RESIDENCIAL',
+          status: active ? 'FOCO' : 'NORMAL',
+          address: p.street || 'Logradouro não informado',
           number: p.number || 'S/N',
+          complement: p.complement || undefined,
           neighborhood: p.neighborhoods?.name || 'Bairro não informado',
-          block: p.block || 'Quadra 01',
-          sector: p.sector || 'Setor 01',
-          zone: (p.zone as any) || 'URBANA',
-          latitude: p.latitude || -23.5505,
-          longitude: p.longitude || -46.6333,
-          totalVisitsCount: p.total_visits_count || 1,
-          residentName: p.resident_name || 'Morador',
-          fociHistoryCount: p.foci_count || 0,
-          isRecurrent: (p.foci_count || 0) >= 2 || p.status === 'FOCO',
-          notes: p.complement || 'Imóvel com histórico sob monitoramento',
+          block: p.blocks?.code || 'quadra não informada',
+          sector: p.sectors?.name || '',
+          zone: 'URBANA',
+          latitude: p.latitude,
+          longitude: p.longitude,
+          totalVisitsCount: 0,
+          residentName: p.resident_name || undefined,
+          fociHistoryCount: count,
+          isRecurrent: count >= RECURRENCE_MIN_FOCI,
+          notes: undefined,
           createdAt: p.created_at,
           updatedAt: p.updated_at,
         }));
-        setProperties(mapped);
-      }
-
-      // 2. Buscar contagem de focos eliminados
-      const { count: elimCount } = await supabase
-        .from('breeding_sites')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'ELIMINADO');
-
-      setEliminatedFociCount(elimCount || 0);
-    } catch (err) {
-      console.warn('Fallback para focos locais:', err);
+      setProperties(mapped);
+      setEliminatedFociCount(eliminatedRes.count || 0);
+    } catch (err: any) {
+      console.warn('Falha ao carregar focos:', err);
+      setProperties([]);
+      setLoadError('Não foi possível carregar os focos registrados. Tente novamente.');
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [municipalityId]);
 
   useEffect(() => {
     loadFociData();
@@ -99,8 +114,9 @@ export const FociAndRecurrenceView: React.FC = () => {
       const muniId = municipalityId;
 
       // 1. Salvar no Supabase audit_logs
-      await supabase.from('audit_logs').insert({
+      const { error: auditError } = await supabase.from('audit_logs').insert({
         municipality_id: muniId,
+        user_id: sessionUser?.id ?? null,
         action: 'EMISSAO_NOTIFICACAO_SANITARIA',
         module: 'FOCOS_REINCIDENCIAS',
         entity: 'properties',
@@ -115,12 +131,7 @@ export const FociAndRecurrenceView: React.FC = () => {
         },
       });
 
-      // 2. Atualizar registro local para feedback instantâneo
-      db.addAuditLog(
-        'CADASTRO',
-        'Focos e Reincidências',
-        `Notificação Sanitária emitida para o imóvel ${selectedProperty.code} (${selectedProperty.address}, ${selectedProperty.number})`
-      );
+      if (auditError) throw auditError;
 
       setNotificationSent(true);
       setTimeout(() => {
@@ -158,11 +169,16 @@ export const FociAndRecurrenceView: React.FC = () => {
         }
       />
 
+      {loadError && (
+        <div role="alert" className="p-3 rounded-lg border border-rose-200 bg-rose-50 text-rose-800 text-xs font-semibold">{loadError}</div>
+      )}
+      <p className="text-[11px] text-slate-500">Fonte: criadouros registrados nas visitas dos últimos 12 meses. Reincidente = 2 ou mais focos no mesmo imóvel.</p>
+
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-white p-4 rounded-xl border border-rose-200 bg-rose-50/20 shadow-xs">
           <div className="flex items-center justify-between text-rose-700">
-            <span className="text-xs font-bold uppercase">Focos Ativos no Ciclo</span>
+            <span className="text-xs font-bold uppercase">Imóveis com Foco Ativo</span>
             <Flame className="w-4 h-4 animate-pulse" />
           </div>
           <p className="text-2xl font-black text-rose-700 mt-2">{activeFociProperties.length}</p>
@@ -222,7 +238,7 @@ export const FociAndRecurrenceView: React.FC = () => {
                 </div>
 
                 <p className="text-[11px] text-slate-600 bg-purple-50/50 p-2 rounded border border-purple-100">
-                  {prop.notes || 'Reincidência frequente em tambores sem tampa no quintal e piscina abandonada.'}
+                  {prop.notes || 'Sem observações registradas.'}
                 </p>
               </div>
 
@@ -264,7 +280,7 @@ export const FociAndRecurrenceView: React.FC = () => {
             {notificationSent ? (
               <div className="p-3 bg-emerald-100 text-emerald-800 font-bold rounded-xl text-xs flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4" />
-                <span>Notificação Sanitária NOT-2026-089 expedida e encaminhada para entrega!</span>
+                <span>Notificação sanitária do imóvel {selectedProperty?.code} registrada na trilha de auditoria. Imprima e entregue ao responsável.</span>
               </div>
             ) : (
               <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 text-xs">

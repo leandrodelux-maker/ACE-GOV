@@ -1,0 +1,20 @@
+{
+  "name": "ace-gov-homologacao",
+  "private": true,
+  "description": "Homologação local do banco (PostgreSQL 15 embutido + linha de base Supabase). Instalar SOMENTE nesta pasta.",
+  "type": "module",
+  "scripts": {
+    "init": "node server.mjs init",
+    "start": "node server.mjs start",
+    "stop": "node server.mjs stop",
+    "antes": "node apply.mjs --upto=20260913000030 && node sectest.mjs --label=antes --seed",
+    "depois": "node upgrade.mjs && node sectest.mjs --label=depois",
+    "instalacao-limpa": "node apply.mjs",
+    "esquema-escritas": "node writecheck.mjs",
+    "sondar-producao": "node collect.mjs && node probe-all.mjs"
+  },
+  "dependencies": {
+    "embedded-postgres": "15.17.0-beta.17",
+    "pg": "^8.16.0"
+  }
+}

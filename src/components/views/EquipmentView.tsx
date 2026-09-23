@@ -31,7 +31,7 @@ import { supabase } from '../../services/supabaseClient';
 import { PageHeader } from '../ui';
 
 interface EquipmentViewProps {
-  municipalityId?: string;
+  municipalityId: string;
 }
 
 export const EquipmentView: React.FC<EquipmentViewProps> = ({ municipalityId }) => {

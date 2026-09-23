@@ -124,6 +124,7 @@ export const dataImportService = {
     let invalidRecords = 0;
     let duplicateRecords = 0;
     const errors: any[] = [];
+    let neighborhoodByName: Map<string, string> | null = null;
 
     try {
       // 1. Criar registro inicial do job
@@ -170,37 +171,97 @@ export const dataImportService = {
             .from('properties')
             .select('id')
             .eq('municipality_id', municipalityId)
-            .eq('code', mappedRow.code)
+            .eq('property_code', mappedRow.code)
             .maybeSingle();
+
+          // properties.neighborhood_id é obrigatório: resolve o bairro pelo nome informado
+          if (!neighborhoodByName) {
+            const { data: neighs } = await supabase.from('neighborhoods').select('id, name').eq('municipality_id', municipalityId);
+            neighborhoodByName = new Map((neighs || []).map((n: any) => [String(n.name).trim().toLowerCase(), n.id]));
+          }
+          const neighborhoodId = neighborhoodByName.get(String(mappedRow.neighborhood_name || '').trim().toLowerCase());
+          const toCoord = (v: unknown) => {
+            const n = parseFloat(String(v ?? '').replace(',', '.'));
+            return Number.isFinite(n) ? n : null;
+          };
+          const fields = {
+            street: mappedRow.address,
+            number: mappedRow.number || 'S/N',
+            ...(mappedRow.type ? { property_type: String(mappedRow.type).toUpperCase() } : {}),
+            ...(toCoord(mappedRow.latitude) !== null ? { latitude: toCoord(mappedRow.latitude) } : {}),
+            ...(toCoord(mappedRow.longitude) !== null ? { longitude: toCoord(mappedRow.longitude) } : {}),
+          };
 
           if (existing) {
             if (updateExisting) {
-              await supabase
+              const { error: updErr } = await supabase
                 .from('properties')
-                .update({
-                  address: mappedRow.address,
-                  number: mappedRow.number || 'S/N',
-                  updated_at: new Date().toISOString(),
-                })
+                .update({ ...fields, ...(neighborhoodId ? { neighborhood_id: neighborhoodId } : {}), updated_at: new Date().toISOString() })
                 .eq('id', existing.id);
+              if (updErr) {
+                invalidRecords++;
+                errors.push({ line: i + 2, reason: `Falha ao atualizar: ${updErr.message}` });
+                continue;
+              }
               duplicateRecords++;
               validRecords++;
             } else {
               duplicateRecords++;
             }
           } else {
-            await supabase.from('properties').insert({
+            if (!neighborhoodId) {
+              invalidRecords++;
+              errors.push({ line: i + 2, reason: `Bairro "${mappedRow.neighborhood_name || ''}" não cadastrado no município` });
+              continue;
+            }
+            const { error: insErr } = await supabase.from('properties').insert({
               municipality_id: municipalityId,
-              code: mappedRow.code,
-              address: mappedRow.address,
-              number: mappedRow.number || 'S/N',
-              type: mappedRow.type || 'RESIDENCIAL',
-              status: 'PENDENTE',
+              neighborhood_id: neighborhoodId,
+              property_code: mappedRow.code,
+              ...fields,
             });
+            if (insErr) {
+              invalidRecords++;
+              errors.push({ line: i + 2, reason: `Falha ao gravar: ${insErr.message}` });
+              continue;
+            }
             validRecords++;
           }
-        } else {
+        } else if (entityType === 'NEIGHBORHOODS') {
+          const name = String(mappedRow.name || '').trim();
+          if (!name) {
+            invalidRecords++;
+            errors.push({ line: i + 2, reason: 'Nome do bairro não informado' });
+            continue;
+          }
+          const { data: existingN } = await supabase
+            .from('neighborhoods')
+            .select('id')
+            .eq('municipality_id', municipalityId)
+            .ilike('name', name)
+            .maybeSingle();
+          if (existingN) {
+            duplicateRecords++;
+            continue;
+          }
+          const population = parseInt(String(mappedRow.population || ''), 10);
+          const { error: nErr } = await supabase.from('neighborhoods').insert({
+            municipality_id: municipalityId,
+            name,
+            code: mappedRow.code || null,
+            population: Number.isFinite(population) ? population : null,
+          });
+          if (nErr) {
+            invalidRecords++;
+            errors.push({ line: i + 2, reason: `Falha ao gravar: ${nErr.message}` });
+            continue;
+          }
+          neighborhoodByName = null; // força recarga caso imóveis sejam importados depois
           validRecords++;
+        } else {
+          // Tipos sem gravação implementada: não contar como importados
+          invalidRecords++;
+          errors.push({ line: i + 2, reason: 'Importação deste tipo ainda não grava no banco; cadastre pela tela correspondente.' });
         }
       }
 

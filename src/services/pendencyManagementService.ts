@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient';
+import { AGENT_EMBED } from './schemaHelpers';
 
 export interface PendingVisitItem {
   id: string;
@@ -110,9 +111,9 @@ export const pendencyManagementService = {
             sector:sectors(name, code),
             block:blocks(code)
           ),
-          assigned_agent:agents!pending_visits_assigned_agent_id_fkey(id, name),
-          responsible_agent:agents!pending_visits_responsible_agent_id_fkey(id, name),
-          cycle:cycles(id, name, year, cycle_number)
+          assigned_agent:agents!pending_visits_assigned_agent_id_fkey(id, ${AGENT_EMBED}),
+          responsible_agent:agents!pending_visits_responsible_agent_id_fkey(id, ${AGENT_EMBED}),
+          cycle:field_cycles(id, name, year, cycle_number)
         `)
         .order('last_attempt_date', { ascending: false })
         .limit(params.limit || 150);
@@ -212,8 +213,8 @@ export const pendencyManagementService = {
             sector:sectors(name, code),
             block:blocks(code)
           ),
-          assigned_agent:agents!pending_visits_assigned_agent_id_fkey(id, name),
-          responsible_agent:agents!pending_visits_responsible_agent_id_fkey(id, name)
+          assigned_agent:agents!pending_visits_assigned_agent_id_fkey(id, ${AGENT_EMBED}),
+          responsible_agent:agents!pending_visits_responsible_agent_id_fkey(id, ${AGENT_EMBED})
         `)
         .neq('status', 'recuperado')
         .order('attempt_count', { ascending: false })

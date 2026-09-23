@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient';
+import { AGENT_EMBED, agentName, formatAddress } from './schemaHelpers';
 
 export interface TimelineEvent {
   id: string;
@@ -26,159 +27,147 @@ export interface TerritoryHistoryResult {
   };
 }
 
+const fmtDate = (d: string) => new Date(d.length === 10 ? `${d}T00:00:00` : d).toLocaleDateString('pt-BR');
+const isWorked = (r?: string) => (r || '').toLowerCase() === 'trabalhado';
+const RESULT_LABEL: Record<string, string> = { trabalhado: 'Trabalhado', fechado: 'Fechado', recusa: 'Recusa', desabitado: 'Desabitado' };
+
+/** Eventos de visita (fonte: visits + visit_deposits, gravados pela RPC oficial). */
+function visitEvents(visits: any[]): { events: TimelineEvent[]; foci: number } {
+  const events: TimelineEvent[] = [];
+  let foci = 0;
+  visits.forEach((v) => {
+    const positives = (v.visit_deposits || []).filter((d: any) => d.positive || d.larvae_found);
+    const result = (v.result || '').toLowerCase();
+    if (positives.length > 0) foci += positives.length;
+    const depositTypes = [...new Set(positives.map((d: any) => d.deposit_type).filter(Boolean))].join(', ');
+    events.push({
+      id: `visit-${v.id}`,
+      type: positives.length > 0 ? 'foco' : 'visita',
+      title: positives.length > 0
+        ? `Visita com ${positives.length} depósito(s) positivo(s)`
+        : `Visita — ${RESULT_LABEL[result] || v.result || 'resultado não informado'}`,
+      timestamp: v.visit_date || v.created_at,
+      dateFormatted: fmtDate(v.visit_date || v.created_at),
+      categoryLabel: positives.length > 0 ? 'Foco' : 'Visita domiciliar',
+      status: positives.length > 0 ? 'alerta' : isWorked(v.result) ? 'sucesso' : 'pendente',
+      description: [
+        positives.length > 0 ? `Tipos de depósito positivos: ${depositTypes || 'não informado'}.` : null,
+        v.properties ? formatAddress(v.properties) : null,
+        v.notes || null,
+      ].filter(Boolean).join(' ') || 'Sem observações registradas.',
+      agentName: agentName(v.agents),
+    });
+  });
+  return { events, foci };
+}
+
+const VISIT_SELECT = `id, visit_date, result, notes, created_at, visit_deposits(deposit_type, positive, larvae_found), agents(${AGENT_EMBED})`;
+
 export const territoryTimelineService = {
   /**
-   * Constrói a linha do tempo cronológica de um Imóvel específico
+   * Linha do tempo de um imóvel: visitas (com focos) e denúncias no mesmo endereço.
    */
   async getPropertyTimeline(propertyId: string, municipalityId: string): Promise<TerritoryHistoryResult> {
-    // 1. Dados do imóvel
     const { data: prop } = await supabase
       .from('properties')
-      .select('code, address, number, complement, neighborhoods(name)')
+      .select('property_code, street, number, complement, neighborhood_id, neighborhoods(name)')
       .eq('id', propertyId)
-      .single();
+      .eq('municipality_id', municipalityId)
+      .maybeSingle();
 
-    const title = prop ? `${prop.address}, ${prop.number || 'S/N'}` : 'Imóvel';
-    const subtitle = prop?.neighborhoods ? `Bairro: ${(prop.neighborhoods as any).name}` : 'Cadastro Territorial';
-
-    // 2. Visitas no imóvel
     const { data: visits } = await supabase
-      .from('property_visits')
-      .select('id, visit_date, status, has_larvae, larvae_species, treatment_type, agent_name, created_at')
+      .from('visits')
+      .select(VISIT_SELECT)
       .eq('property_id', propertyId)
-      .order('visit_date', { ascending: false });
+      .eq('municipality_id', municipalityId)
+      .is('deleted_at', null)
+      .order('visit_date', { ascending: false })
+      .limit(100);
 
-    // 3. Denúncias associadas ao imóvel ou endereço
-    const { data: complaints } = await supabase
-      .from('complaints')
-      .select('id, protocol, problem_type, status, created_at, description')
-      .eq('property_id', propertyId);
+    // Denúncias não têm vínculo com o imóvel: associa pelo mesmo logradouro e número
+    let complaints: any[] = [];
+    if (prop?.street) {
+      let q = supabase
+        .from('complaints')
+        .select('id, protocol, problem_type, status, created_at, description')
+        .eq('municipality_id', municipalityId)
+        .ilike('street', prop.street);
+      if (prop.number) q = q.eq('number', prop.number);
+      complaints = (await q.limit(50)).data || [];
+    }
 
-    const events: TimelineEvent[] = [];
-    let fociCount = 0;
-
-    (visits || []).forEach(v => {
-      const isPositive = v.has_larvae;
-      if (isPositive) fociCount++;
-
-      events.push({
-        id: `visit-${v.id}`,
-        type: isPositive ? 'foco' : 'visita',
-        title: isPositive ? 'Foco de Larvas Identificado no Imóvel' : `Visita de Rotina - ${v.status?.toUpperCase() || 'REALIZADA'}`,
-        timestamp: v.visit_date || v.created_at,
-        dateFormatted: new Date(v.visit_date || v.created_at).toLocaleDateString('pt-BR'),
-        categoryLabel: isPositive ? 'Foco Positivo' : 'Inspeção Domiciliar',
-        status: isPositive ? 'alerta' : v.status === 'fechado' ? 'pendente' : 'sucesso',
-        description: isPositive
-          ? `Presença de larvas identificada. Espécie: ${v.larvae_species || 'Aedes aegypti'}. Tratamento: ${v.treatment_type || 'Eliminação mecânica'}.`
-          : `Inspeção vetorial conduzida. Imóvel cadastrado no ciclo regular de combate.`,
-        agentName: v.agent_name || 'Agente ACE'
-      });
-    });
-
-    (complaints || []).forEach(c => {
+    const { events, foci } = visitEvents(visits || []);
+    complaints.forEach((c) =>
       events.push({
         id: `complaint-${c.id}`,
         type: 'denuncia',
-        title: `Denúncia Cidadã: Protocolo ${c.protocol}`,
+        title: `Denúncia — protocolo ${c.protocol}`,
         timestamp: c.created_at,
-        dateFormatted: new Date(c.created_at).toLocaleDateString('pt-BR'),
+        dateFormatted: fmtDate(c.created_at),
         categoryLabel: 'Denúncia',
-        status: c.status === 'concluida' ? 'sucesso' : 'pendente',
-        description: c.description || `Denúncia de criadouros potenciais registrada com status: ${c.status}.`
-      });
-    });
-
-    // Ordenar cronologicamente decrescente
+        status: ['RESOLVIDA', 'ARQUIVADA'].includes((c.status || '').toUpperCase()) ? 'sucesso' : 'pendente',
+        description: c.description || `Situação: ${c.status}.`,
+      })
+    );
     events.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
     return {
       targetType: 'property',
-      targetTitle: title,
-      targetSubtitle: subtitle,
+      targetTitle: prop ? formatAddress(prop) || 'Imóvel' : 'Imóvel não encontrado',
+      targetSubtitle: prop ? `${prop.property_code || 'Sem código'} · ${(prop.neighborhoods as any)?.name || 'Bairro não informado'}` : 'Cadastro territorial',
       events,
-      summary: {
-        totalVisits: visits?.length || 0,
-        totalFoci: fociCount,
-        totalComplaints: complaints?.length || 0,
-        totalBlockades: 0
-      }
+      summary: { totalVisits: visits?.length || 0, totalFoci: foci, totalComplaints: complaints.length, totalBlockades: 0 },
     };
   },
 
   /**
-   * Constrói a linha do tempo cronológica de um Bairro
+   * Linha do tempo de um bairro: visitas com foco e operações de bloqueio.
    */
   async getNeighborhoodTimeline(neighborhoodId: string, municipalityId: string): Promise<TerritoryHistoryResult> {
-    const { data: neigh } = await supabase
-      .from('neighborhoods')
-      .select('name, zone')
-      .eq('id', neighborhoodId)
-      .single();
+    const [neighRes, visitsRes, blockadesRes, complaintsRes] = await Promise.all([
+      supabase.from('neighborhoods').select('name, zones(name)').eq('id', neighborhoodId).eq('municipality_id', municipalityId).maybeSingle(),
+      supabase
+        .from('visits')
+        .select(`${VISIT_SELECT}, properties!inner(street, number, neighborhood_id)`)
+        .eq('municipality_id', municipalityId)
+        .eq('properties.neighborhood_id', neighborhoodId)
+        .is('deleted_at', null)
+        .order('visit_date', { ascending: false })
+        .limit(60),
+      supabase
+        .from('blockade_operations')
+        .select('id, code, disease, started_at, ended_at, status, planned_properties, completed_properties')
+        .eq('municipality_id', municipalityId)
+        .eq('neighborhood_id', neighborhoodId),
+      supabase.from('complaints').select('id', { count: 'exact', head: true }).eq('municipality_id', municipalityId).eq('neighborhood_id', neighborhoodId),
+    ]);
+    const neigh = neighRes.data as any;
+    const visits = visitsRes.data || [];
+    const blockades = blockadesRes.data || [];
 
-    const title = neigh ? `Bairro ${neigh.name}` : 'Bairro';
-    const subtitle = neigh?.zone ? `Zona ${neigh.zone} - Histórico Territorial Consolidado` : 'Histórico Territorial';
-
-    // 1. Visitas no bairro
-    const { data: visits } = await supabase
-      .from('property_visits')
-      .select('id, visit_date, status, has_larvae, agent_name, created_at')
-      .eq('neighborhood_id', neighborhoodId)
-      .order('visit_date', { ascending: false })
-      .limit(30);
-
-    // 2. Bloqueios químicos no bairro
-    const { data: blocks } = await supabase
-      .from('chemical_blockades')
-      .select('id, code, start_date, end_date, status, target_properties, treated_properties')
-      .eq('neighborhood_id', neighborhoodId);
-
-    const events: TimelineEvent[] = [];
-    let fociCount = 0;
-
-    (visits || []).forEach(v => {
-      if (v.has_larvae) {
-        fociCount++;
-        events.push({
-          id: `visit-foci-${v.id}`,
-          type: 'foco',
-          title: 'Detecção de Foco Larvário em Imóvel',
-          timestamp: v.visit_date || v.created_at,
-          dateFormatted: new Date(v.visit_date || v.created_at).toLocaleDateString('pt-BR'),
-          categoryLabel: 'Foco Larvário',
-          status: 'alerta',
-          description: 'Criadouro positivo com tratamento focal realizado pelo agente em campo.',
-          agentName: v.agent_name
-        });
-      }
-    });
-
-    (blocks || []).forEach(b => {
+    // No bairro, a linha do tempo mostra apenas as visitas com foco (as de rotina são muitas)
+    const { events: visitEvts, foci } = visitEvents(visits);
+    const events = visitEvts.filter((e) => e.type === 'foco');
+    blockades.forEach((b: any) =>
       events.push({
         id: `block-${b.id}`,
         type: 'bloqueio',
-        title: `Operação de Bloqueio Químico: ${b.code || 'UBV'}`,
-        timestamp: b.start_date || new Date().toISOString(),
-        dateFormatted: new Date(b.start_date || new Date()).toLocaleDateString('pt-BR'),
-        categoryLabel: 'Controle Vetorial Químico',
-        status: b.status === 'concluido' ? 'sucesso' : 'alerta',
-        description: `Aplicação de inseticida espacial/focal realizada em ${b.treated_properties || 0} de ${b.target_properties || 0} imóveis programados.`
-      });
-    });
-
+        title: `Bloqueio ${b.code || ''}${b.disease ? ` — ${b.disease}` : ''}`.trim(),
+        timestamp: b.started_at || b.ended_at || new Date(0).toISOString(),
+        dateFormatted: b.started_at ? fmtDate(b.started_at) : 'Data não informada',
+        categoryLabel: 'Bloqueio de transmissão',
+        status: (b.status || '').toUpperCase() === 'CONCLUIDO' ? 'sucesso' : 'alerta',
+        description: `${b.completed_properties ?? 0} de ${b.planned_properties ?? 0} imóveis programados concluídos.`,
+      })
+    );
     events.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
     return {
       targetType: 'neighborhood',
-      targetTitle: title,
-      targetSubtitle: subtitle,
+      targetTitle: neigh ? `Bairro ${neigh.name}` : 'Bairro não encontrado',
+      targetSubtitle: neigh?.zones?.name ? `Zona ${neigh.zones.name} · histórico territorial` : 'Histórico territorial',
       events,
-      summary: {
-        totalVisits: visits?.length || 0,
-        totalFoci: fociCount,
-        totalComplaints: 0,
-        totalBlockades: blocks?.length || 0
-      }
+      summary: { totalVisits: visits.length, totalFoci: foci, totalComplaints: complaintsRes.count ?? 0, totalBlockades: blockades.length },
     };
-  }
+  },
 };

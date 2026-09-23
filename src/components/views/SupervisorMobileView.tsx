@@ -26,12 +26,14 @@ import {
 } from '../../services/supervisorService';
 import { useAuth } from '../../contexts/AuthContext';
 import { alertsService, AlertNotificationItem } from '../../services/alertsService';
+import { workOrderService, WorkOrderItem } from '../../services/workOrderService';
 
 interface SupervisorMobileViewProps {
-  municipalityId?: string;
+  municipalityId: string;
+  onNavigate?: (target: string) => void;
 }
 
-export const SupervisorMobileView: React.FC<SupervisorMobileViewProps> = ({ municipalityId }) => {
+export const SupervisorMobileView: React.FC<SupervisorMobileViewProps> = ({ municipalityId, onNavigate }) => {
   const { user: sessionUser } = useAuth();
   const [activeTab, setActiveTab] = useState<'home' | 'equipe' | 'planejamento' | 'mapa' | 'supervisao'>('home');
   const [dashboard, setDashboard] = useState<SupervisorDashboardData>({
@@ -56,6 +58,7 @@ export const SupervisorMobileView: React.FC<SupervisorMobileViewProps> = ({ muni
   // Mensagem de feedback
   const [feedbackMsg, setFeedbackMsg] = useState('');
   const [openAlerts, setOpenAlerts] = useState<AlertNotificationItem[]>([]);
+  const [openOrders, setOpenOrders] = useState<WorkOrderItem[] | null>(null);
 
   const loadData = async () => {
     setLoading(true);
@@ -68,6 +71,10 @@ export const SupervisorMobileView: React.FC<SupervisorMobileViewProps> = ({ muni
       ]);
       setDashboard(dashData);
       setOpenAlerts(alertList.filter((a) => !a.acknowledged).slice(0, 3));
+      workOrderService
+        .getWorkOrders(municipalityId)
+        .then((orders) => setOpenOrders(orders.filter((o) => !['concluida', 'cancelada'].includes(o.status))))
+        .catch(() => setOpenOrders([]));
       setAgents(agentsList);
       setSupervisions(supList);
       if (agentsList.length > 0) {
@@ -308,67 +315,69 @@ export const SupervisorMobileView: React.FC<SupervisorMobileViewProps> = ({ muni
         </div>
       )}
 
-      {/* CONTEÚDO DA ABA: PLANEJAMENTO */}
+      {/* CONTEÚDO DA ABA: PLANEJAMENTO (ordens de serviço abertas reais) */}
       {activeTab === 'planejamento' && (
         <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs space-y-4">
           <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <ArrowRightLeft className="w-4 h-4 text-emerald-600" />
-            Redistribuição Operacional & Ajustes
+            Ordens de Serviço em Aberto
           </h3>
-          <p className="text-xs text-slate-500">
-            Realoque ordens de serviço, quadras prioritárias ou pendências sem burocracia:
-          </p>
-
-          <div className="space-y-3 text-xs">
-            <div className="p-3 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 flex justify-between items-center">
-              <div>
-                <span className="font-bold text-slate-900 dark:text-white">OS-END-2026-00001 (Bloqueio)</span>
-                <p className="text-slate-500 mt-0.5">Bairro Universitário • Quadra 14</p>
-              </div>
-              <button
-                onClick={() => alert('Ordem de Serviço redistribuída para o ACE com maior disponibilidade.')}
-                className="px-3 py-1.5 bg-blue-600 text-white rounded text-xs font-semibold"
-              >
-                Redistribuir
-              </button>
-            </div>
-
-            <div className="p-3 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 flex justify-between items-center">
-              <div>
-                <span className="font-bold text-slate-900 dark:text-white">8 Visitas Pendentes (Fechados)</span>
-                <p className="text-slate-500 mt-0.5">Reagendamento para o sábado ou retorno no fim de tarde</p>
-              </div>
-              <button
-                onClick={() => alert('Pendências reagendadas para retorno supervisionado.')}
-                className="px-3 py-1.5 bg-emerald-600 text-white rounded text-xs font-semibold"
-              >
-                Aprovar
-              </button>
-            </div>
+          <div className="space-y-2 text-xs">
+            {openOrders === null ? (
+              <p className="text-slate-500" role="status">Carregando...</p>
+            ) : openOrders.length === 0 ? (
+              <p className="text-slate-500">Sem ordens de serviço em aberto no município.</p>
+            ) : (
+              openOrders.slice(0, 8).map((o) => (
+                <div key={o.id} className="p-3 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700">
+                  <span className="font-bold text-slate-900 dark:text-white">{o.number} — {o.title}</span>
+                  <p className="text-slate-500 mt-0.5">
+                    {o.neighborhoodName || 'Bairro não informado'} • {o.assignedAgentName ? `Responsável: ${o.assignedAgentName}` : 'Sem responsável'}
+                  </p>
+                </div>
+              ))
+            )}
           </div>
+          {onNavigate && (
+            <button
+              onClick={() => onNavigate('work_orders')}
+              className="w-full px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold"
+            >
+              Abrir Ordens de Serviço para redistribuir
+            </button>
+          )}
         </div>
       )}
 
-      {/* CONTEÚDO DA ABA: MAPA */}
+      {/* CONTEÚDO DA ABA: MAPA (resumo real; mapa completo em Território > Mapa) */}
       {activeTab === 'mapa' && (
         <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs space-y-3">
           <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <MapPin className="w-4 h-4 text-emerald-600" />
-            Visão Territorial da Equipe
+            Situação do Dia
           </h3>
-          <p className="text-xs text-slate-500">
-            Focos ativos, pontos estratégicos e setores sob acompanhamento:
-          </p>
-
-          <div className="h-64 bg-slate-100 dark:bg-slate-900 rounded-xl border border-slate-300 dark:border-slate-700 flex flex-col items-center justify-center p-4 text-center">
-            <MapPin className="w-10 h-10 text-emerald-600 mb-2 animate-bounce" />
-            <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
-              3 Focos Ativos • 2 Bloqueios Operacionais • 8 Pendências
-            </span>
-            <p className="text-[11px] text-slate-500 mt-1 max-w-xs">
-              Mapeamento georreferenciado integrado com as rotas de campo e limites dos setores.
-            </p>
+          <div className="grid grid-cols-3 gap-2 text-center text-xs">
+            <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-900">
+              <div className="text-lg font-black text-slate-900 dark:text-white">{fmt(dashboard.visitsToday)}</div>
+              <span className="text-slate-500">visitas hoje</span>
+            </div>
+            <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-900">
+              <div className="text-lg font-black text-amber-600">{fmt(dashboard.pendingReturns)}</div>
+              <span className="text-slate-500">pendências</span>
+            </div>
+            <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-900">
+              <div className="text-lg font-black text-rose-600">{fmt(dashboard.criticalAlertsCount)}</div>
+              <span className="text-slate-500">alertas críticos</span>
+            </div>
           </div>
+          {onNavigate && (
+            <button
+              onClick={() => onNavigate('map')}
+              className="w-full px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold"
+            >
+              Abrir Mapa Municipal
+            </button>
+          )}
         </div>
       )}
 

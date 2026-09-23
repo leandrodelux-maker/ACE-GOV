@@ -1,16 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { Send, Plus, CheckCircle, Clock, Building, MapPin, X, Filter, Search, ShieldCheck } from 'lucide-react';
-import { db } from '../../services/storage';
 import { auditLogService } from '../../services/auditLogService';
+import { referralService } from '../../services/referralService';
 import { useAuth, useMunicipalityId } from '../../contexts/AuthContext';
 import { IntersectoralReferral } from '../../types';
 import { PageHeader } from '../ui';
 
 /**
  * Encaminhamentos intersetoriais.
- * LIMITAÇÃO: não existe tabela de encaminhamentos no banco (ver
- * docs/ACE-GOV-AUDITORIA-E-EXECUCAO.md). Os registros ficam salvos apenas neste
- * navegador; a criação e a mudança de status são registradas na auditoria.
+ * Usa a tabela intersectoral_referrals quando ela existe no banco (migração
+ * supabase/migrations/20260923000032). Sem a tabela, funciona em modo local:
+ * os registros ficam só neste navegador, com aviso visível na tela. Criação e
+ * mudança de status são registradas na auditoria nos dois modos.
  */
 const LOCAL_KEY = 'endemias_referrals';
 
@@ -45,9 +46,33 @@ export const ReferralsView: React.FC = () => {
   const [filterSector, setFilterSector] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  // 'db' = tabela do banco; 'local' = sem tabela (só neste navegador); null = verificando
+  const [mode, setMode] = useState<'db' | 'local' | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
-    setReferrals(readLocalReferrals(munId));
+    let active = true;
+    referralService
+      .list(munId)
+      .then((res) => {
+        if (!active) return;
+        if (res.available) {
+          setMode('db');
+          setReferrals(res.items);
+          setLoadError(res.error ? 'Não foi possível carregar os encaminhamentos.' : null);
+        } else {
+          setMode('local');
+          setReferrals(readLocalReferrals(munId));
+        }
+      })
+      .catch(() => {
+        if (!active) return;
+        setMode('local');
+        setReferrals(readLocalReferrals(munId));
+      });
+    return () => {
+      active = false;
+    };
   }, [munId]);
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -55,7 +80,7 @@ export const ReferralsView: React.FC = () => {
     if (!propertyAddress.trim() || !description.trim()) return;
 
     setSubmitting(true);
-    const newRef: IntersectoralReferral = {
+    let newRef: IntersectoralReferral = {
       id: `ref-${Date.now()}`,
       protocol: `ENC-${new Date().getFullYear()}-${Date.now().toString(36).toUpperCase()}`,
       municipalityId: munId,
@@ -68,20 +93,30 @@ export const ReferralsView: React.FC = () => {
       createdAt: new Date().toISOString().split('T')[0],
     };
 
+    if (mode === 'db') {
+      try {
+        newRef = await referralService.create(munId, { ...newRef, issuedBy: currentUser?.id, issuedByName: newRef.issuedByAgentName });
+      } catch (err: any) {
+        setSubmitting(false);
+        alert(`Não foi possível registrar o encaminhamento: ${err?.message || 'erro desconhecido'}`);
+        return;
+      }
+    }
+
     // Rastreabilidade institucional (tabela audit_logs)
     await auditLogService.log({
       municipalityId: munId,
       userId: currentUser?.id,
       action: 'CADASTRO',
       module: 'Encaminhamentos',
-      entity: 'encaminhamento_local',
+      entity: mode === 'db' ? 'intersectoral_referrals' : 'encaminhamento_local',
       entityId: newRef.protocol,
       newData: { protocol: newRef.protocol, target_sector: targetSector, address: propertyAddress, neighborhood, description },
     });
 
     const updated = [newRef, ...referrals];
     setReferrals(updated);
-    writeLocalReferrals(munId, updated);
+    if (mode !== 'db') writeLocalReferrals(munId, updated);
 
     setShowModal(false);
     setPropertyAddress('');
@@ -90,6 +125,17 @@ export const ReferralsView: React.FC = () => {
   };
 
   const handleToggleStatus = async (refId: string) => {
+    const current = referrals.find((r) => r.id === refId);
+    if (!current) return;
+    const nextStatus: IntersectoralReferral['status'] = current.status === 'ENVIADO' ? 'RESOLVIDO' : 'ENVIADO';
+    if (mode === 'db') {
+      try {
+        await referralService.setStatus(munId, refId, nextStatus);
+      } catch (err: any) {
+        alert(`Não foi possível atualizar o status: ${err?.message || 'erro desconhecido'}`);
+        return;
+      }
+    }
     const updated = referrals.map(r => {
       if (r.id === refId) {
         const nextStatus: IntersectoralReferral['status'] = r.status === 'ENVIADO' ? 'RESOLVIDO' : 'ENVIADO';
@@ -98,14 +144,14 @@ export const ReferralsView: React.FC = () => {
       return r;
     });
     setReferrals(updated);
-    writeLocalReferrals(munId, updated);
+    if (mode !== 'db') writeLocalReferrals(munId, updated);
     const changed = updated.find((r) => r.id === refId);
     await auditLogService.log({
       municipalityId: munId,
       userId: currentUser?.id,
       action: 'EDICAO',
       module: 'Encaminhamentos',
-      entity: 'encaminhamento_local',
+      entity: mode === 'db' ? 'intersectoral_referrals' : 'encaminhamento_local',
       entityId: changed?.protocol || refId,
       newData: { status: changed?.status },
     });
@@ -122,6 +168,15 @@ export const ReferralsView: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {mode === 'local' && (
+        <div role="note" className="p-3 rounded-xl border border-amber-200 bg-amber-50 text-amber-800 text-xs">
+          Encaminhamentos ainda não têm tabela no banco: os registros ficam salvos <strong>somente neste navegador</strong> (a criação e as
+          mudanças de status vão para a auditoria). Para guardar no banco, aplique a migração proposta de encaminhamentos.
+        </div>
+      )}
+      {loadError && (
+        <div role="alert" className="p-3 rounded-xl border border-rose-200 bg-rose-50 text-rose-800 text-xs">{loadError}</div>
+      )}
       {/* Header */}
       <PageHeader
         icon={Send}

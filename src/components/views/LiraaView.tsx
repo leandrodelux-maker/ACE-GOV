@@ -43,7 +43,7 @@ export const LiraaView: React.FC = () => {
 
   // Modais
   const [showNewSurveyModal, setShowNewSurveyModal] = useState(false);
-  const [newSurveyName, setNewSurveyName] = useState('LIRAa Municipal 2026 - 2º Ciclo');
+  const [newSurveyName, setNewSurveyName] = useState(`LIRAa Municipal ${new Date().getFullYear()}`);
   const [newSurveyType, setNewSurveyType] = useState<'LIRAa' | 'LIA'>('LIRAa');
   const [showVisitModal, setShowVisitModal] = useState<LiraaSample | null>(null);
   const [visitResult, setVisitResult] = useState<'visitado' | 'fechado' | 'recusa'>('visitado');
@@ -91,8 +91,8 @@ export const LiraaView: React.FC = () => {
       municipality_id: municipalityId,
       type: newSurveyType,
       name: newSurveyName,
-      year: 2026,
-      cycle_number: surveys.length + 1,
+      year: new Date().getFullYear(),
+      cycle_number: surveys.filter((s) => s.year === new Date().getFullYear()).length + 1,
       start_date: new Date().toISOString().split('T')[0],
       end_date: new Date(Date.now() + 15 * 86400000).toISOString().split('T')[0],
       status: 'em_execucao',

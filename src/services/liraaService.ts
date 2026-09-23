@@ -223,7 +223,7 @@ export const liraaService = {
           property:properties (
             street,
             number,
-            type
+            property_type
           )
         `)
         .eq('survey_id', surveyId)
@@ -232,7 +232,7 @@ export const liraaService = {
       if (error) throw error;
       return (data || []).map((s: any) => ({
         ...s,
-        property: s.property || { street: 'Logradouro', number: 'S/N' },
+        property: s.property ? { ...s.property, type: s.property.property_type } : { street: 'Imóvel não vinculado', number: '' },
       }));
     } catch (err) {
       console.warn('Erro ao buscar amostras LIRAa:', err);

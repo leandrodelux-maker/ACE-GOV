@@ -1274,26 +1274,21 @@ export const ovitrapService = {
     ipo: number;
   }[]> {
     try {
+      // Somente leituras do município e com data de laboratório registrada
       const { data: results } = await supabase
         .from('ovitrap_results')
-        .select('eggs_count, positive, laboratory_date')
+        .select('eggs_count, positive, laboratory_date, ovitraps!inner(municipality_id)')
+        .eq('ovitraps.municipality_id', municipalityId)
+        .not('laboratory_date', 'is', null)
         .order('laboratory_date', { ascending: true })
-        .limit(150);
+        .limit(1000);
 
-      if (!results || results.length === 0) {
-        // Mock fallback seguro com base nas coletas reais
-        return [
-          { period: 'Semana 32', totalEggs: 32, positiveCount: 1, totalExamined: 4, ipo: 25.0 },
-          { period: 'Semana 33', totalEggs: 51, positiveCount: 2, totalExamined: 4, ipo: 50.0 },
-          { period: 'Semana 34', totalEggs: 89, positiveCount: 3, totalExamined: 4, ipo: 75.0 },
-          { period: 'Semana 35', totalEggs: 137, positiveCount: 4, totalExamined: 4, ipo: 100.0 },
-        ];
-      }
+      if (!results || results.length === 0) return [];
 
       const map = new Map<string, { totalEggs: number; positiveCount: number; examined: number }>();
 
-      results.forEach((r) => {
-        const dateStr = r.laboratory_date || '2026-08-01';
+      results.forEach((r: any) => {
+        const dateStr: string = r.laboratory_date;
         const key = dateStr.substring(0, 7); // Mês
         const curr = map.get(key) || { totalEggs: 0, positiveCount: 0, examined: 0 };
         curr.totalEggs += r.eggs_count || 0;

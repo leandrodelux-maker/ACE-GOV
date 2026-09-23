@@ -39,6 +39,8 @@ export const SystemSettingsView: React.FC<SystemSettingsViewProps> = ({ initialT
   useEffect(() => {
     setActiveTab(initialTab);
   }, [initialTab]);
+  const [portalLinkCopied, setPortalLinkCopied] = useState(false);
+  const publicPortalUrl = municipality?.id ? `${window.location.origin}/publico?municipio=${municipality.id}` : '';
   const adminTools = ([
     { view: 'labels', label: 'Etiquetas QR' },
     { view: 'data_import', label: 'Importação de Dados' },
@@ -176,6 +178,31 @@ export const SystemSettingsView: React.FC<SystemSettingsViewProps> = ({ initialT
             </button>
           ))}
         </nav>
+      )}
+
+      {municipality?.id && (
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center gap-3 text-xs">
+          <div className="flex-1 min-w-0">
+            <p className="font-bold text-slate-900">Link oficial do Portal do Cidadão</p>
+            <p className="text-slate-500">Divulgue este endereço: ele identifica o município nas páginas públicas (denúncia e acompanhamento).</p>
+            <code className="block mt-1 font-mono text-[11px] text-slate-700 break-all">{publicPortalUrl}</code>
+          </div>
+          <button
+            type="button"
+            onClick={async () => {
+              try {
+                await navigator.clipboard.writeText(publicPortalUrl);
+                setPortalLinkCopied(true);
+                setTimeout(() => setPortalLinkCopied(false), 2500);
+              } catch {
+                setPortalLinkCopied(false);
+              }
+            }}
+            className="px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 font-semibold text-slate-700 shrink-0"
+          >
+            {portalLinkCopied ? "Copiado" : "Copiar link"}
+          </button>
+        </div>
       )}
 
       {/* Navegação das 12 Abas */}
@@ -411,7 +438,7 @@ export const SystemSettingsView: React.FC<SystemSettingsViewProps> = ({ initialT
                       type="number"
                       step="any"
                       placeholder="-16.54832"
-                      value={settingsData.centerLatitude !== undefined ? settingsData.centerLatitude : ''}
+                      value={settingsData.centerLatitude ?? ''}
                       onChange={e => handleInputChange('centerLatitude', e.target.value === '' ? '' : Number(e.target.value))}
                       className="w-full p-2 border border-slate-200 rounded-lg focus:ring-1 focus:ring-indigo-500 font-mono"
                     />
@@ -424,7 +451,7 @@ export const SystemSettingsView: React.FC<SystemSettingsViewProps> = ({ initialT
                       type="number"
                       step="any"
                       placeholder="-50.73675"
-                      value={settingsData.centerLongitude !== undefined ? settingsData.centerLongitude : ''}
+                      value={settingsData.centerLongitude ?? ''}
                       onChange={e => handleInputChange('centerLongitude', e.target.value === '' ? '' : Number(e.target.value))}
                       className="w-full p-2 border border-slate-200 rounded-lg focus:ring-1 focus:ring-indigo-500 font-mono"
                     />

@@ -1,5 +1,5 @@
 import { supabase } from './supabaseClient';
-import { db } from './storage';
+import { agentProductivityService } from './agentProductivityService';
 import { OperationalLoadAgent } from '../types';
 import { requireMunicipalityId } from './municipalityScope';
 
@@ -91,18 +91,65 @@ export const teamService = {
     }
   },
 
-  async getOperationalLoad(): Promise<OperationalLoadAgent[]> {
+  /**
+   * Carga operacional por agente, a partir de registros reais do município:
+   * visitas e pendências (produtividade), denúncias abertas, ordens de serviço
+   * abertas e bloqueios em andamento atribuídos ao agente.
+   *
+   * Índice de carga (0–100, heurística indicativa, sem valor-base):
+   *   pendências × 4 + denúncias × 6 + ordens de serviço × 5 + bloqueios × 15
+   */
+  async getOperationalLoad(municipalityId: string): Promise<OperationalLoadAgent[]> {
+    const munId = requireMunicipalityId(municipalityId);
     try {
-      // Tentar calcular via storage / dados combinados
-      const localLoads = db.calculateAgentsOperationalLoad();
-      if (localLoads && localLoads.length > 0) {
-        return localLoads;
-      }
+      const [report, complaintsRes, ordersRes, blocksRes] = await Promise.all([
+        agentProductivityService.getProductivity(munId),
+        supabase
+          .from('complaints')
+          .select('assigned_agent_id')
+          .eq('municipality_id', munId)
+          .neq('status', 'RESOLVIDA')
+          .not('assigned_agent_id', 'is', null),
+        supabase
+          .from('work_orders')
+          .select('assigned_agent_id')
+          .eq('municipality_id', munId)
+          .in('status', ['aberta', 'atribuida', 'em_execucao'])
+          .not('assigned_agent_id', 'is', null),
+        supabase
+          .from('blockade_operation_agents')
+          .select('agent_id, blockade_operations!inner(status, municipality_id)')
+          .eq('blockade_operations.municipality_id', munId)
+          .eq('blockade_operations.status', 'EM_ANDAMENTO'),
+      ]);
+      if (report.error) return [];
+
+      const countBy = (rows: any[] | null, key: string, id: string) => (rows || []).filter((r: any) => r[key] === id).length;
+
+      return report.agents.map((a) => {
+        const complaintsAssigned = countBy(complaintsRes.data, 'assigned_agent_id', a.agentId);
+        const openOrders = countBy(ordersRes.data, 'assigned_agent_id', a.agentId);
+        const blocksAssigned = countBy(blocksRes.data, 'agent_id', a.agentId);
+        const load = Math.min(100, a.pendingReturns * 4 + complaintsAssigned * 6 + openOrders * 5 + blocksAssigned * 15);
+        return {
+          agentId: a.agentId,
+          agentName: a.agentName,
+          teamName: a.teamName,
+          totalVisits: a.totalVisits,
+          coveragePercentage: null,
+          pendingReturns: a.pendingReturns,
+          fociFound: a.fociFound,
+          blocksAssigned,
+          complaintsAssigned,
+          strategicPointsAssigned: 0,
+          ruralArea: false,
+          operationalLoadIndex: load,
+          loadCategory: load >= 75 ? 'SOBRECARREGADA' : load >= 50 ? 'MODERADA' : 'EQUILIBRADA',
+        };
+      });
     } catch (err) {
       console.warn('Erro ao calcular carga operacional:', err);
+      return [];
     }
-
-    // Sem dados registrados: lista vazia (nunca agentes fictícios)
-    return [];
   },
 };

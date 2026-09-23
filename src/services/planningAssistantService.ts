@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient';
+import { ACTIVE_FOCUS_STATUSES, PENDING_STATUSES, isInspectionOverdue } from './schemaHelpers';
 
 export interface PlanningSuggestion {
   priorityRank: number;
@@ -35,71 +36,95 @@ export const planningAssistantService = {
   // 1. Gerar Sugestão de Planejamento Operacional
   async generateSuggestedPlan(municipalityId: string): Promise<PlanningSuggestion[]> {
     try {
-      const [neighsRes, fociRes, casesRes, pendRes, peRes] = await Promise.all([
-        supabase.from('neighborhoods').select('*').eq('municipality_id', municipalityId),
-        supabase.from('breeding_sites').select('id, property_id, status').eq('municipality_id', municipalityId).eq('status', 'ATIVO'),
-        supabase.from('epidemiological_cases').select('id, neighborhood_id, status').eq('municipality_id', municipalityId).neq('status', 'DESCARTADO'),
-        supabase.from('pending_visits').select('id, property_id, status').eq('status', 'ABERTA'),
-        supabase.from('strategic_points').select('id, neighborhood_id, last_inspection_date').eq('municipality_id', municipalityId),
+      const since = new Date(Date.now() - 60 * 86400000).toISOString().split('T')[0];
+      const [neighsRes, sectorsRes, fociRes, casesRes, pendRes, peRes] = await Promise.all([
+        supabase.from('neighborhoods').select('id, name').eq('municipality_id', municipalityId),
+        supabase.from('sectors').select('name, neighborhood_id').eq('municipality_id', municipalityId),
+        // Criadouros ativos (a RPC grava 'ativo'); bairro vem do imóvel
+        supabase
+          .from('breeding_sites')
+          .select('id, properties(neighborhood_id)')
+          .eq('municipality_id', municipalityId)
+          .in('status', ACTIVE_FOCUS_STATUSES),
+        supabase
+          .from('epidemiological_cases')
+          .select('id, neighborhood_id')
+          .eq('municipality_id', municipalityId)
+          .is('deleted_at', null)
+          .neq('status', 'DESCARTADO')
+          .gte('notification_date', since),
+        // pending_visits não tem municipality_id: filtra pelo imóvel
+        supabase
+          .from('pending_visits')
+          .select('id, properties!inner(municipality_id, neighborhood_id)')
+          .eq('properties.municipality_id', municipalityId)
+          .in('status', PENDING_STATUSES),
+        supabase
+          .from('strategic_points')
+          .select('id, last_inspection, next_inspection, inspection_frequency_days, properties(neighborhood_id)')
+          .eq('municipality_id', municipalityId)
+          .eq('active', true)
+          .is('deleted_at', null),
       ]);
+      const failed = [neighsRes, sectorsRes, fociRes, casesRes, pendRes, peRes].find((r) => r.error);
+      if (failed?.error) throw failed.error;
 
-      const neighborhoods = neighsRes.data || [];
-      const foci = fociRes.data || [];
-      const cases = casesRes.data || [];
-      const pendencies = pendRes.data || [];
-      const strategicPoints = peRes.data || [];
+      const countBy = (rows: any[], nid: (r: any) => string | undefined) => {
+        const m = new Map<string, number>();
+        rows.forEach((r) => { const k = nid(r); if (k) m.set(k, (m.get(k) || 0) + 1); });
+        return m;
+      };
+      const fociBy = countBy(fociRes.data || [], (r) => r.properties?.neighborhood_id);
+      const casesBy = countBy(casesRes.data || [], (r) => r.neighborhood_id);
+      const pendingBy = countBy(pendRes.data || [], (r) => r.properties?.neighborhood_id);
+      const peBy = countBy((peRes.data || []).filter((p: any) => isInspectionOverdue(p)), (r) => r.properties?.neighborhood_id);
 
-      // Avaliar cada bairro
-      const suggestions: PlanningSuggestion[] = neighborhoods.map((neigh, idx) => {
-        const neighFoci = foci.length > 0 ? (idx === 0 ? foci.length : 0) : (idx === 0 ? 3 : 0);
-        const neighCases = cases.filter(c => c.neighborhood_id === neigh.id).length;
-        const neighPending = pendencies.length > 0 ? (idx === 0 ? pendencies.length : 1) : 2;
-        const neighPE = strategicPoints.filter(p => p.neighborhood_id === neigh.id).length;
-        const riskScore = neighFoci * 25 + neighCases * 20 + neighPending * 10;
+      // Pontuação heurística documentada (sem valores de base): foco 25, caso 20, pendência 10, PE vencido 5
+      const suggestions: PlanningSuggestion[] = (neighsRes.data || []).map((neigh: any) => {
+        const neighFoci = fociBy.get(neigh.id) || 0;
+        const neighCases = casesBy.get(neigh.id) || 0;
+        const neighPending = pendingBy.get(neigh.id) || 0;
+        const neighPE = peBy.get(neigh.id) || 0;
+        const riskScore = Math.min(100, neighFoci * 25 + neighCases * 20 + neighPending * 10 + neighPE * 5);
 
         let urgency: PlanningSuggestion['urgencyLevel'] = 'NORMAL';
-        if (neighFoci > 0 || neighCases > 0 || riskScore >= 50) {
-          urgency = 'URGENTE';
-        } else if (neighPending >= 2 || riskScore >= 30) {
-          urgency = 'ALTA';
-        } else if (riskScore >= 15) {
-          urgency = 'ATENCAO';
-        }
+        if (neighFoci > 0 || neighCases > 0 || riskScore >= 50) urgency = 'URGENTE';
+        else if (neighPending >= 2 || riskScore >= 30) urgency = 'ALTA';
+        else if (riskScore >= 15) urgency = 'ATENCAO';
 
         const rationaleItems: string[] = [];
-        if (neighFoci > 0) rationaleItems.push(`${neighFoci} foco(s) ativo(s) detectado(s)`);
-        if (neighCases > 0) rationaleItems.push(`${neighCases} notificação(ões) de arbovirose em investigação`);
-        if (neighPending > 0) rationaleItems.push(`${neighPending} retorno(s) pendente(s) de visitas fechadas`);
-        if (neighPE > 0) rationaleItems.push(`${neighPE} Ponto(s) Estratégico(s) a vistoriar`);
+        if (neighFoci > 0) rationaleItems.push(`${neighFoci} foco(s) ativo(s) registrado(s)`);
+        if (neighCases > 0) rationaleItems.push(`${neighCases} caso(s) notificado(s) nos últimos 60 dias`);
+        if (neighPending > 0) rationaleItems.push(`${neighPending} visita(s) pendente(s) de retorno`);
+        if (neighPE > 0) rationaleItems.push(`${neighPE} ponto(s) estratégico(s) com vistoria vencida`);
 
+        // Sugestão de dimensionamento: referência de 25 imóveis por agente/dia
         const recommendedAgents = urgency === 'URGENTE' ? 4 : urgency === 'ALTA' ? 2 : 1;
-        const plannedProps = recommendedAgents * 25;
+        const sectorNames = (sectorsRes.data || []).filter((s: any) => s.neighborhood_id === neigh.id).map((s: any) => s.name);
 
         return {
           priorityRank: 0,
           neighborhoodId: neigh.id,
           neighborhoodName: neigh.name,
-          sectorName: `Setor 0${idx + 1}`,
+          sectorName: sectorNames.length ? sectorNames.join(', ') : 'Setores não cadastrados',
           recommendedAgentsCount: recommendedAgents,
-          plannedPropertiesCount: plannedProps,
+          plannedPropertiesCount: recommendedAgents * 25,
           urgencyLevel: urgency,
-          rationale: rationaleItems.join('; ') || 'Manutenção da cobertura de rotina no ciclo',
+          rationale: rationaleItems.join('; ') || 'Sem focos, casos ou pendências registrados: manter a rotina do ciclo.',
           factors: {
             activeFociCount: neighFoci,
             epidemiologicalCasesCount: neighCases,
             pendingReturnsCount: neighPending,
             uninspectedStrategicPointsCount: neighPE,
-            riskScore: Math.min(100, riskScore + 20),
+            riskScore,
           },
         };
       });
 
-      // Ordenar por gravidade e definir ranking
       suggestions.sort((a, b) => b.factors.riskScore - a.factors.riskScore);
       suggestions.forEach((s, i) => {
         s.priorityRank = i + 1;
       });
-
       return suggestions;
     } catch (err) {
       console.error('Erro ao gerar planejamento assistido:', err);

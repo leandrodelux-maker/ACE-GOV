@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient';
+import { PENDING_STATUSES, RECURRENCE_MIN_FOCI, fetchFociByProperty, isInspectionOverdue, normResult } from './schemaHelpers';
 import { requireMunicipalityId } from './municipalityScope';
 import { supabaseService } from './supabaseService';
 import { riskEngineService, RiskCalculationResult } from './riskEngineService';
@@ -136,7 +137,7 @@ export const situationRoomService = {
     // 3. Consultar Imóveis
     let propertiesQuery = supabase
       .from('properties')
-      .select('id, property_code, neighborhood_id, status, risk_score, last_visit_at, recurrence_count', { count: 'exact' })
+      .select('id, property_code, neighborhood_id, status, risk_score, last_visit_at', { count: 'exact' })
       .eq('municipality_id', municipalityId)
       .is('deleted_at', null);
 
@@ -175,6 +176,9 @@ export const situationRoomService = {
       complaintsRes,
       blocksRes,
       teamsRes,
+      agentsRes,
+      casesRes,
+      fociByProperty,
     ] = await Promise.all([
       propertiesQuery,
       visitsQuery,
@@ -182,13 +186,31 @@ export const situationRoomService = {
       supabase
         .from('pending_visits')
         .select('*, properties!inner(municipality_id)')
-        .eq('status', 'PENDENTE')
+        .in('status', PENDING_STATUSES)
         .eq('properties.municipality_id', municipalityId),
-      supabase.from('ovitraps').select('*').eq('municipality_id', municipalityId),
-      supabase.from('strategic_points').select('*').eq('municipality_id', municipalityId),
-      supabase.from('complaints').select('*').eq('municipality_id', municipalityId).neq('status', 'RESOLVIDA'),
-      supabase.from('epidemiological_blocks').select('*').eq('municipality_id', municipalityId).eq('status', 'EM_ANDAMENTO'),
-      supabase.from('teams').select('id, members_count').eq('municipality_id', municipalityId),
+      supabase.from('ovitraps').select('*').eq('municipality_id', municipalityId).is('deleted_at', null),
+      supabase
+        .from('strategic_points')
+        .select('*, properties(neighborhood_id)')
+        .eq('municipality_id', municipalityId)
+        .eq('active', true)
+        .is('deleted_at', null),
+      supabase.from('complaints').select('*').eq('municipality_id', municipalityId).not('status', 'in', '(RESOLVIDA,ARQUIVADA)'),
+      supabase
+        .from('blockade_operations')
+        .select('*')
+        .eq('municipality_id', municipalityId)
+        .is('deleted_at', null)
+        .is('ended_at', null),
+      supabase.from('teams').select('id').eq('municipality_id', municipalityId).eq('active', true),
+      supabase.from('agents').select('id', { count: 'exact', head: true }).eq('municipality_id', municipalityId).eq('active', true),
+      supabase
+        .from('epidemiological_cases')
+        .select('neighborhood_id')
+        .eq('municipality_id', municipalityId)
+        .is('deleted_at', null)
+        .gte('notification_date', new Date(now.getTime() - 30 * 86400000).toISOString().split('T')[0]),
+      fetchFociByProperty(municipalityId).catch(() => null),
     ]);
 
     const sourceResults: [string, { error: unknown }][] = [
@@ -200,9 +222,17 @@ export const situationRoomService = {
       ['denúncias', complaintsRes],
       ['bloqueios', blocksRes],
       ['equipes', teamsRes],
+      ['agentes', agentsRes],
+      ['casos', casesRes],
       ['bairros', allNeighborhoodsRes],
+      ['focos por imóvel', { error: fociByProperty === null ? 'falha' : null }],
     ];
     const failedSources = sourceResults.filter(([, r]) => !!r.error).map(([name]) => name);
+    const recentCases = casesRes.data || [];
+    // Reincidência: 2+ focos (breeding_sites) no mesmo imóvel nos últimos 12 meses
+    const isRecurrent = (propertyId: string) => (fociByProperty?.get(propertyId) || 0) >= RECURRENCE_MIN_FOCI;
+    const trapPositive = (o: any) => o.is_positive === true || (o.last_eggs_count || 0) > 0;
+    const neighborhoodOfPe = (sp: any) => sp.properties?.neighborhood_id;
 
     const properties = propsRes.data || [];
     const visits = visitsRes.data || [];
@@ -234,13 +264,13 @@ export const situationRoomService = {
     };
 
     // A RPC grava 'trabalhado' (minúsculo); telas antigas usam maiúsculas — normaliza.
-    const resultOf = (v: any) => String(v.result ?? '').toUpperCase();
+    const resultOf = (v: any) => normResult(v.result);
     visits.forEach((v: any) => {
       if (resultOf(v) === 'TRABALHADO') {
         visitedSet.add(v.property_id);
       } else if (resultOf(v) === 'FECHADO') {
         closedCount++;
-      } else if (resultOf(v) === 'RECUSADO') {
+      } else if (resultOf(v) === 'RECUSA') {
         refusalCount++;
       }
 
@@ -258,24 +288,18 @@ export const situationRoomService = {
     const coveragePercent = totalProperties > 0 ? Math.round((visited / totalProperties) * 100) : 0;
     const pending = pendingVisits.length;
     const fociActive = properties.filter((p: any) => p.status === 'FOCO').length + activeFociVisits;
-    const recurrent = properties.filter((p: any) => (p.recurrence_count || 0) >= 2).length;
+    const recurrent = properties.filter((p: any) => isRecurrent(p.id)).length;
 
     // Ovitrampas
     const totalOvitraps = ovitraps.length;
-    const positiveOvitraps = ovitraps.filter((o: any) => o.positive || (o.eggs_count || 0) > 0).length;
+    const positiveOvitraps = ovitraps.filter(trapPositive).length;
 
-    // PE Vencidos (> 15 dias)
-    const overduePE = strategicPoints.filter((sp: any) => {
-      if (!sp.last_inspection_at) return true;
-      const daysSince = Math.floor((now.getTime() - new Date(sp.last_inspection_at).getTime()) / 86400000);
-      return daysSince > 15;
-    }).length;
+    // PE com vistoria vencida (próxima vistoria no passado ou frequência excedida)
+    const overduePE = strategicPoints.filter((sp: any) => isInspectionOverdue(sp, now)).length;
 
     // Equipes (sem valores substitutos: ausência de dado => null)
     const activeTeamsCount = teams.length > 0 ? teams.length : null;
-    const teamsWithMembers = teams.filter((t: any) => typeof t.members_count === 'number');
-    const activeAgentsCount =
-      teamsWithMembers.length > 0 ? teamsWithMembers.reduce((acc: number, t: any) => acc + t.members_count, 0) : null;
+    const activeAgentsCount = agentsRes.error ? null : agentsRes.count ?? null;
 
     const kpis: SituationKpis = {
       totalProperties,
@@ -303,10 +327,10 @@ export const situationRoomService = {
       const neighVisited = new Set(neighVisits.filter((v: any) => resultOf(v) === 'TRABALHADO').map((v: any) => v.property_id)).size;
       const neighTotal = neighProps.length;
       const neighCoverage = neighTotal > 0 ? Math.round((neighVisited / neighTotal) * 100) : null;
-      const neighPositiveTraps = ovitraps.filter((o: any) => o.neighborhood_id === n.id && (o.positive || (o.eggs_count || 0) > 0));
+      const neighPositiveTraps = ovitraps.filter((o: any) => o.neighborhood_id === n.id && trapPositive(o));
       const neighEggDensity =
         neighPositiveTraps.length > 0
-          ? neighPositiveTraps.reduce((acc: number, o: any) => acc + (o.eggs_count || 0), 0) / neighPositiveTraps.length
+          ? neighPositiveTraps.reduce((acc: number, o: any) => acc + (o.last_eggs_count || 0), 0) / neighPositiveTraps.length
           : 0;
       const lastVisitTimes = neighProps
         .map((p: any) => (p.last_visit_at ? new Date(p.last_visit_at).getTime() : NaN))
@@ -314,26 +338,22 @@ export const situationRoomService = {
       const daysSinceLastVisit =
         lastVisitTimes.length > 0 ? Math.floor((now.getTime() - Math.max(...lastVisitTimes)) / 86400000) : 0;
       const neighFoci = neighProps.filter((p: any) => p.status === 'FOCO').length;
-      const neighRecurrent = neighProps.filter((p: any) => (p.recurrence_count || 0) >= 2).length;
+      const neighRecurrent = neighProps.filter((p: any) => isRecurrent(p.id)).length;
       const neighPending = pendingVisits.filter((pv: any) => neighProps.some((p: any) => p.id === pv.property_id)).length;
 
       // Calcular Score com o motor de risco (apenas dados registrados)
       const riskInputs: NeighborhoodRiskInputs = {
         recentFociCount: neighFoci,
         recurrentCount: neighRecurrent,
-        epidemiologicalCasesCount: blocks.filter((b: any) => b.target_neighborhood === n.name).length,
+        epidemiologicalCasesCount: recentCases.filter((c: any) => c.neighborhood_id === n.id).length,
         positiveOvitrapsCount: neighPositiveTraps.length,
         eggDensityAverage: neighEggDensity,
-        openComplaintsCount: complaints.filter((c: any) => c.street?.includes(n.name)).length,
+        openComplaintsCount: complaints.filter((c: any) => c.neighborhood_id === n.id).length,
         closedPropertiesCount: neighVisits.filter((v: any) => resultOf(v) === 'FECHADO').length,
-        refusalsCount: neighVisits.filter((v: any) => resultOf(v) === 'RECUSADO').length,
+        refusalsCount: neighVisits.filter((v: any) => resultOf(v) === 'RECUSA').length,
         // Sem imóveis cadastrados não há déficit de cobertura a pontuar
         coveragePercentage: neighCoverage ?? 100,
-        overduePeCount: strategicPoints.filter((sp: any) => {
-          if (sp.neighborhood_id !== n.id) return false;
-          if (!sp.last_inspection_at) return true;
-          return Math.floor((now.getTime() - new Date(sp.last_inspection_at).getTime()) / 86400000) > 15;
-        }).length,
+        overduePeCount: strategicPoints.filter((sp: any) => neighborhoodOfPe(sp) === n.id && isInspectionOverdue(sp, now)).length,
         daysSinceLastVisit,
       };
       const riskCalc: RiskCalculationResult = riskEngineService.calculateScore({ settings: riskSettings, ...riskInputs });
@@ -363,8 +383,8 @@ export const situationRoomService = {
         type: 'BLOQUEIO',
         title: `Bloqueio ${b.code || 'sem código'}${b.disease ? ` (${b.disease})` : ''}`,
         description: [
-          b.target_neighborhood ? `Local: ${b.target_neighborhood}.` : 'Local não informado.',
-          b.radius_meters ? `Raio de ${b.radius_meters} m.` : 'Raio não informado.',
+          `Local: ${neighborhoodsList.find((x: any) => x.id === b.neighborhood_id)?.name || 'não informado'}.`,
+          b.planned_properties ? `${b.completed_properties ?? 0} de ${b.planned_properties} imóveis concluídos.` : 'Meta de imóveis não informada.',
         ].join(' '),
         targetModule: 'epidemiology',
         badgeColor: 'bg-rose-100 text-rose-800 border-rose-200',
@@ -378,7 +398,7 @@ export const situationRoomService = {
         id: 'pe-overdue',
         type: 'PE_VENCIDO',
         title: `${overduePE} Ponto(s) Estratégico(s) com Vistoria Vencida`,
-        description: 'Borracharias e ferros-velhos ultrapassaram o limite quinzenal (15 dias) preconizado pelo Ministério da Saúde.',
+        description: 'Pontos com a próxima vistoria no passado ou com a frequência de inspeção excedida (padrão quinzenal).',
         targetModule: 'strategic_points',
         badgeColor: 'bg-amber-100 text-amber-800 border-amber-200',
         badgeLabel: 'Inspeção Quinzenal',
@@ -386,7 +406,7 @@ export const situationRoomService = {
     }
 
     // Prioridade de Ovitrampas em Alta
-    const highTraps = ovitraps.filter((o: any) => (o.eggs_count || 0) >= 100);
+    const highTraps = ovitraps.filter((o: any) => (o.last_eggs_count || 0) >= 100);
     if (highTraps.length > 0) {
       priorities.push({
         id: 'ovi-high',

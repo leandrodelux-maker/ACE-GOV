@@ -30,7 +30,7 @@ import {
 import { PageHeader } from '../ui';
 
 interface EntomologyLabViewProps {
-  municipalityId?: string;
+  municipalityId: string;
 }
 
 export const EntomologyLabView: React.FC<EntomologyLabViewProps> = ({ municipalityId }) => {

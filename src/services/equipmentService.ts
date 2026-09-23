@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient';
+import { AGENT_EMBED, agentName } from './schemaHelpers';
 import { alertsService } from './alertsService';
 
 export type EquipmentCategory =
@@ -91,7 +92,7 @@ export const equipmentService = {
         .from('equipment')
         .select(`
           *,
-          agents:assigned_to_agent_id (name),
+          agents:assigned_to_agent_id (${AGENT_EMBED}),
           teams:assigned_to_team_id (name)
         `)
         .eq('municipality_id', municipalityId)
@@ -120,7 +121,7 @@ export const equipmentService = {
         purchaseDate: item.purchase_date,
         status: (item.status || 'disponivel') as EquipmentStatus,
         assignedToAgentId: item.assigned_to_agent_id,
-        assignedToAgentName: item.agents?.name,
+        assignedToAgentName: agentName(item.agents),
         assignedToTeamId: item.assigned_to_team_id,
         assignedToTeamName: item.teams?.name,
         lastMaintenance: item.last_maintenance,

@@ -76,12 +76,10 @@ export type ViewModule =
   | 'data_import'
   | 'communication'
   // Telas mantidas fora do menu principal (acesso por URL / busca global)
-  | 'command_center'
   | 'executive'
   | 'risk_engine'
   | 'historical_analysis'
-  | 'alerts'
-  | 'transparency';
+  | 'alerts';
 
 export interface RouteDefinition {
   view: ViewModule;
@@ -165,12 +163,10 @@ export const ROUTES: RouteDefinition[] = [
   { view: 'communication', path: '/admin/comunicacao', aliases: ['/communication'], title: 'Comunicação Operacional', permission: 'settings.manage', searchable: true },
 
   // Mantidas fora do menu principal
-  { view: 'command_center', path: '/centro-comando', aliases: ['/command_center'], title: 'Centro de Comando', permission: 'dashboard.view', searchable: true },
-  { view: 'executive', path: '/secretario', aliases: ['/executive'], title: 'Painel do Secretário', permission: 'reports.view', searchable: true },
+  { view: 'executive', path: '/secretario', aliases: ['/executive'], title: 'Painel do Gestor', permission: 'reports.view', searchable: true },
   { view: 'risk_engine', path: '/risco', aliases: ['/risk_engine'], title: 'Motor de Risco', permission: 'risk_engine.view', searchable: true },
   { view: 'historical_analysis', path: '/inteligencia/historico', aliases: ['/historical_analysis'], title: 'Análise Histórica', permission: 'dashboard.view', searchable: true },
   { view: 'alerts', path: '/alertas', aliases: ['/alerts'], title: 'Central de Alertas', permission: 'dashboard.view', searchable: true },
-  { view: 'transparency', path: '/transparencia', aliases: ['/transparency'], title: 'Endemias em Números', permission: 'reports.view', searchable: true },
 ];
 
 /** Rotas acessíveis sem sessão (autenticação e Portal do Cidadão). */
@@ -213,6 +209,12 @@ export const LEGACY_REDIRECTS: Record<string, string> = {
   '/management_targets': '/produtividade',
   // Portal do Cidadão interno duplicava a rota pública
   '/public_portal': '/publico',
+  // Centro de Comando duplicava a Sala de Situação (removido)
+  '/centro-comando': '/dashboard',
+  '/command_center': '/dashboard',
+  // Endemias em Números duplicava Relatórios (removido)
+  '/transparencia': '/relatorios',
+  '/transparency': '/relatorios',
 };
 
 // ----------------------------------------------------------------------------

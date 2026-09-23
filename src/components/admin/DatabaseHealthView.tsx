@@ -366,7 +366,6 @@ export const DatabaseHealthView: React.FC = () => {
         icon={Database}
         title="Central de Integridade do Sistema"
         subtitle="Monitore a conexão entre páginas, banco de dados, APIs e funcionalidades do Endemias GOV."
-        badge={{ label: 'v2.4.0 (Build 2026.09)', tone: 'info' }}
         actions={
           <>
             <div className="bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-xs">
@@ -382,7 +381,7 @@ export const DatabaseHealthView: React.FC = () => {
                       hour: '2-digit',
                       minute: '2-digit',
                     })
-                  : '09/09/2026 00:00'}
+                  : 'Nenhuma nesta sessão'}
               </strong>
             </div>
 
@@ -419,6 +418,9 @@ export const DatabaseHealthView: React.FC = () => {
           </>
         }
       />
+      <p role="note" className="p-3 rounded-xl border border-amber-200 bg-amber-50 text-amber-800 text-xs">
+        O status de cada página (Funcional, Parcial, Mock) é <strong>declarado no catálogo</strong> do sistema (systemAuditService), não medido automaticamente nas telas. A verificação real desta auditoria é a conexão com o banco e a contagem de registros órfãos.
+      </p>
 
       {/* ================================================== */}
       {/* 2. AÇÕES DO TOPO */}

@@ -190,6 +190,8 @@ export const PropertiesView: React.FC = () => {
       number: '',
       complement: '',
       neighborhoodId: neighborhoods[0]?.id || '',
+      sectorId: '',
+      blockId: '',
       type: 'RESIDENCIA',
       status: 'NORMAL',
       residentName: '',
@@ -211,6 +213,9 @@ export const PropertiesView: React.FC = () => {
       number: prop.number || '',
       complement: prop.complement || '',
       neighborhoodId: prop.neighborhoodId || neighborhoods[0]?.id || '',
+      // Preserva setor e quadra na edição (antes eram descartados e apagados ao salvar)
+      sectorId: prop.sectorId || '',
+      blockId: prop.blockId || '',
       type: prop.type || 'RESIDENCIA',
       status: prop.status || 'NORMAL',
       residentName: prop.residentName || '',

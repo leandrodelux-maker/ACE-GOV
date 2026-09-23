@@ -10,7 +10,7 @@ export type DocumentsReportsTab = 'relatorios' | 'documentos';
 interface DocumentsReportsHubViewProps {
   initialTab?: DocumentsReportsTab;
   onTabChange?: (tab: DocumentsReportsTab) => void;
-  municipalityId?: string;
+  municipalityId: string;
 }
 
 /**

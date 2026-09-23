@@ -26,7 +26,7 @@ import {
 import { PageHeader } from '../ui';
 
 interface IntegrationsViewProps {
-  municipalityId?: string;
+  municipalityId: string;
 }
 
 export const IntegrationsView: React.FC<IntegrationsViewProps> = ({ municipalityId }) => {
@@ -66,6 +66,7 @@ export const IntegrationsView: React.FC<IntegrationsViewProps> = ({ municipality
     try {
       const res = await integrationService.runIntegrationJob(provider, municipalityId);
       if (res.success) {
+        if (res.job?.logDetails?.mensagem) alert(`Sincronização concluída: ${res.job.logDetails.mensagem}`);
         loadData();
       } else {
         alert(res.error || 'Não foi possível sincronizar.');

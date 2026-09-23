@@ -1,5 +1,9 @@
 import { supabase } from './supabaseClient';
 import { requireMunicipalityId } from './municipalityScope';
+import { AGENT_EMBED, agentName } from './schemaHelpers';
+
+/** O banco guarda o agente sem nome; a tela espera { name, registry }. */
+const normalizeAgent = (a: any) => (a ? { id: a.id, name: agentName(a) || 'Agente sem nome', registry: a.employee_number || undefined } : undefined);
 
 export interface PropertyRG {
   id: string;
@@ -31,7 +35,7 @@ export interface PropertyRG {
   neighborhood?: { id: string; name: string };
   sector?: { id: string; name: string; code: string };
   microarea?: { id: string; code: string };
-  block?: { id: string; code: string; block_number?: string };
+  block?: { id: string; code: string };
   assigned_agent?: { id: string; name: string; registry?: string };
 }
 
@@ -124,8 +128,8 @@ export const geographicReconnaissanceService = {
           neighborhood:neighborhoods(id, name),
           sector:sectors(id, name, code),
           microarea:microareas(id, code),
-          block:blocks(id, code, block_number),
-          assigned_agent:agents(id, name, registry)
+          block:blocks(id, code),
+          assigned_agent:agents(id, ${AGENT_EMBED})
         `)
         .eq('municipality_id', munId)
         .is('deleted_at', null)
@@ -148,7 +152,7 @@ export const geographicReconnaissanceService = {
 
       const { data, error } = await query;
       if (error) throw error;
-      return (data as PropertyRG[]) || [];
+      return ((data || []) as any[]).map((p) => ({ ...p, assigned_agent: normalizeAgent(p.assigned_agent) })) as PropertyRG[];
     } catch (err) {
       console.error('Erro ao buscar imóveis do RG:', err);
       return [];
@@ -235,9 +239,8 @@ export const geographicReconnaissanceService = {
       // D. Quadras sem nenhum imóvel cadastrado
       const { data: blocks } = await supabase
         .from('blocks')
-        .select('id, code, block_number, sector_id')
-        .eq('municipality_id', municipalityId)
-        .is('deleted_at', null);
+        .select('id, code, sector_id')
+        .eq('municipality_id', municipalityId);
 
       if (blocks && allProps) {
         const occupiedBlockIds = new Set(allProps.map(p => p.block_id).filter(Boolean));
@@ -258,10 +261,9 @@ export const geographicReconnaissanceService = {
       // E. Microáreas sem ACE responsável
       const { data: microareas } = await supabase
         .from('microareas')
-        .select('id, code, sector_id, assigned_agent_id')
+        .select('id, code, sector_id, responsible_agent_id')
         .eq('municipality_id', municipalityId)
-        .is('deleted_at', null)
-        .is('assigned_agent_id', null);
+        .is('responsible_agent_id', null);
 
       if (microareas && microareas.length > 0) {
         anomalies.push({
@@ -436,8 +438,8 @@ export const geographicReconnaissanceService = {
         supabase.from('neighborhoods').select('id, name').eq('municipality_id', municipalityId).order('name'),
         supabase.from('sectors').select('id, name, code, neighborhood_id').eq('municipality_id', municipalityId).order('code'),
         supabase.from('microareas').select('id, code, sector_id').eq('municipality_id', municipalityId).order('code'),
-        supabase.from('blocks').select('id, code, block_number, sector_id').eq('municipality_id', municipalityId).order('code'),
-        supabase.from('agents').select('id, name, registry').eq('municipality_id', municipalityId).order('name'),
+        supabase.from('blocks').select('id, code, sector_id').eq('municipality_id', municipalityId).order('code'),
+        supabase.from('agents').select(`id, ${AGENT_EMBED}`).eq('municipality_id', municipalityId).eq('active', true),
       ]);
 
       return {
@@ -445,7 +447,7 @@ export const geographicReconnaissanceService = {
         sectors: setores.data || [],
         microareas: microareas.data || [],
         blocks: quadras.data || [],
-        agents: agentes.data || [],
+        agents: (agentes.data || []).map(normalizeAgent).filter(Boolean).sort((a: any, b: any) => a.name.localeCompare(b.name)),
       };
     } catch (err) {
       console.error('Erro ao buscar opções territoriais:', err);

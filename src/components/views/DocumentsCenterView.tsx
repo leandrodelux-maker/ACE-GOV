@@ -27,7 +27,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { ROLES_REGISTRY } from '../../services/rbac';
 
 interface DocumentsCenterViewProps {
-  municipalityId?: string;
+  municipalityId: string;
 }
 
 export const DocumentsCenterView: React.FC<DocumentsCenterViewProps> = ({ municipalityId }) => {

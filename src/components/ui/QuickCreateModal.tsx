@@ -36,7 +36,6 @@ interface QuickCreateModalProps {
   isOpen: boolean;
   onClose: () => void;
   onNavigate: (module: string, action?: string) => void;
-  municipalityId?: string;
   onSuccess?: (entity: QuickCreateEntity, data?: any) => void;
 }
 

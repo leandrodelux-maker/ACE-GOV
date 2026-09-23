@@ -40,157 +40,196 @@ export interface PredictiveOverview {
 }
 
 
+const DAY = 86400000;
+const iso = (t: number) => new Date(t).toISOString().split('T')[0];
+
+/**
+ * Confiança pela quantidade de registros usados (n): 100·n/(n+50), limitada a 95.
+ * Com 50 registros ≈ 50%; com 450 ≈ 90%. É uma medida de suficiência amostral,
+ * não uma probabilidade de acerto.
+ */
+function sampleConfidence(n: number): number {
+  return Math.min(95, Math.round((100 * n) / (n + 50)));
+}
+
 export const predictiveIntelligenceService = {
   /**
-   * Compila estimativas probabilísticas e detecta anomalias territoriais
+   * Sinais territoriais calculados apenas com registros do município:
+   * focos (depósitos positivos nas visitas), positividade de ovitrampas e
+   * casos notificados, comparando os últimos 30 dias com os 30 anteriores.
+   * Nada é estimado sem dado; sem registros suficientes, a tela informa.
    */
   async getPredictiveOverview(municipalityId: string): Promise<PredictiveOverview> {
-    try {
-      // 1. Obter dados meteorológicos
-      const climate = await weatherService.getClimateSummary(municipalityId);
+    const now = Date.now();
+    const recentFrom = iso(now - 30 * DAY);
+    const previousFrom = iso(now - 60 * DAY);
 
-      // 2. Obter dados reais de bairros, visitas e focos
-      const [neighRes, visitsRes, casesRes] = await Promise.all([
-        supabase.from('neighborhoods').select('id, name, risk_level, total_properties').eq('municipality_id', municipalityId),
-        supabase.from('property_visits').select('neighborhood_id, has_larvae, visit_date').eq('municipality_id', municipalityId),
-        supabase.from('epidemiological_cases').select('neighborhood, notification_date').eq('municipality_id', municipalityId)
-      ]);
+    const [climate, neighRes, visitsRes, casesRes, oviRes, propsRes] = await Promise.all([
+      weatherService.getClimateSummary(municipalityId),
+      supabase.from('neighborhoods').select('id, name').eq('municipality_id', municipalityId),
+      supabase
+        .from('visits')
+        .select('visit_date, properties!inner(neighborhood_id), visit_deposits(positive)')
+        .eq('municipality_id', municipalityId)
+        .is('deleted_at', null)
+        .gte('visit_date', previousFrom),
+      supabase
+        .from('epidemiological_cases')
+        .select('neighborhood_id, notification_date')
+        .eq('municipality_id', municipalityId)
+        .gte('notification_date', previousFrom),
+      supabase
+        .from('ovitrap_results')
+        .select('positive, laboratory_date, ovitraps!inner(municipality_id, neighborhood_id)')
+        .eq('ovitraps.municipality_id', municipalityId)
+        .gte('laboratory_date', previousFrom),
+      supabase
+        .from('breeding_sites')
+        .select('property_id, properties(neighborhood_id)')
+        .eq('municipality_id', municipalityId)
+        .gte('identified_at', new Date(Date.now() - 365 * 86400000).toISOString())
+        .not('property_id', 'is', null),
+    ]);
 
-      const neighborhoods = neighRes.data || [];
-      const visits = visitsRes.data || [];
-      const cases = casesRes.data || [];
+    const neighborhoods = neighRes.data || [];
+    const visits = visitsRes.data || [];
+    const cases = casesRes.data || [];
+    const oviResults = oviRes.data || [];
+    // Reincidentes: imóveis com 2+ focos (breeding_sites) nos últimos 12 meses
+    const fociPerProperty = new Map<string, { n: number; neighborhood_id?: string }>();
+    (propsRes.data || []).forEach((b: any) => {
+      const cur = fociPerProperty.get(b.property_id) || { n: 0, neighborhood_id: b.properties?.neighborhood_id };
+      cur.n += 1;
+      fociPerProperty.set(b.property_id, cur);
+    });
+    const recurrentProps = [...fociPerProperty.values()].filter((p) => p.n >= 2);
+    const nameOf = (id: string) => neighborhoods.find((n: any) => n.id === id)?.name || 'Bairro não informado';
 
-      // Avaliação de suficiência estatística
-      const totalVisitsCount = visits.length;
-      const isDataSufficient = totalVisitsCount >= 50 && neighborhoods.length > 0;
-      const confidenceScore = isDataSufficient ? Math.min(92, Math.round(65 + (totalVisitsCount / 20))) : 35;
+    // Focos por bairro e janela
+    const foci: Record<string, { recent: number; previous: number }> = {};
+    visits.forEach((v: any) => {
+      const nid = v.properties?.neighborhood_id;
+      if (!nid) return;
+      const positives = (v.visit_deposits || []).filter((d: any) => d.positive).length;
+      if (!positives) return;
+      foci[nid] = foci[nid] || { recent: 0, previous: 0 };
+      if (v.visit_date >= recentFrom) foci[nid].recent += positives;
+      else foci[nid].previous += positives;
+    });
 
-      const insufficiencyMessage = !isDataSufficient
-        ? 'Dados históricos municipais insuficientes para estimativa preditiva confiável. Recomenda-se intensificar cadastros de visitas.'
-        : undefined;
+    const isDataSufficient = visits.length >= 50 && neighborhoods.length > 0;
+    const confidenceScore = sampleConfidence(visits.length);
+    const insufficiencyMessage = !isDataSufficient
+      ? `Registros insuficientes para sinais confiáveis (${visits.length} visitas nos últimos 60 dias; mínimo recomendado: 50).`
+      : undefined;
 
-      // 3. Detecção de Anomalias Espaciais
-      const anomalies: DetectedAnomaly[] = [];
+    const anomalies: DetectedAnomaly[] = [];
 
-      // Anomalia 1: Picos de focos no bairro mais crítico
-      const fociByNeigh: Record<string, number> = {};
-      visits.filter(v => v.has_larvae).forEach(v => {
-        if (v.neighborhood_id) {
-          fociByNeigh[v.neighborhood_id] = (fociByNeigh[v.neighborhood_id] || 0) + 1;
-        }
-      });
-
-      const topFociNeighId = Object.keys(fociByNeigh).sort((a, b) => fociByNeigh[b] - fociByNeigh[a])[0];
-      const topNeighObj = neighborhoods.find(n => n.id === topFociNeighId) || neighborhoods[0];
-
-      if (topNeighObj) {
-        const fociCount = fociByNeigh[topFociNeighId] || 8;
+    // 1. Pico de focos: pelo menos 3 focos recentes e o dobro da janela anterior
+    Object.entries(foci)
+      .filter(([, f]) => f.recent >= 3 && f.recent >= 2 * f.previous)
+      .sort((a, b) => b[1].recent - a[1].recent)
+      .slice(0, 3)
+      .forEach(([nid, f]) => {
+        const variation = f.previous > 0 ? `+${Math.round(((f.recent - f.previous) / f.previous) * 100)}%` : 'sem focos na janela anterior';
         anomalies.push({
-          id: 'anom-1',
-          territoryName: topNeighObj.name,
+          id: `focos-${nid}`,
+          territoryName: nameOf(nid),
           type: 'focos_pico',
-          severity: 'critico',
-          headline: `Aumento de 65% nos focos em ${topNeighObj.name} em comparação à média móvel`,
-          evidence: `Registrados ${fociCount} focos larvários confirmados recentemente. Taxa de positividade acima de 2 desvios padrão.`,
-          confidenceScore: 88,
-          recommendedIntervention: 'Deslocar equipe de varredura mecânica e priorizar vistorias peridomiciliares.'
+          severity: f.recent >= 8 ? 'critico' : 'alto',
+          headline: `${f.recent} foco(s) em ${nameOf(nid)} nos últimos 30 dias (${variation})`,
+          evidence: `Depósitos positivos registrados em visitas: ${f.recent} nos últimos 30 dias contra ${f.previous} nos 30 dias anteriores.`,
+          confidenceScore: sampleConfidence(f.recent + f.previous),
+          recommendedIntervention: 'Priorizar vistorias e eliminação mecânica de depósitos no bairro.',
         });
-      }
-
-      // Anomalia 2: Ovitrampas com elevação persistente
-      anomalies.push({
-        id: 'anom-2',
-        territoryName: 'Setor Central / Comercial',
-        type: 'ovitrampas_elevacao',
-        severity: 'alto',
-        headline: 'Ovitrampas do Setor Central apresentaram elevação persistente de oviposição',
-        evidence: 'Índice de Positividade de Ovitrampas (IPO) subiu de 42% para 78% nas últimas duas coletas semanais.',
-        confidenceScore: 84,
-        recommendedIntervention: 'Intensificar remoção de depósitos móveis e avaliar tratamento focal preventivo.'
       });
 
-      // Anomalia 3: Cluster de notificações de casos
-      if (cases.length > 0) {
+    // 2. Positividade de ovitrampas (IPO) subindo pelo menos 10 pontos
+    const recentOvi = oviResults.filter((r: any) => r.laboratory_date >= recentFrom);
+    const previousOvi = oviResults.filter((r: any) => r.laboratory_date < recentFrom);
+    const ipo = (rows: any[]) => (rows.length ? Math.round((rows.filter((r) => r.positive).length / rows.length) * 100) : null);
+    const ipoRecent = ipo(recentOvi);
+    const ipoPrevious = ipo(previousOvi);
+    if (ipoRecent !== null && ipoPrevious !== null && ipoRecent - ipoPrevious >= 10) {
+      anomalies.push({
+        id: 'ovitrampas-ipo',
+        territoryName: 'Município',
+        type: 'ovitrampas_elevacao',
+        severity: ipoRecent >= 50 ? 'alto' : 'moderado',
+        headline: `Positividade das ovitrampas subiu de ${ipoPrevious}% para ${ipoRecent}%`,
+        evidence: `${recentOvi.length} leituras nos últimos 30 dias e ${previousOvi.length} nos 30 dias anteriores.`,
+        confidenceScore: sampleConfidence(oviResults.length),
+        recommendedIntervention: 'Revisar pontos positivos e intensificar remoção de depósitos no entorno das armadilhas.',
+      });
+    }
+
+    // 3. Agregação de casos: 3 ou mais notificações recentes no mesmo bairro
+    const casesByNeigh: Record<string, number> = {};
+    cases
+      .filter((c: any) => c.notification_date >= recentFrom && c.neighborhood_id)
+      .forEach((c: any) => {
+        casesByNeigh[c.neighborhood_id] = (casesByNeigh[c.neighborhood_id] || 0) + 1;
+      });
+    Object.entries(casesByNeigh)
+      .filter(([, n]) => n >= 3)
+      .forEach(([nid, n]) => {
         anomalies.push({
-          id: 'anom-3',
-          territoryName: 'Bairro Universitário / São Cristóvão',
+          id: `casos-${nid}`,
+          territoryName: nameOf(nid),
           type: 'casos_cluster',
-          severity: 'moderado',
-          headline: 'Sinal de agregação espacial de casos febris notificados',
-          evidence: `${cases.length} notificações registradas com início de sintomas convergente nas últimas duas semanas.`,
-          confidenceScore: 79,
-          recommendedIntervention: 'Acionar protocolo de Bloqueio Químico Costal (UBV) no raio de 150m dos casos suspeitos.'
+          severity: n >= 6 ? 'alto' : 'moderado',
+          headline: `${n} notificações em ${nameOf(nid)} nos últimos 30 dias`,
+          evidence: `Casos registrados em epidemiological_cases com bairro informado.`,
+          confidenceScore: sampleConfidence(n),
+          recommendedIntervention: 'Avaliar necessidade de bloqueio de transmissão conforme protocolo municipal.',
         });
-      }
+      });
 
-      // 4. Estimativas Probabilísticas por Território
-      const territoryEstimations: TerritoryRiskEstimation[] = neighborhoods.slice(0, 5).map(n => {
-        const nFoci = fociByNeigh[n.id] || 2;
-        const isElevated = nFoci >= 5 || n.risk_level === 'alto' || n.risk_level === 'critico';
-
-        let level: TerritoryRiskEstimation['estimatedRiskLevel'] = 'baixo';
-        let signal: TerritoryRiskEstimation['probabilitySignal'] = 'estavel';
-        let signalDesc = 'Indicadores de oviposição e focos em faixa histórica estável.';
-
-        if (isElevated) {
-          level = nFoci >= 8 ? 'muito_elevado' : 'elevado';
-          signal = 'sinal_elevacao';
-          signalDesc = 'Sinal de elevação da densidade vetorial com probabilidade de manutenção nas próximas semanas.';
-        } else if (nFoci <= 1) {
-          level = 'baixo';
-          signal = 'tendencia_reducao';
-          signalDesc = 'Tendência de redução de focos decorrente de eliminação mecânica recente.';
-        } else {
-          level = 'moderado';
-          signal = 'estavel';
-          signalDesc = 'Condição intermediária. Recomendada manutenção do ritmo regular de visitas.';
-        }
-
+    // 4. Sinais por bairro (ordenados por focos recentes)
+    const territoryEstimations: TerritoryRiskEstimation[] = neighborhoods
+      .map((n: any) => ({ n, f: foci[n.id] || { recent: 0, previous: 0 } }))
+      .sort((a, b) => b.f.recent - a.f.recent)
+      .slice(0, 8)
+      .map(({ n, f }) => {
+        const level: TerritoryRiskEstimation['estimatedRiskLevel'] =
+          f.recent >= 8 ? 'muito_elevado' : f.recent >= 5 ? 'elevado' : f.recent >= 2 ? 'moderado' : 'baixo';
+        const signal: TerritoryRiskEstimation['probabilitySignal'] =
+          f.recent > f.previous ? 'sinal_elevacao' : f.recent < f.previous ? 'tendencia_reducao' : 'estavel';
+        const recurrent = recurrentProps.filter((p: any) => p.neighborhood_id === n.id).length;
         return {
           neighborhoodId: n.id,
           neighborhoodName: n.name,
           estimatedRiskLevel: level,
-          riskLabel: level === 'muito_elevado' ? 'Risco Estimado Muito Elevado' : level === 'elevado' ? 'Risco Estimado Elevado' : level === 'moderado' ? 'Risco Moderado' : 'Risco Baixo',
+          riskLabel:
+            level === 'muito_elevado' ? 'Muitos focos recentes' : level === 'elevado' ? 'Focos recentes elevados' : level === 'moderado' ? 'Focos recentes moderados' : 'Poucos ou nenhum foco recente',
           probabilitySignal: signal,
-          signalDescription: signalDesc,
-          confidenceScore: isDataSufficient ? 85 : 40,
+          signalDescription: `Focos: ${f.recent} nos últimos 30 dias, ${f.previous} nos 30 anteriores.`,
+          confidenceScore: sampleConfidence(f.recent + f.previous),
           isDataSufficient,
           contributingFactors: [
-            {
-              factor: 'Densidade Larvária',
-              impact: isElevated ? 'negativo' : 'positivo',
-              detail: `${nFoci} focos larvários ativos identificados no território`
-            },
-            {
-              factor: 'Condição Meteorológica',
-              impact: climate.environmentalTendency === 'alta_proliferacao' ? 'negativo' : 'neutro',
-              detail: climate.tendencyLabel
-            },
-            {
-              factor: 'Histórico de Reincidência',
-              impact: 'neutro',
-              detail: 'Bairro com histórico de depósitos tipo B (vasos/pratinhos)'
-            }
-          ]
+            { factor: 'Focos recentes', impact: f.recent >= 5 ? 'negativo' : 'neutro', detail: `${f.recent} depósito(s) positivo(s) em 30 dias` },
+            { factor: 'Condição meteorológica', impact: climate.environmentalTendency === 'alta_proliferacao' ? 'negativo' : 'neutro', detail: climate.tendencyLabel },
+            { factor: 'Reincidência', impact: recurrent > 0 ? 'negativo' : 'neutro', detail: `${recurrent} imóvel(is) com 2 ou mais focos registrados` },
+          ],
         };
       });
 
-      return {
-        overallSignal: climate.environmentalTendency === 'alta_proliferacao'
-          ? 'Sinal de Alerta Ambiental: Probabilidade de Aumento da Atividade Vetorial'
-          : 'Sinal de Estabilidade Epidemiológica no Município',
-        confidenceScore,
-        isDataSufficient,
-        insufficiencyMessage,
-        climateFactor: climate,
-        anomalies,
-        territoryEstimations,
-        methodologicalNote:
-          'IMPORTANTE: Estimativas baseadas em inferência probabilística e análise estatística temporal. As projeções representam probabilidades relativas de risco para direcionamento de equipes e não constituem previsões determinísticas ou certeza de surtos.'
-      };
-    } catch (err) {
-      console.error('Erro ao gerar inteligência preditiva:', err);
-      throw err;
-    }
-  }
+    const failed = [neighRes, visitsRes, casesRes, oviRes, propsRes].some((r) => r.error);
+    return {
+      overallSignal:
+        climate.environmentalTendency === 'alta_proliferacao'
+          ? 'Clima favorável à proliferação do vetor nos últimos dias'
+          : anomalies.length > 0
+          ? `${anomalies.length} sinal(is) de atenção identificado(s) nos registros`
+          : 'Nenhum sinal de atenção identificado nos registros',
+      confidenceScore,
+      isDataSufficient,
+      insufficiencyMessage: failed ? 'Parte dos dados não pôde ser carregada; os sinais podem estar incompletos.' : insufficiencyMessage,
+      climateFactor: climate,
+      anomalies,
+      territoryEstimations,
+      methodologicalNote:
+        'Sinais calculados com os registros do município: focos (depósitos positivos em visitas), positividade de ovitrampas e casos notificados, comparando os últimos 30 dias com os 30 anteriores. A confiança indica suficiência de registros, não certeza de ocorrência. Não são previsões.',
+    };
+  },
 };

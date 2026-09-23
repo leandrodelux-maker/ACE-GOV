@@ -17,6 +17,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { situationRoomService, SituationRoomData } from '../../services/situationRoomService';
+import { historicalAnalysisService, ComparativeAnalysisResult } from '../../services/historicalAnalysisService';
 import { supabaseService } from '../../services/supabaseService';
 import { Municipality, FieldCycle } from '../../types';
 import { useAuth, useMunicipalityId } from '../../contexts/AuthContext';
@@ -28,6 +29,8 @@ export const ExecutiveDashboardView: React.FC = () => {
   const [cycle, setCycle] = useState<FieldCycle | null>(null);
   const [data, setData] = useState<SituationRoomData | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [fociTrend, setFociTrend] = useState<ComparativeAnalysisResult | null>(null);
+  const [casesTrend, setCasesTrend] = useState<ComparativeAnalysisResult | null>(null);
 
   const loadExecutiveData = useCallback(async () => {
     setIsLoading(true);
@@ -36,10 +39,13 @@ export const ExecutiveDashboardView: React.FC = () => {
       const muniId = municipalityId;
       const activeCycle = await supabaseService.getActiveCycle(muniId);
 
-      const sitData = await situationRoomService.getSituationData({
-        municipalityId: muniId,
-        periodFilter: 'cycle',
-      });
+      const [sitData, foci, casesCmp] = await Promise.all([
+        situationRoomService.getSituationData({ municipalityId: muniId, periodFilter: 'cycle' }),
+        historicalAnalysisService.getComparativeAnalysis('focos', 'ultimas_4semanas_vs_anteriores', undefined, muniId),
+        historicalAnalysisService.getComparativeAnalysis('casos', 'ano_atual_vs_anterior', undefined, muniId),
+      ]);
+      setFociTrend(foci);
+      setCasesTrend(casesCmp);
 
       setMunicipality(muni);
       setCycle(activeCycle);
@@ -49,7 +55,7 @@ export const ExecutiveDashboardView: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [municipalityId, sessionMunicipality]);
 
   useEffect(() => {
     loadExecutiveData();
@@ -59,11 +65,14 @@ export const ExecutiveDashboardView: React.FC = () => {
   const criticalNeighborhoods = (data?.neighborhoods || []).filter(n => n.riskLevel === 'CRITICO' || n.riskLevel === 'ALTO');
 
   // Semáforo Epidemiológico Geral
-  const avgRiskScore = (data?.neighborhoods || []).length > 0
+  // Sem bairros registrados não há score: o semáforo fica "sem dados" (nunca um valor padrão)
+  const avgRiskScore: number | null = (data?.neighborhoods || []).length > 0
     ? Math.round((data?.neighborhoods || []).reduce((acc, n) => acc + n.riskScore, 0) / (data?.neighborhoods || []).length)
-    : 35;
+    : null;
 
-  const semaforoLevel = avgRiskScore >= 75
+  const semaforoLevel = avgRiskScore === null
+    ? { icon: '⚪', label: 'SEM DADOS SUFICIENTES', color: 'bg-slate-400', text: 'text-slate-600', bgText: 'bg-slate-50 border-slate-200' }
+    : avgRiskScore >= 75
     ? { icon: '🔴', label: 'ESTADO DE EMERGÊNCIA SANITÁRIA (Nível 3)', color: 'bg-rose-500', text: 'text-rose-700', bgText: 'bg-rose-50 border-rose-200' }
     : avgRiskScore >= 50
     ? { icon: '🟠', label: 'ESTADO DE ALERTA EPIDEMIOLÓGICO (Nível 2)', color: 'bg-orange-500', text: 'text-orange-700', bgText: 'bg-orange-50 border-orange-200' }
@@ -82,8 +91,8 @@ export const ExecutiveDashboardView: React.FC = () => {
   if ((kpis?.recurrent || 0) > 0) {
     executiveAlerts.push(`Foi detectada reincidência de focos em ${kpis?.recurrent} imóvel(is) no município.`);
   }
-  if ((kpis?.coveragePercent || 0) < 70) {
-    executiveAlerts.push(`Cobertura municipal atual (${kpis?.coveragePercent}%) está abaixo da meta pactuada com o Ministério da Saúde.`);
+  if (kpis && kpis.totalProperties > 0 && kpis.coveragePercent < 80) {
+    executiveAlerts.push(`Cobertura do ciclo em ${kpis.coveragePercent}% dos imóveis cadastrados (referência PNCD: 80%).`);
   }
 
   return (
@@ -128,7 +137,7 @@ export const ExecutiveDashboardView: React.FC = () => {
               {semaforoLevel.label}
             </h2>
             <p className="text-xs text-slate-500">
-              Score médio ponderado do município: <strong>{avgRiskScore}/100</strong> • Ciclo: {cycle?.name || '1º Ciclo 2026'}
+              Score médio dos bairros: <strong>{avgRiskScore === null ? '—' : `${avgRiskScore}/100`}</strong> • Ciclo: {cycle?.name || 'nenhum em andamento'}
             </p>
           </div>
         </div>
@@ -150,38 +159,33 @@ export const ExecutiveDashboardView: React.FC = () => {
         </div>
       </div>
 
-      {/* Comparativos Temporais Reais */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs">
+      {/* Comparativos temporais calculados (ver Análise Histórica) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-          <span className="text-[10px] font-bold text-slate-400 uppercase">Hoje x Ontem</span>
-          <p className="font-extrabold text-base text-slate-900 mt-1">
-            {kpis?.visited ? `${Math.round(kpis.visited * 0.15)} visitas hoje` : 'Dados insuficientes para o período.'}
-          </p>
-          <span className="text-[10px] text-emerald-700 font-semibold">+8% em relação a ontem</span>
+          <span className="text-[10px] font-bold text-slate-400 uppercase">Focos: últimas 4 semanas x 4 anteriores</span>
+          {fociTrend?.available ? (
+            <>
+              <p className="font-extrabold text-base text-slate-900 mt-1">
+                {fociTrend.currentTotal} vs {fociTrend.previousTotal} {fociTrend.indicator.unit}
+              </p>
+              <span className="text-[10px] text-slate-600 font-semibold">{fociTrend.statusExplanation}</span>
+            </>
+          ) : (
+            <p className="text-slate-500 mt-1">{isLoading ? '...' : fociTrend?.unavailableReason || 'Dados insuficientes para o período.'}</p>
+          )}
         </div>
-
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-          <span className="text-[10px] font-bold text-slate-400 uppercase">Semana Atual x Anterior</span>
-          <p className="font-extrabold text-base text-slate-900 mt-1">
-            {kpis?.fociActive ? `${kpis.fociActive} focos detectados` : 'Dados insuficientes para o período.'}
-          </p>
-          <span className="text-[10px] text-amber-700 font-semibold">Tendência de estabilidade</span>
-        </div>
-
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-          <span className="text-[10px] font-bold text-slate-400 uppercase">Ciclo Atual x Anterior</span>
-          <p className="font-extrabold text-base text-blue-700 mt-1">
-            {cycle ? `${kpis?.coveragePercent || 0}% de cobertura` : 'Dados insuficientes para o período.'}
-          </p>
-          <span className="text-[10px] text-blue-700 font-semibold">Meta de 100% até o fim do bimestre</span>
-        </div>
-
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-          <span className="text-[10px] font-bold text-slate-400 uppercase">Ano Atual x Anterior</span>
-          <p className="font-extrabold text-base text-slate-900 mt-1">
-            Ano 2026 em monitoramento
-          </p>
-          <span className="text-[10px] text-slate-500">Dados consolidados do LIRAa</span>
+          <span className="text-[10px] font-bold text-slate-400 uppercase">Casos notificados: ano atual x anterior (até o mês atual)</span>
+          {casesTrend?.available ? (
+            <>
+              <p className="font-extrabold text-base text-slate-900 mt-1">
+                {casesTrend.currentTotal} vs {casesTrend.previousTotal} {casesTrend.indicator.unit}
+              </p>
+              <span className="text-[10px] text-slate-600 font-semibold">{casesTrend.statusExplanation}</span>
+            </>
+          ) : (
+            <p className="text-slate-500 mt-1">{isLoading ? '...' : casesTrend?.unavailableReason || 'Dados insuficientes para o período.'}</p>
+          )}
         </div>
       </div>
 
@@ -216,15 +220,29 @@ export const ExecutiveDashboardView: React.FC = () => {
         </div>
 
         <div className="text-xs text-slate-700 space-y-3 leading-relaxed">
-          <p>
-            <strong>1. Cenário Geral e Vetorial:</strong> O município encerrou a etapa de monitoramento do {cycle?.name || '1º Ciclo 2026'} com {kpis?.coveragePercent || 0}% de cobertura dos imóveis programados e {kpis?.activeTeamsCount || 4} equipes operacionais em campo. Os índices de ovitrampas registram {kpis?.positiveOvitraps || 0} armadilhas sentinela com presença de ovos de Aedes aegypti.
-          </p>
-          <p>
-            <strong>2. Focos e Bloqueios em Execução:</strong> Foram catalogados {kpis?.fociActive || 0} focos ativos, com {kpis?.activeBlocks || 0} operação(ões) de bloqueio peridomiciliar químico e focal em andamento. Imóveis reincidentes somam {kpis?.recurrent || 0} unidades e foram direcionados para o protocolo de retorno prioritário.
-          </p>
-          <p>
-            <strong>3. Encaminhamentos Estratégicos:</strong> Recomenda-se reforço de vistorias nos {kpis?.overduePE || 0} Pontos Estratégicos que atingiram a marca de atraso quinzenal e intensificação da limpeza urbana para eliminação de criadouros móveis e entulhos.
-          </p>
+          {!kpis ? (
+            <p className="text-slate-500">{isLoading ? 'Carregando...' : 'Sem dados carregados para compor a síntese.'}</p>
+          ) : (
+            <>
+              <p>
+                <strong>1. Cenário geral:</strong>{' '}
+                {cycle ? `Ciclo "${cycle.name}" em andamento` : 'Nenhum ciclo de campo em andamento'}, com {kpis.visited} imóvel(is)
+                trabalhado(s) de {kpis.totalProperties} cadastrado(s) ({kpis.coveragePercent}%).{' '}
+                {kpis.activeTeamsCount === null ? 'Não há equipes cadastradas.' : `${kpis.activeTeamsCount} equipe(s) cadastrada(s).`}{' '}
+                {kpis.totalOvitraps > 0
+                  ? `${kpis.positiveOvitraps} de ${kpis.totalOvitraps} ovitrampa(s) com ovos.`
+                  : 'Sem ovitrampas cadastradas.'}
+              </p>
+              <p>
+                <strong>2. Focos e bloqueios:</strong> {kpis.fociActive} foco(s) ativo(s), {kpis.activeBlocks} bloqueio(s) em andamento e{' '}
+                {kpis.recurrent} imóvel(is) com reincidência registrada.
+              </p>
+              <p>
+                <strong>3. Pendências:</strong> {kpis.overduePE} ponto(s) estratégico(s) com vistoria vencida, {kpis.openComplaints} denúncia(s)
+                em aberto e {kpis.pending} pendência(s) de retorno.
+              </p>
+            </>
+          )}
         </div>
       </div>
     </div>

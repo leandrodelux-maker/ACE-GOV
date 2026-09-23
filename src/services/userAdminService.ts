@@ -24,6 +24,8 @@ export interface ManagedUser {
   active: boolean;
   lastLogin: string | null;
   roles: UserRole[];
+  /** Cadastro de agente (tabela agents) ativo vinculado ao perfil; necessário para registrar visitas */
+  agentId: string | null;
 }
 
 export interface ProfileInput {
@@ -48,7 +50,7 @@ export const userAdminService = {
     const munId = requireMunicipalityId(municipalityId);
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, auth_user_id, full_name, email, registration_number, job_title, phone, active, last_login, user_roles(roles(slug))')
+      .select('id, auth_user_id, full_name, email, registration_number, job_title, phone, active, last_login, user_roles(roles(slug)), agents(id, active)')
       .eq('municipality_id', munId)
       .order('full_name', { ascending: true });
 
@@ -65,6 +67,7 @@ export const userAdminService = {
         active: !!p.active,
         lastLogin: p.last_login ?? null,
         roles: (p.user_roles || []).map((ur: any) => ur.roles?.slug).filter(Boolean),
+        agentId: (p.agents || []).find((a: any) => a.active)?.id ?? null,
       })),
     };
   },
@@ -98,6 +101,7 @@ export const userAdminService = {
       active: true,
       lastLogin: null,
       roles: [role],
+      agentId: null,
     };
   },
 
@@ -131,6 +135,36 @@ export const userAdminService = {
     if (delError) throw new Error(delError.message);
     const { error } = await supabase.from('user_roles').insert({ user_id: profileId, role_id: roleId });
     if (error) throw new Error(error.message);
+  },
+
+  /**
+   * Cria (ou reativa) o cadastro de agente do perfil. visits, ovitrap_installations
+   * e ovitrap_collections referenciam agents(id): sem isso o ACE não grava visitas.
+   */
+  async linkAgent(municipalityId: string, profileId: string, registrationNumber?: string): Promise<string> {
+    const munId = requireMunicipalityId(municipalityId);
+    const { data: existing, error: findError } = await supabase
+      .from('agents')
+      .select('id, active')
+      .eq('profile_id', profileId)
+      .eq('municipality_id', munId)
+      .limit(1)
+      .maybeSingle();
+    if (findError) throw new Error(findError.message);
+    if (existing) {
+      if (!existing.active) {
+        const { error } = await supabase.from('agents').update({ active: true }).eq('id', existing.id);
+        if (error) throw new Error(error.message);
+      }
+      return existing.id;
+    }
+    const { data, error } = await supabase
+      .from('agents')
+      .insert({ municipality_id: munId, profile_id: profileId, employee_number: registrationNumber || null, active: true })
+      .select('id')
+      .single();
+    if (error || !data) throw new Error(error?.message || 'Não foi possível criar o cadastro de agente.');
+    return data.id;
   },
 
   /** Envia o e-mail oficial de redefinição de senha (Supabase Auth). */

@@ -117,27 +117,6 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
         });
       } catch {}
 
-      // 3. Agentes ACE & Usuários
-      try {
-        const users = db.getUsers();
-        users.forEach(u => {
-          if (
-            u.name.toLowerCase().includes(term) ||
-            u.email.toLowerCase().includes(term) ||
-            (u.registrationNumber && u.registrationNumber.toLowerCase().includes(term))
-          ) {
-            found.push({
-              category: 'AGENTES & USUÁRIOS',
-              title: u.name,
-              subtitle: `Perfil: ${u.role} • Matrícula: ${u.registrationNumber || 'N/A'} • ${u.email}`,
-              module: 'admin_users',
-              itemId: u.id,
-              icon: Users,
-            });
-          }
-        });
-      } catch {}
-
       // 4. Denúncias Comunitárias
       try {
         const complaints = db.getComplaints();

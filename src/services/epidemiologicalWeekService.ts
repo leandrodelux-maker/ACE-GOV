@@ -58,7 +58,7 @@ export const epidemiologicalWeekService = {
   /**
    * Obtém a lista de semanas epidemiológicas cadastradas no banco
    */
-  async getWeeks(year = 2026): Promise<EpidemiologicalWeek[]> {
+  async getWeeks(year = new Date().getFullYear()): Promise<EpidemiologicalWeek[]> {
     try {
       const { data, error } = await supabase
         .from('epidemiological_weeks')

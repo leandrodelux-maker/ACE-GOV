@@ -284,7 +284,7 @@ export const PublicPortalView: React.FC<PublicPortalViewProps> = ({
             Prefeitura Municipal • Secretaria Municipal de Saúde • Setor de Vigilância em Saúde e Controle de Endemias
           </p>
           <p className="text-[11px] text-slate-500">
-            Endemias GOV © 2026 • Plataforma de Gestão e Inteligência Epidemiológica Municipal • Em conformidade com a LGPD (Lei nº 13.709/2018)
+            Endemias GOV © {new Date().getFullYear()} • Plataforma de Gestão e Inteligência Epidemiológica Municipal • Em conformidade com a LGPD (Lei nº 13.709/2018)
           </p>
         </div>
       </footer>

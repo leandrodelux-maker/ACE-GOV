@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import { db } from '../../services/storage';
 import { supabaseService } from '../../services/supabaseService';
-import { supabase } from '../../services/supabaseClient';
+import { auditLogService } from '../../services/auditLogService';
 import { Property } from '../../types';
 import { PageHeader } from '../ui';
 import { useMunicipalityId } from '../../contexts/AuthContext';
@@ -150,17 +150,17 @@ export const RoutesView: React.FC<RoutesViewProps> = ({ onNavigate }) => {
   const handleStartRoute = () => {
     setIsRouteActive(true);
     saveRouteToCache(routeList);
-    // Registrar início no audit_logs
-    try {
-      supabase.from('audit_logs').insert({
+    // Registrar início na auditoria (não bloqueia o início da rota)
+    void auditLogService
+      .log({
+        municipalityId,
         action: 'ROUTE_STARTED',
-        entity_type: 'field_routes',
-        entity_id: `route-${Date.now()}`,
-        details: { total_properties: routeList.length, date: new Date().toISOString() },
-      }).then();
-    } catch {
-      // ignore
-    }
+        module: 'rotas',
+        entity: 'field_routes',
+        entityId: `route-${Date.now()}`,
+        newData: { total_properties: routeList.length, date: new Date().toISOString() },
+      })
+      .catch(() => undefined);
   };
 
   const handleReorganizeRoute = () => {
