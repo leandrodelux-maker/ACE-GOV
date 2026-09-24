@@ -211,48 +211,54 @@ export const EntomologyLabView: React.FC<EntomologyLabViewProps> = ({ municipali
         }
       />
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
-          <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Amostras Recebidas</span>
-          <div className="text-2xl font-bold text-slate-900 dark:text-white mt-1">
+      {/* KPI Cards Clean & Executivos */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 text-xs">
+        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-1">
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Recebidas</span>
+          <div className="text-2xl font-black text-slate-900 tracking-tight">
             {kpis.totalReceived}
           </div>
+          <span className="text-[10px] text-slate-400 font-medium block">Total triado</span>
         </div>
 
-        <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
-          <span className="text-xs font-medium text-amber-600 dark:text-amber-400">Pendentes</span>
-          <div className="text-2xl font-bold text-amber-600 dark:text-amber-400 mt-1">
+        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-1">
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Pendentes</span>
+          <div className="text-2xl font-black text-amber-600 tracking-tight">
             {kpis.pending}
           </div>
+          <span className="text-[10px] text-amber-600/80 font-medium block">Aguardando triagem</span>
         </div>
 
-        <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
-          <span className="text-xs font-medium text-purple-600 dark:text-purple-400">Em Análise</span>
-          <div className="text-2xl font-bold text-purple-600 dark:text-purple-400 mt-1">
+        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-1">
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Em Análise</span>
+          <div className="text-2xl font-black text-sky-600 tracking-tight">
             {kpis.inAnalysis}
           </div>
+          <span className="text-[10px] text-sky-600/80 font-medium block">Microscópio/Lupa</span>
         </div>
 
-        <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
-          <span className="text-xs font-medium text-rose-600 dark:text-rose-400">Positivas Aedes</span>
-          <div className="text-2xl font-bold text-rose-600 dark:text-rose-400 mt-1">
+        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-1">
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Positivas Aedes</span>
+          <div className="text-2xl font-black text-rose-600 tracking-tight">
             {kpis.positiveAedes}
           </div>
+          <span className="text-[10px] text-rose-600/80 font-medium block">Vetor confirmado</span>
         </div>
 
-        <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
-          <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400">Finalizadas</span>
-          <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">
+        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-1">
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Finalizadas</span>
+          <div className="text-2xl font-black text-emerald-600 tracking-tight">
             {kpis.finalized}
           </div>
+          <span className="text-[10px] text-emerald-600/80 font-medium block">Laudo emitido</span>
         </div>
 
-        <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
-          <span className="text-xs font-medium text-blue-600 dark:text-blue-400">Tempo Médio</span>
-          <div className="text-2xl font-bold text-blue-600 dark:text-blue-400 mt-1">
+        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-1">
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Tempo Médio</span>
+          <div className="text-2xl font-black text-slate-800 tracking-tight">
             {kpis.avgAnalysisHours}h
           </div>
+          <span className="text-[10px] text-slate-400 font-medium block">Prazo de laudo</span>
         </div>
       </div>
 

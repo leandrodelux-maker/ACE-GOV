@@ -56,32 +56,49 @@ export const StatCard: React.FC<StatCardProps> = ({
   const toneText = TONE_TEXT[tone];
   const interactive = typeof onClick === 'function';
 
+  // Cores de fundo e ícone sutis por tom
+  const toneIconBadge: Record<StatTone, string> = {
+    success: 'bg-emerald-50 text-emerald-600',
+    warning: 'bg-amber-50 text-amber-600',
+    danger: 'bg-rose-50 text-rose-600',
+    info: 'bg-sky-50 text-sky-600',
+    neutral: 'bg-slate-100 text-slate-600',
+  };
+
   return (
     <div
       onClick={onClick}
       title={title}
-      className={`rounded-card border shadow-xs p-4 transition group ${
-        highlighted ? 'border-brand-danger/30 bg-brand-danger-tint/40' : 'bg-white border-slate-200'
-      } ${interactive ? `cursor-pointer ${TONE_HOVER_BORDER[tone]} hover:shadow-sm` : ''}`}
+      className={`rounded-xl border p-4 transition-all group ${
+        highlighted
+          ? 'border-rose-200 bg-rose-50/30 shadow-2xs'
+          : 'bg-white border-slate-200/80 shadow-2xs hover:border-slate-300 hover:shadow-xs'
+      } ${interactive ? `cursor-pointer ${TONE_HOVER_BORDER[tone]}` : ''}`}
     >
-      <div className="flex items-center justify-between text-slate-500 mb-1.5">
-        <span className={`text-[11px] font-semibold uppercase tracking-wider ${highlighted ? toneText : `group-hover:${toneText}`}`}>
+      <div className="flex items-center justify-between gap-2 mb-2">
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 truncate">
           {label}
         </span>
         {Icon && (
-          <Icon
-            className={`w-4 h-4 ${toneText} ${pulse ? 'animate-pulse' : ''} ${interactive ? 'group-hover:scale-110 transition' : ''}`}
-            aria-hidden="true"
-          />
+          <span className={`p-1.5 rounded-lg flex items-center justify-center shrink-0 transition ${toneIconBadge[tone]} ${interactive ? 'group-hover:scale-105' : ''}`}>
+            <Icon
+              className={`w-3.5 h-3.5 ${pulse ? 'animate-pulse' : ''}`}
+              aria-hidden="true"
+            />
+          </span>
         )}
       </div>
 
-      <p className={`text-xl font-extrabold ${tone === 'neutral' ? 'text-slate-900' : toneText}`}>{value}</p>
+      <p className={`text-2xl font-extrabold tracking-tight ${highlighted && tone === 'danger' ? 'text-rose-600' : 'text-slate-900'}`}>
+        {value}
+      </p>
 
       {footer ? (
-        <div className="mt-1.5">{footer}</div>
+        <div className="mt-2">{footer}</div>
       ) : caption ? (
-        <span className={`text-[10px] font-medium ${tone === 'neutral' ? 'text-slate-500' : toneText}`}>{caption}</span>
+        <p className="text-[11px] font-medium text-slate-500 mt-1 truncate">
+          {caption}
+        </p>
       ) : null}
     </div>
   );

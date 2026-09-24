@@ -267,15 +267,14 @@ function AppContent() {
     );
   }
 
-  if (resolution.kind === 'account') {
-    return <MyAccountPage onNavigate={navigate} />;
-  }
-
   const municipality = authMunicipality;
   const municipalityId = municipality.id;
   const unreadAlertsCount = db.getAlerts().filter((a) => !a.resolved).length;
 
   const renderView = () => {
+    if (resolution.kind === 'account') {
+      return <MyAccountPage onNavigate={navigate} />;
+    }
     if (resolution.kind === 'not_found') {
       return (
         <div className="bg-white border border-slate-200 rounded-xl p-8 text-center space-y-3" role="alert">

@@ -95,6 +95,8 @@ export const OvitrapsView: React.FC<OvitrapsViewProps> = ({ onNavigate }) => {
   const [globalStatus, setGlobalStatus] = useState<string>('ALL');
   const [globalResult, setGlobalResult] = useState<'all' | 'positive' | 'negative' | 'invalid'>('all');
   const [searchTerm, setSearchTerm] = useState<string>('');
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState<boolean>(false);
+  const [kpiViewMode, setKpiViewMode] = useState<'clean' | 'detailed'>('clean');
 
   // 3. Dados Principais
   const [ovitraps, setOvitraps] = useState<OvitrapPoint[]>([]);
@@ -667,54 +669,85 @@ export const OvitrapsView: React.FC<OvitrapsViewProps> = ({ onNavigate }) => {
       {/* ========================================================================= */}
       {/* 2. FILTROS GLOBAIS NO TOPO (RESPONDEM A TODAS AS ABAS)                    */}
       {/* ========================================================================= */}
+      {/* ========================================================================= */}
+      {/* 2. FILTROS DA CENTRAL (LAYOUT CLEAN & AREJADO)                            */}
+      {/* ========================================================================= */}
       <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-3">
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-            <Filter className="w-3.5 h-3.5 text-sky-600" />
-            Filtros Globais da Central
-          </span>
-          <button
-            onClick={() => {
-              setGlobalPeriod('30d');
-              setGlobalNeighborhood('ALL');
-              setGlobalSector('ALL');
-              setGlobalAgent('ALL');
-              setGlobalTeam('ALL');
-              setGlobalStatus('ALL');
-              setGlobalResult('all');
-              setSearchTerm('');
-            }}
-            className="text-[11px] font-semibold text-sky-600 hover:text-sky-800 underline cursor-pointer"
-          >
-            Limpar Filtros
-          </button>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+              <Filter className="w-3.5 h-3.5 text-sky-600" />
+              Filtros da Rede Sentinela
+            </span>
+            <span className="text-[11px] text-slate-400">
+              • Recorte Temporal e Territorial
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer border ${
+                showAdvancedFilters || globalSector !== 'ALL' || globalAgent !== 'ALL' || globalStatus !== 'ALL' || globalResult !== 'all'
+                  ? 'bg-sky-50 text-sky-700 border-sky-200'
+                  : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+              }`}
+            >
+              <Sliders className="w-3.5 h-3.5" />
+              <span>{showAdvancedFilters ? 'Ocultar Filtros Avançados' : 'Filtros Avançados'}</span>
+              {(globalSector !== 'ALL' || globalAgent !== 'ALL' || globalStatus !== 'ALL' || globalResult !== 'all') && (
+                <span className="w-2 h-2 rounded-full bg-sky-600" />
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setGlobalPeriod('30d');
+                setGlobalCycle('ciclo_atual');
+                setGlobalNeighborhood('ALL');
+                setGlobalSector('ALL');
+                setGlobalMicroarea('ALL');
+                setGlobalAgent('ALL');
+                setGlobalTeam('ALL');
+                setGlobalStatus('ALL');
+                setGlobalResult('all');
+                setSearchTerm('');
+              }}
+              className="text-[11px] font-semibold text-slate-500 hover:text-slate-800 px-2 py-1 rounded-lg hover:bg-slate-100 transition cursor-pointer"
+            >
+              Limpar
+            </button>
+          </div>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-9 gap-2.5 text-xs">
+        {/* Linha 1: Filtros Primários Essenciais */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
           {/* Período */}
           <div>
-            <label className="block text-[10px] font-bold text-slate-400 mb-1">Período</label>
+            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Período de Análise</label>
             <select
               value={globalPeriod}
               onChange={(e) => setGlobalPeriod(e.target.value as any)}
-              className="w-full p-2 border border-slate-200 rounded-lg bg-slate-50 font-medium text-slate-700"
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-slate-50 font-medium text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500/20"
             >
               <option value="7d">Últimos 7 dias</option>
-              <option value="30d">Últimos 30 dias</option>
+              <option value="30d">Últimos 30 dias (Recomendado)</option>
               <option value="90d">Últimos 90 dias</option>
-              <option value="all">Todo o Histórico</option>
+              <option value="all">Histórico Completo</option>
             </select>
           </div>
 
           {/* Ciclo */}
           <div>
-            <label className="block text-[10px] font-bold text-slate-400 mb-1">Ciclo</label>
+            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Ciclo Epidemiológico</label>
             <select
               value={globalCycle}
               onChange={(e) => setGlobalCycle(e.target.value)}
-              className="w-full p-2 border border-slate-200 rounded-lg bg-slate-50 font-medium text-slate-700"
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-slate-50 font-medium text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500/20"
             >
-              <option value="ciclo_atual">Ciclo Atual</option>
+              <option value="ciclo_atual">Ciclo Atual (LIRAa/LIA)</option>
               <option value="ciclo_anterior">Ciclo Anterior</option>
               <option value="todos">Todos os Ciclos</option>
             </select>
@@ -722,13 +755,13 @@ export const OvitrapsView: React.FC<OvitrapsViewProps> = ({ onNavigate }) => {
 
           {/* Bairro */}
           <div>
-            <label className="block text-[10px] font-bold text-slate-400 mb-1">Bairro</label>
+            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Bairro / Localidade</label>
             <select
               value={globalNeighborhood}
               onChange={(e) => setGlobalNeighborhood(e.target.value)}
-              className="w-full p-2 border border-slate-200 rounded-lg bg-slate-50 font-medium text-slate-700"
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-slate-50 font-medium text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500/20"
             >
-              <option value="ALL">Todos os Bairros</option>
+              <option value="ALL">Todos os Bairros ({neighborhoods.length})</option>
               {neighborhoods.map((n) => (
                 <option key={n.id} value={n.id}>
                   {n.name}
@@ -736,112 +769,117 @@ export const OvitrapsView: React.FC<OvitrapsViewProps> = ({ onNavigate }) => {
               ))}
             </select>
           </div>
-
-          {/* Setor */}
-          <div>
-            <label className="block text-[10px] font-bold text-slate-400 mb-1">Setor</label>
-            <select
-              value={globalSector}
-              onChange={(e) => setGlobalSector(e.target.value)}
-              className="w-full p-2 border border-slate-200 rounded-lg bg-slate-50 font-medium text-slate-700"
-            >
-              <option value="ALL">Todos os Setores</option>
-              {sectorsList.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Microárea */}
-          <div>
-            <label className="block text-[10px] font-bold text-slate-400 mb-1">Microárea</label>
-            <select
-              value={globalMicroarea}
-              onChange={(e) => setGlobalMicroarea(e.target.value)}
-              className="w-full p-2 border border-slate-200 rounded-lg bg-slate-50 font-medium text-slate-700"
-            >
-              <option value="ALL">Todas as Microáreas</option>
-              <option value="MA-01">MA 01</option>
-              <option value="MA-02">MA 02</option>
-              <option value="MA-03">MA 03</option>
-            </select>
-          </div>
-
-          {/* ACE */}
-          <div>
-            <label className="block text-[10px] font-bold text-slate-400 mb-1">ACE Responsável</label>
-            <select
-              value={globalAgent}
-              onChange={(e) => setGlobalAgent(e.target.value)}
-              className="w-full p-2 border border-slate-200 rounded-lg bg-slate-50 font-medium text-slate-700"
-            >
-              <option value="ALL">Todos os ACEs</option>
-              {agentsList.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Equipe */}
-          <div>
-            <label className="block text-[10px] font-bold text-slate-400 mb-1">Equipe</label>
-            <select
-              value={globalTeam}
-              onChange={(e) => setGlobalTeam(e.target.value)}
-              className="w-full p-2 border border-slate-200 rounded-lg bg-slate-50 font-medium text-slate-700"
-            >
-              <option value="ALL">Todas as Equipes</option>
-              {teamsList.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Status */}
-          <div>
-            <label className="block text-[10px] font-bold text-slate-400 mb-1">Status Operacional</label>
-            <select
-              value={globalStatus}
-              onChange={(e) => setGlobalStatus(e.target.value)}
-              className="w-full p-2 border border-slate-200 rounded-lg bg-slate-50 font-medium text-slate-700"
-            >
-              <option value="ALL">Todos os Status</option>
-              <option value="Disponivel">Disponível</option>
-              <option value="Instalada">Instalada</option>
-              <option value="Aguardando coleta">Aguardando Coleta</option>
-              <option value="Coleta vencida">Coleta Vencida</option>
-              <option value="Coletada">Coletada</option>
-              <option value="Resultado disponivel">Resultado Disponível</option>
-            </select>
-          </div>
-
-          {/* Resultado */}
-          <div>
-            <label className="block text-[10px] font-bold text-slate-400 mb-1">Resultado</label>
-            <select
-              value={globalResult}
-              onChange={(e) => setGlobalResult(e.target.value as any)}
-              className="w-full p-2 border border-slate-200 rounded-lg bg-slate-50 font-medium text-slate-700"
-            >
-              <option value="all">Todos</option>
-              <option value="positive">Positivas</option>
-              <option value="negative">Negativas</option>
-              <option value="invalid">Inválidas</option>
-            </select>
-          </div>
         </div>
+
+        {/* Linha 2: Filtros Avançados Expansíveis */}
+        {showAdvancedFilters && (
+          <div className="pt-3 border-t border-slate-100 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2.5 text-xs animate-in fade-in duration-200">
+            {/* Setor */}
+            <div>
+              <label className="block text-[10px] font-semibold text-slate-400 mb-1">Setor</label>
+              <select
+                value={globalSector}
+                onChange={(e) => setGlobalSector(e.target.value)}
+                className="w-full p-2 border border-slate-200 rounded-lg bg-slate-50 font-medium text-slate-700"
+              >
+                <option value="ALL">Todos os Setores</option>
+                {sectorsList.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Microárea */}
+            <div>
+              <label className="block text-[10px] font-semibold text-slate-400 mb-1">Microárea</label>
+              <select
+                value={globalMicroarea}
+                onChange={(e) => setGlobalMicroarea(e.target.value)}
+                className="w-full p-2 border border-slate-200 rounded-lg bg-slate-50 font-medium text-slate-700"
+              >
+                <option value="ALL">Todas as Microáreas</option>
+                <option value="MA-01">MA 01</option>
+                <option value="MA-02">MA 02</option>
+                <option value="MA-03">MA 03</option>
+              </select>
+            </div>
+
+            {/* ACE */}
+            <div>
+              <label className="block text-[10px] font-semibold text-slate-400 mb-1">ACE Responsável</label>
+              <select
+                value={globalAgent}
+                onChange={(e) => setGlobalAgent(e.target.value)}
+                className="w-full p-2 border border-slate-200 rounded-lg bg-slate-50 font-medium text-slate-700"
+              >
+                <option value="ALL">Todos os ACEs</option>
+                {agentsList.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Equipe */}
+            <div>
+              <label className="block text-[10px] font-semibold text-slate-400 mb-1">Equipe</label>
+              <select
+                value={globalTeam}
+                onChange={(e) => setGlobalTeam(e.target.value)}
+                className="w-full p-2 border border-slate-200 rounded-lg bg-slate-50 font-medium text-slate-700"
+              >
+                <option value="ALL">Todas as Equipes</option>
+                {teamsList.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Status */}
+            <div>
+              <label className="block text-[10px] font-semibold text-slate-400 mb-1">Status Operacional</label>
+              <select
+                value={globalStatus}
+                onChange={(e) => setGlobalStatus(e.target.value)}
+                className="w-full p-2 border border-slate-200 rounded-lg bg-slate-50 font-medium text-slate-700"
+              >
+                <option value="ALL">Todos os Status</option>
+                <option value="Disponivel">Disponível</option>
+                <option value="Instalada">Instalada</option>
+                <option value="Aguardando coleta">Aguardando Coleta</option>
+                <option value="Coleta vencida">Coleta Vencida</option>
+                <option value="Coletada">Coletada</option>
+                <option value="Resultado disponivel">Resultado Disponível</option>
+              </select>
+            </div>
+
+            {/* Resultado */}
+            <div>
+              <label className="block text-[10px] font-semibold text-slate-400 mb-1">Resultado Laudo</label>
+              <select
+                value={globalResult}
+                onChange={(e) => setGlobalResult(e.target.value as any)}
+                className="w-full p-2 border border-slate-200 rounded-lg bg-slate-50 font-medium text-slate-700"
+              >
+                <option value="all">Todos</option>
+                <option value="positive">Positivas</option>
+                <option value="negative">Negativas</option>
+                <option value="invalid">Inválidas</option>
+              </select>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ========================================================================= */}
-      {/* 3. BARRA DE NAVEGAÇÃO INTERNA POR 11 ABAS                                */}
+      {/* 3. BARRA DE NAVEGAÇÃO POR ABAS (CLEAN • SEM SCROLLBAR VISÍVEL)             */}
       {/* ========================================================================= */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-1.5 flex items-center gap-1 text-xs font-bold overflow-x-auto shadow-2xs">
+      <div className="bg-white rounded-2xl border border-slate-200 p-1.5 flex items-center gap-1 text-xs font-bold overflow-x-auto shadow-2xs scrollbar-none [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {[
           { id: 'visao_geral', label: 'VISÃO GERAL', icon: BarChart3 },
           { id: 'rede', label: 'REDE', icon: Layers },
@@ -861,13 +899,13 @@ export const OvitrapsView: React.FC<OvitrapsViewProps> = ({ onNavigate }) => {
             <button
               key={t.id}
               onClick={() => setActiveTab(t.id as TabType)}
-              className={`px-3.5 py-2.5 rounded-xl flex items-center gap-2 whitespace-nowrap transition cursor-pointer ${
+              className={`px-3 py-2 rounded-xl flex items-center gap-1.5 whitespace-nowrap transition cursor-pointer ${
                 isActive
                   ? 'bg-sky-600 text-white shadow-xs'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
               }`}
             >
-              <Icon className="w-4 h-4" />
+              <Icon className="w-3.5 h-3.5" />
               <span>{t.label}</span>
               {typeof t.badge === 'number' && t.badge > 0 && (
                 <span className="bg-rose-500 text-white text-[10px] px-1.5 py-0.2 rounded-full font-black">
@@ -880,153 +918,322 @@ export const OvitrapsView: React.FC<OvitrapsViewProps> = ({ onNavigate }) => {
       </div>
 
       {/* ========================================================================= */}
-      {/* ABA 1: VISÃO GERAL (DASHBOARD COM 15 CARDS OFICIAIS CALCULADOS)           */}
+      {/* ABA 1: VISÃO GERAL (DASHBOARD EXECUTIVO CLEAN)                             */}
       {/* ========================================================================= */}
       {activeTab === 'visao_geral' && (
         <div className="space-y-6">
-          {/* Grid com os 15 Cards Operacionais e Entomológicos */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
-            {/* 1. Pontos Cadastrados */}
-            <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                Pontos Cadastrados
-              </span>
-              <p className="text-xl font-black text-slate-900 mt-0.5">{kpis.totalRegistered}</p>
-              <span className="text-[10px] text-slate-400">Total mapeado</span>
-            </div>
-
-            {/* 2. Rede Ativa */}
-            <div className="bg-white p-3.5 rounded-xl border border-emerald-200 bg-emerald-50/20 shadow-2xs">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700">
-                Rede Ativa
-              </span>
-              <p className="text-xl font-black text-emerald-800 mt-0.5">{kpis.activeNetwork}</p>
-              <span className="text-[10px] text-emerald-600 font-medium">Em vigilância</span>
-            </div>
-
-            {/* 3. Instaladas */}
-            <div className="bg-white p-3.5 rounded-xl border border-blue-200 shadow-2xs">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-blue-600">
-                Instaladas
-              </span>
-              <p className="text-xl font-black text-blue-800 mt-0.5">{kpis.installedCount}</p>
-              <span className="text-[10px] text-blue-500 font-medium">Armadilhas em campo</span>
-            </div>
-
-            {/* 4. Aguardando Coleta */}
-            <div className="bg-white p-3.5 rounded-xl border border-amber-200 bg-amber-50/20 shadow-2xs">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700">
-                Aguardando Coleta
-              </span>
-              <p className="text-xl font-black text-amber-800 mt-0.5">
-                {kpis.waitingCollectionCount}
+          {/* Alternador de Visão de KPIs */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-black text-slate-900 uppercase tracking-tight flex items-center gap-2">
+                <BarChart3 className="w-4 h-4 text-sky-600" />
+                Painel Entomológico de Ovitrampas
+              </h2>
+              <p className="text-xs text-slate-500">
+                Indicadores oficiais de postura, densidade de ovos e status operacional da rede sentinela.
               </p>
-              <span className="text-[10px] text-amber-600 font-medium">No período</span>
             </div>
 
-            {/* 5. Coletas Hoje */}
-            <div className="bg-white p-3.5 rounded-xl border border-indigo-200 bg-indigo-50/20 shadow-2xs">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-700">
-                Coletas Hoje
-              </span>
-              <p className="text-xl font-black text-indigo-800 mt-0.5">{kpis.collectionsToday}</p>
-              <span className="text-[10px] text-indigo-600 font-medium">Programadas</span>
-            </div>
-
-            {/* 6. Coletas Vencidas */}
-            <div className="bg-white p-3.5 rounded-xl border border-rose-200 bg-rose-50/20 shadow-2xs">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-rose-700">
-                Coletas Vencidas
-              </span>
-              <p className="text-xl font-black text-rose-800 mt-0.5">
-                {kpis.overdueCollectionCount}
-              </p>
-              <span className="text-[10px] text-rose-600 font-medium">Prioridade operacional</span>
-            </div>
-
-            {/* 7. Coletadas */}
-            <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                Coletadas
-              </span>
-              <p className="text-xl font-black text-slate-800 mt-0.5">{kpis.collectedCount}</p>
-              <span className="text-[10px] text-slate-400">Palhetas recolhidas</span>
-            </div>
-
-            {/* 8. Positivas */}
-            <div className="bg-white p-3.5 rounded-xl border border-rose-200 shadow-2xs">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-rose-600">
-                Positivas
-              </span>
-              <p className="text-xl font-black text-rose-700 mt-0.5">{kpis.positiveCount}</p>
-              <span className="text-[10px] text-rose-500 font-medium">Com presença de ovos</span>
-            </div>
-
-            {/* 9. Negativas */}
-            <div className="bg-white p-3.5 rounded-xl border border-emerald-200 shadow-2xs">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600">
-                Negativas
-              </span>
-              <p className="text-xl font-black text-emerald-700 mt-0.5">{kpis.negativeCount}</p>
-              <span className="text-[10px] text-emerald-500 font-medium">Sem ovos</span>
-            </div>
-
-            {/* 10. Inválidas */}
-            <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                Inválidas
-              </span>
-              <p className="text-xl font-black text-slate-700 mt-0.5">{kpis.invalidCount}</p>
-              <span className="text-[10px] text-slate-400">Descartadas / Danificadas</span>
-            </div>
-
-            {/* 11. Total de Ovos */}
-            <div className="bg-white p-3.5 rounded-xl border border-amber-200 bg-amber-50/20 shadow-2xs">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700">
-                Total de Ovos
-              </span>
-              <p className="text-xl font-black text-amber-800 mt-0.5">{kpis.totalEggs}</p>
-              <span className="text-[10px] text-amber-600 font-medium">Contagem total</span>
-            </div>
-
-            {/* 12. Positividade % (IPO) */}
-            <div className="bg-white p-3.5 rounded-xl border border-sky-300 bg-sky-50/30 shadow-2xs">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-sky-800">
-                Positividade % (IPO)
-              </span>
-              <p className="text-xl font-black text-sky-800 mt-0.5">{kpis.ipo}%</p>
-              <span className="text-[10px] text-sky-600 font-medium">Índice Ministério da Saúde</span>
-            </div>
-
-            {/* 13. Média de Ovos */}
-            <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                Média de Ovos
-              </span>
-              <p className="text-xl font-black text-slate-900 mt-0.5">{kpis.averageEggs}</p>
-              <span className="text-[10px] text-slate-400">Ovos / armadilha</span>
-            </div>
-
-            {/* 14. Densidade de Ovos (IDO) */}
-            <div className="bg-white p-3.5 rounded-xl border border-indigo-200 bg-indigo-50/20 shadow-2xs">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-800">
-                Densidade Ovos (IDO)
-              </span>
-              <p className="text-xl font-black text-indigo-800 mt-0.5">{kpis.ido}</p>
-              <span className="text-[10px] text-indigo-600 font-medium">Ovos / ovitrampa positiva</span>
-            </div>
-
-            {/* 15. Áreas em Atenção */}
-            <div className="bg-white p-3.5 rounded-xl border border-rose-300 bg-rose-50/30 shadow-2xs">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-rose-800">
-                Áreas em Atenção
-              </span>
-              <p className="text-xl font-black text-rose-800 mt-0.5">
-                {kpis.attentionAreasCount}
-              </p>
-              <span className="text-[10px] text-rose-600 font-medium">Densidade &gt; 50 ovos</span>
+            <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs self-start sm:self-auto">
+              <button
+                type="button"
+                onClick={() => setKpiViewMode('clean')}
+                className={`px-3 py-1 rounded-lg font-bold transition cursor-pointer ${
+                  kpiViewMode === 'clean' ? 'bg-white text-sky-700 shadow-2xs' : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                Visão Executiva (Clean)
+              </button>
+              <button
+                type="button"
+                onClick={() => setKpiViewMode('detailed')}
+                className={`px-3 py-1 rounded-lg font-bold transition cursor-pointer ${
+                  kpiViewMode === 'detailed' ? 'bg-white text-sky-700 shadow-2xs' : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                15 Métricas Detalhadas
+              </button>
             </div>
           </div>
+
+          {/* MODO CLEAN: 4 Blocos Executivos Harmoniosos */}
+          {kpiViewMode === 'clean' ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Bloco 1: Ovos & Densidade (MS) */}
+              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                    Ovos & Densidade (MS)
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                    {kpis.trend}
+                  </span>
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-3xl font-black text-slate-900">{kpis.totalEggs}</span>
+                  <span className="text-xs text-slate-500 font-medium">ovos contados</span>
+                </div>
+                <div className="pt-2 border-t border-slate-100 grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <span className="text-[10px] text-slate-400 block font-semibold">Positividade (IPO):</span>
+                    <strong className="text-sky-700 font-extrabold text-sm">{kpis.ipo}%</strong>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 block font-semibold">Densidade (IDO):</span>
+                    <strong className="text-indigo-700 font-extrabold text-sm">
+                      {kpis.ido} <span className="text-[10px] font-normal text-slate-400">ovos/arm</span>
+                    </strong>
+                  </div>
+                </div>
+              </div>
+
+              {/* Bloco 2: Rede Sentinela Territorial */}
+              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                    Rede Sentinela
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    Ativa
+                  </span>
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-3xl font-black text-emerald-700">{kpis.activeNetwork}</span>
+                  <span className="text-xs text-slate-500 font-medium">de {kpis.totalRegistered} mapeadas</span>
+                </div>
+                <div className="pt-2 border-t border-slate-100 grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <span className="text-[10px] text-slate-400 block font-semibold">Instaladas em Campo:</span>
+                    <strong className="text-slate-800 font-bold text-sm">{kpis.installedCount} armadilhas</strong>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 block font-semibold">Áreas em Atenção:</span>
+                    <strong className={`font-bold text-sm ${kpis.attentionAreasCount > 0 ? 'text-rose-600' : 'text-slate-600'}`}>
+                      {kpis.attentionAreasCount} setor(es)
+                    </strong>
+                  </div>
+                </div>
+              </div>
+
+              {/* Bloco 3: Ciclo Operacional de Coletas */}
+              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                    Ciclo de Coletas
+                  </span>
+                  {kpis.overdueCollectionCount > 0 ? (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200 animate-pulse">
+                      {kpis.overdueCollectionCount} Vencidas
+                    </span>
+                  ) : (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600">
+                      Em dia
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-3xl font-black text-slate-900">{kpis.collectedCount}</span>
+                  <span className="text-xs text-slate-500 font-medium">palhetas recolhidas</span>
+                </div>
+                <div className="pt-2 border-t border-slate-100 grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <span className="text-[10px] text-slate-400 block font-semibold">Programadas Hoje:</span>
+                    <strong className="text-slate-800 font-bold text-sm">{kpis.collectionsToday}</strong>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 block font-semibold">Aguardando Coleta:</span>
+                    <strong className="text-amber-700 font-bold text-sm">{kpis.waitingCollectionCount}</strong>
+                  </div>
+                </div>
+              </div>
+
+              {/* Bloco 4: Triagem Laboratorial */}
+              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                    Triagem Laboratorial
+                  </span>
+                  <span className="text-[10px] font-bold text-slate-400">
+                    Média: {kpis.averageEggs} ovos
+                  </span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="flex-1">
+                    <span className="text-[10px] text-rose-600 font-bold block uppercase">Positivas</span>
+                    <span className="text-2xl font-black text-rose-700">{kpis.positiveCount}</span>
+                  </div>
+                  <div className="w-px h-8 bg-slate-200" />
+                  <div className="flex-1">
+                    <span className="text-[10px] text-emerald-600 font-bold block uppercase">Negativas</span>
+                    <span className="text-2xl font-black text-emerald-700">{kpis.negativeCount}</span>
+                  </div>
+                  <div className="w-px h-8 bg-slate-200" />
+                  <div className="flex-1">
+                    <span className="text-[10px] text-slate-400 font-bold block uppercase">Inválidas</span>
+                    <span className="text-2xl font-black text-slate-500">{kpis.invalidCount}</span>
+                  </div>
+                </div>
+                <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden flex">
+                  <div
+                    className="bg-rose-500 h-full transition-all"
+                    style={{
+                      width: `${kpis.positiveCount + kpis.negativeCount > 0 ? (kpis.positiveCount / (kpis.positiveCount + kpis.negativeCount)) * 100 : 0}%`,
+                    }}
+                  />
+                  <div
+                    className="bg-emerald-500 h-full transition-all"
+                    style={{
+                      width: `${kpis.positiveCount + kpis.negativeCount > 0 ? (kpis.negativeCount / (kpis.positiveCount + kpis.negativeCount)) * 100 : 0}%`,
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+          ) : (
+            /* MODO DETALHADO: 15 Cards com Design Mais Limpo */
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+              {/* 1. Pontos Cadastrados */}
+              <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                  Pontos Cadastrados
+                </span>
+                <p className="text-xl font-black text-slate-900 mt-0.5">{kpis.totalRegistered}</p>
+                <span className="text-[10px] text-slate-400">Total mapeado</span>
+              </div>
+
+              {/* 2. Rede Ativa */}
+              <div className="bg-white p-3.5 rounded-xl border border-emerald-200 bg-emerald-50/20 shadow-2xs">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700">
+                  Rede Ativa
+                </span>
+                <p className="text-xl font-black text-emerald-800 mt-0.5">{kpis.activeNetwork}</p>
+                <span className="text-[10px] text-emerald-600 font-medium">Em vigilância</span>
+              </div>
+
+              {/* 3. Instaladas */}
+              <div className="bg-white p-3.5 rounded-xl border border-blue-200 shadow-2xs">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-blue-600">
+                  Instaladas
+                </span>
+                <p className="text-xl font-black text-blue-800 mt-0.5">{kpis.installedCount}</p>
+                <span className="text-[10px] text-blue-500 font-medium">Armadilhas em campo</span>
+              </div>
+
+              {/* 4. Aguardando Coleta */}
+              <div className="bg-white p-3.5 rounded-xl border border-amber-200 bg-amber-50/20 shadow-2xs">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700">
+                  Aguardando Coleta
+                </span>
+                <p className="text-xl font-black text-amber-800 mt-0.5">
+                  {kpis.waitingCollectionCount}
+                </p>
+                <span className="text-[10px] text-amber-600 font-medium">No período</span>
+              </div>
+
+              {/* 5. Coletas Hoje */}
+              <div className="bg-white p-3.5 rounded-xl border border-indigo-200 bg-indigo-50/20 shadow-2xs">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-700">
+                  Coletas Hoje
+                </span>
+                <p className="text-xl font-black text-indigo-800 mt-0.5">{kpis.collectionsToday}</p>
+                <span className="text-[10px] text-indigo-600 font-medium">Programadas</span>
+              </div>
+
+              {/* 6. Coletas Vencidas */}
+              <div className="bg-white p-3.5 rounded-xl border border-rose-200 bg-rose-50/20 shadow-2xs">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-rose-700">
+                  Coletas Vencidas
+                </span>
+                <p className="text-xl font-black text-rose-800 mt-0.5">
+                  {kpis.overdueCollectionCount}
+                </p>
+                <span className="text-[10px] text-rose-600 font-medium">Prioridade operacional</span>
+              </div>
+
+              {/* 7. Coletadas */}
+              <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                  Coletadas
+                </span>
+                <p className="text-xl font-black text-slate-800 mt-0.5">{kpis.collectedCount}</p>
+                <span className="text-[10px] text-slate-400">Palhetas recolhidas</span>
+              </div>
+
+              {/* 8. Positivas */}
+              <div className="bg-white p-3.5 rounded-xl border border-rose-200 shadow-2xs">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-rose-600">
+                  Positivas
+                </span>
+                <p className="text-xl font-black text-rose-700 mt-0.5">{kpis.positiveCount}</p>
+                <span className="text-[10px] text-rose-500 font-medium">Com presença de ovos</span>
+              </div>
+
+              {/* 9. Negativas */}
+              <div className="bg-white p-3.5 rounded-xl border border-emerald-200 shadow-2xs">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600">
+                  Negativas
+                </span>
+                <p className="text-xl font-black text-emerald-700 mt-0.5">{kpis.negativeCount}</p>
+                <span className="text-[10px] text-emerald-500 font-medium">Sem ovos</span>
+              </div>
+
+              {/* 10. Inválidas */}
+              <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                  Inválidas
+                </span>
+                <p className="text-xl font-black text-slate-700 mt-0.5">{kpis.invalidCount}</p>
+                <span className="text-[10px] text-slate-400">Descartadas / Danificadas</span>
+              </div>
+
+              {/* 11. Total de Ovos */}
+              <div className="bg-white p-3.5 rounded-xl border border-amber-200 bg-amber-50/20 shadow-2xs">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700">
+                  Total de Ovos
+                </span>
+                <p className="text-xl font-black text-amber-800 mt-0.5">{kpis.totalEggs}</p>
+                <span className="text-[10px] text-amber-600 font-medium">Contagem total</span>
+              </div>
+
+              {/* 12. Positividade % (IPO) */}
+              <div className="bg-white p-3.5 rounded-xl border border-sky-300 bg-sky-50/30 shadow-2xs">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-sky-800">
+                  Positividade % (IPO)
+                </span>
+                <p className="text-xl font-black text-sky-800 mt-0.5">{kpis.ipo}%</p>
+                <span className="text-[10px] text-sky-600 font-medium">Índice Ministério da Saúde</span>
+              </div>
+
+              {/* 13. Média de Ovos */}
+              <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                  Média de Ovos
+                </span>
+                <p className="text-xl font-black text-slate-900 mt-0.5">{kpis.averageEggs}</p>
+                <span className="text-[10px] text-slate-400">Ovos / armadilha</span>
+              </div>
+
+              {/* 14. Densidade de Ovos (IDO) */}
+              <div className="bg-white p-3.5 rounded-xl border border-indigo-200 bg-indigo-50/20 shadow-2xs">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-800">
+                  Densidade Ovos (IDO)
+                </span>
+                <p className="text-xl font-black text-indigo-800 mt-0.5">{kpis.ido}</p>
+                <span className="text-[10px] text-indigo-600 font-medium">Ovos / ovitrampa positiva</span>
+              </div>
+
+              {/* 15. Áreas em Atenção */}
+              <div className="bg-white p-3.5 rounded-xl border border-rose-300 bg-rose-50/30 shadow-2xs">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-rose-800">
+                  Áreas em Atenção
+                </span>
+                <p className="text-xl font-black text-rose-800 mt-0.5">
+                  {kpis.attentionAreasCount}
+                </p>
+                <span className="text-[10px] text-rose-600 font-medium">Densidade &gt; 50 ovos</span>
+              </div>
+            </div>
+          )}
 
           {/* Gráfico de Tendência & O que Fazer Hoje / Amanhã */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
