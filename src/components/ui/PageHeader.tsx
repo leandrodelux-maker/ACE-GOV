@@ -4,10 +4,10 @@ import { LucideIcon } from 'lucide-react';
 export type BadgeTone = 'info' | 'success' | 'warning' | 'danger';
 
 const BADGE_TONE_CLASSES: Record<BadgeTone, string> = {
-  info: 'bg-brand-info-tint text-brand-info',
-  success: 'bg-brand-success-tint text-brand-success',
-  warning: 'bg-brand-warning-tint text-brand-warning',
-  danger: 'bg-brand-danger-tint text-brand-danger',
+  info: 'bg-sky-50 text-sky-700 border border-sky-200',
+  success: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
+  warning: 'bg-amber-50 text-amber-700 border border-amber-200',
+  danger: 'bg-rose-50 text-rose-700 border border-rose-200',
 };
 
 type PageHeaderBadge = { label: string; tone?: BadgeTone };
@@ -33,25 +33,31 @@ export const PageHeader: React.FC<PageHeaderProps> = ({ icon: Icon, title, subti
   const badges = badge ? (Array.isArray(badge) ? badge : [badge]) : [];
 
   return (
-    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-white p-5 rounded-card border border-slate-200 shadow-xs">
-      <div>
-        <div className="flex items-center gap-2 flex-wrap">
-          {live && <span className="w-2.5 h-2.5 rounded-full bg-brand-success animate-pulse" aria-hidden="true" />}
-          {Icon && <Icon className="w-5 h-5 text-brand-primary" aria-hidden="true" />}
-          <h1 className="text-xl font-bold text-slate-900 tracking-tight">{title}</h1>
-          {badges.map((b, i) => (
-            <span
-              key={i}
-              className={`px-2 py-0.5 rounded text-[10px] font-extrabold ${BADGE_TONE_CLASSES[b.tone || 'info']}`}
-            >
-              {b.label}
-            </span>
-          ))}
+    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-white p-4 sm:p-5 rounded-xl border border-slate-200/90 shadow-2xs">
+      <div className="flex items-start gap-3">
+        {Icon && (
+          <span className="p-2 rounded-lg bg-sky-50 text-sky-700 border border-sky-100 flex items-center justify-center shrink-0 mt-0.5" aria-hidden="true">
+            <Icon className="w-5 h-5" />
+          </span>
+        )}
+        <div>
+          <div className="flex items-center gap-2 flex-wrap">
+            {live && <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" aria-hidden="true" title="Atualização em tempo real" />}
+            <h1 className="text-lg sm:text-xl font-extrabold text-slate-900 tracking-tight">{title}</h1>
+            {badges.map((b, i) => (
+              <span
+                key={i}
+                className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold ${BADGE_TONE_CLASSES[b.tone || 'info']}`}
+              >
+                {b.label}
+              </span>
+            ))}
+          </div>
+          {subtitle && <p className="text-xs text-slate-500 mt-1 leading-relaxed">{subtitle}</p>}
         </div>
-        {subtitle && <p className="text-xs text-slate-500 mt-1">{subtitle}</p>}
       </div>
 
-      {actions && <div className="flex flex-wrap items-center gap-2.5">{actions}</div>}
+      {actions && <div className="flex flex-wrap items-center gap-2 self-start md:self-auto">{actions}</div>}
     </div>
   );
 };

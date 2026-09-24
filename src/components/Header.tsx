@@ -88,32 +88,32 @@ export const Header: React.FC<HeaderProps> = ({
   const currentRoleInfo = ROLES_LIST.find(r => r.role === currentUser.role) || ROLES_LIST[0];
 
   return (
-    <header className="sticky top-0 z-30 bg-slate-900 text-white border-b border-slate-800 shadow-md">
-      <div className="flex items-center justify-between px-3 sm:px-6 py-2.5">
+    <header className="sticky top-0 z-30 bg-slate-900/95 backdrop-blur-md text-white border-b border-slate-800/80 shadow-2xs">
+      <div className="flex items-center justify-between px-3 sm:px-6 py-2">
         {/* Left: Brand & Mobile Menu Toggle */}
         <div className="flex items-center gap-3">
           <button
             onClick={onToggleSidebar}
-            className="p-2 -ml-1 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg lg:hidden"
+            className="p-1.5 -ml-1 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg lg:hidden transition"
             aria-label="Abrir menu"
           >
             <Menu className="w-5 h-5" />
           </button>
 
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-blue-500 to-sky-700 flex items-center justify-center shadow-inner">
-              <Shield className="w-5 h-5 text-white" />
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-sky-700 flex items-center justify-center shadow-inner shrink-0">
+              <Shield className="w-4 h-4 text-white" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-bold tracking-tight text-base sm:text-lg leading-tight text-white">
-                  Endemias <span className="text-sky-400 font-extrabold">GOV</span>
+                <span className="font-extrabold tracking-tight text-sm sm:text-base leading-tight text-white">
+                  Endemias <span className="text-sky-400">GOV</span>
                 </span>
-                <span className="hidden md:inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-sky-950 text-sky-300 border border-sky-800">
+                <span className="hidden md:inline-flex items-center px-1.5 py-0.2 rounded text-[9.5px] font-semibold bg-sky-950/80 text-sky-300 border border-sky-800/70">
                   SUS / MS
                 </span>
               </div>
-              <p className="text-[11px] text-slate-400 leading-none truncate max-w-[180px] sm:max-w-[260px]">
+              <p className="text-[11px] text-slate-400 leading-none truncate max-w-[180px] sm:max-w-[260px] mt-0.5">
                 {municipalityName}
               </p>
             </div>
@@ -124,24 +124,24 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="hidden md:flex items-center flex-1 max-w-md mx-4">
           <button
             onClick={() => setSearchModalOpen(true)}
-            className="w-full flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 text-xs text-slate-300 transition cursor-pointer"
+            className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800/60 hover:bg-slate-800 border border-slate-700/60 text-xs text-slate-300 transition cursor-pointer"
           >
             <Search className="w-3.5 h-3.5 text-slate-400" />
-            <span className="flex-1 text-left truncate">Buscar imóvel, ACE, bairro, PE, denúncia...</span>
-            <kbd className="text-[10px] font-mono bg-slate-900 px-1.5 py-0.5 rounded text-slate-400 border border-slate-700">Ctrl+K</kbd>
+            <span className="flex-1 text-left truncate text-slate-400">Buscar imóvel, ACE, bairro, PE, denúncia...</span>
+            <kbd className="text-[10px] font-mono bg-slate-900/90 px-1.5 py-0.5 rounded text-slate-400 border border-slate-700/80">Ctrl+K</kbd>
           </button>
         </div>
 
         {/* Right: Actions, Quick Create, Sync, Notifications & Role Switcher */}
-        <div className="flex items-center gap-2 sm:gap-3">
+        <div className="flex items-center gap-2 sm:gap-2.5">
           {/* Botão de Destaque Global: + Novo Cadastro */}
           {onOpenQuickCreate && (
             <button
               onClick={onOpenQuickCreate}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-md shadow-emerald-950/30 transition transform active:scale-95 cursor-pointer"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-2xs transition transform active:scale-95 cursor-pointer"
               title="Abertura rápida de novo cadastro (Imóvel, Denúncia, Visita, etc.)"
             >
-              <Plus className="w-4 h-4" />
+              <Plus className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Novo Cadastro</span>
             </button>
           )}

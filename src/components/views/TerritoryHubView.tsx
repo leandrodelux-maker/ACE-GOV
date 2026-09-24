@@ -122,8 +122,7 @@ export const TerritoryHubView: React.FC<TerritoryHubViewProps> = ({
       desc: 'Áreas urbanas e rurais de abrangência',
       actionView: () => setActiveTab('neighborhoods'),
       actionNew: () => setQuickCreateOpen(true),
-      color: 'border-emerald-200 bg-emerald-50/50 text-emerald-800',
-      badgeBg: 'bg-emerald-600',
+      iconClass: 'bg-emerald-50 text-emerald-600 border border-emerald-100',
     },
     {
       id: 'sectors',
@@ -133,8 +132,7 @@ export const TerritoryHubView: React.FC<TerritoryHubViewProps> = ({
       desc: 'Subdivisões operacionais do bairro',
       actionView: () => setActiveTab('sectors'),
       actionNew: () => setQuickCreateOpen(true),
-      color: 'border-amber-200 bg-amber-50/50 text-amber-800',
-      badgeBg: 'bg-amber-600',
+      iconClass: 'bg-amber-50 text-amber-600 border border-amber-100',
     },
     {
       id: 'blocks',
@@ -144,8 +142,7 @@ export const TerritoryHubView: React.FC<TerritoryHubViewProps> = ({
       desc: 'Quarteirões e faces de quarteirão',
       actionView: () => setActiveTab('blocks'),
       actionNew: () => setQuickCreateOpen(true),
-      color: 'border-purple-200 bg-purple-50/50 text-purple-800',
-      badgeBg: 'bg-purple-600',
+      iconClass: 'bg-purple-50 text-purple-600 border border-purple-100',
     },
     {
       id: 'properties',
@@ -155,8 +152,7 @@ export const TerritoryHubView: React.FC<TerritoryHubViewProps> = ({
       desc: 'Residências, comércios e terrenos',
       actionView: () => onNavigate('properties'),
       actionNew: () => onNavigate('properties', 'new'),
-      color: 'border-blue-200 bg-blue-50/50 text-blue-800',
-      badgeBg: 'bg-blue-600',
+      iconClass: 'bg-blue-50 text-blue-600 border border-blue-100',
     },
     {
       id: 'microareas',
@@ -166,8 +162,7 @@ export const TerritoryHubView: React.FC<TerritoryHubViewProps> = ({
       desc: 'Divisões territoriais por agente',
       actionView: () => setActiveTab('microareas'),
       actionNew: () => setQuickCreateOpen(true),
-      color: 'border-indigo-200 bg-indigo-50/50 text-indigo-800',
-      badgeBg: 'bg-indigo-600',
+      iconClass: 'bg-indigo-50 text-indigo-600 border border-indigo-100',
     },
     {
       id: 'teams',
@@ -177,8 +172,7 @@ export const TerritoryHubView: React.FC<TerritoryHubViewProps> = ({
       desc: 'Grupos e supervisões municipais',
       actionView: () => onNavigate('teams'),
       actionNew: () => setQuickCreateOpen(true),
-      color: 'border-cyan-200 bg-cyan-50/50 text-cyan-800',
-      badgeBg: 'bg-cyan-600',
+      iconClass: 'bg-cyan-50 text-cyan-600 border border-cyan-100',
     },
     {
       id: 'agents',
@@ -188,8 +182,7 @@ export const TerritoryHubView: React.FC<TerritoryHubViewProps> = ({
       desc: 'Profissionais de campo atuantes',
       actionView: () => onNavigate('teams'),
       actionNew: () => setQuickCreateOpen(true),
-      color: 'border-teal-200 bg-teal-50/50 text-teal-800',
-      badgeBg: 'bg-teal-600',
+      iconClass: 'bg-teal-50 text-teal-600 border border-teal-100',
     },
     {
       id: 'strategic_points',
@@ -199,8 +192,7 @@ export const TerritoryHubView: React.FC<TerritoryHubViewProps> = ({
       desc: 'Ferros-velhos, borracharias, cemitérios',
       actionView: () => onNavigate('strategic_points'),
       actionNew: () => onNavigate('strategic_points', 'new'),
-      color: 'border-orange-200 bg-orange-50/50 text-orange-800',
-      badgeBg: 'bg-orange-600',
+      iconClass: 'bg-orange-50 text-orange-600 border border-orange-100',
     },
     {
       id: 'special_properties',
@@ -210,8 +202,7 @@ export const TerritoryHubView: React.FC<TerritoryHubViewProps> = ({
       desc: 'Hospitais, escolas, órgãos públicos',
       actionView: () => onNavigate('special_properties'),
       actionNew: () => onNavigate('special_properties', 'new'),
-      color: 'border-rose-200 bg-rose-50/50 text-rose-800',
-      badgeBg: 'bg-rose-600',
+      iconClass: 'bg-rose-50 text-rose-600 border border-rose-100',
     },
   ];
 
@@ -281,7 +272,7 @@ export const TerritoryHubView: React.FC<TerritoryHubViewProps> = ({
       />
 
       {/* Navegação de Abas do Hub */}
-      <div className="flex border-b border-slate-200 overflow-x-auto gap-1 text-xs font-semibold">
+      <div className="flex border-b border-slate-200 overflow-x-auto scrollbar-none [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden gap-1 text-xs font-semibold">
         <button
           onClick={() => setActiveTab('overview')}
           className={`pb-3 px-4 border-b-2 transition flex items-center gap-2 whitespace-nowrap ${
@@ -382,76 +373,105 @@ export const TerritoryHubView: React.FC<TerritoryHubViewProps> = ({
       {/* CONTEÚDO DA ABA: VISÃO GERAL */}
       {activeTab === 'overview' && (
         <div className="space-y-6">
-          {/* Banner da Hierarquia Territorial */}
-          <div className="p-4 bg-gradient-to-r from-indigo-900 to-slate-900 text-white rounded-2xl shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-            <div className="space-y-1">
-              <span className="text-[11px] uppercase tracking-wider font-bold text-indigo-300">
-                Hierarquia Territorial Oficial SUS
-              </span>
-              <h3 className="text-sm md:text-base font-extrabold flex items-center gap-2">
-                <span>{municipality?.name || 'Município'}</span>
-                <span className="text-slate-400">→</span>
-                <span>Bairros</span>
-                <span className="text-slate-400">→</span>
-                <span>Setores</span>
-                <span className="text-slate-400">→</span>
-                <span>Quadras</span>
-                <span className="text-slate-400">→</span>
-                <span>Imóveis</span>
-              </h3>
-              <p className="text-xs text-slate-300 max-w-2xl">
-                Toda a cadeia de vigilância entomológica e controle vetorial segue estritamente a amarração territorial
-                para garantir cobertura censitária total de 100% dos imóveis.
-              </p>
-            </div>
+          {/* Banner da Hierarquia Territorial - Versão Clean Executiva */}
+          <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-2xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-indigo-50 text-indigo-700 border border-indigo-200/70">
+                    Hierarquia Territorial Oficial SUS
+                  </span>
+                  <span className="text-[11px] text-slate-400">Amarração censitária obrigatória</span>
+                </div>
+                <p className="text-xs text-slate-500">
+                  Estrutura de vigilância vetorial integrada para garantia de 100% de cobertura nos ciclos operacionais
+                </p>
+              </div>
 
-            <div className="flex items-center gap-2">
               <button
                 onClick={() => setQuickCreateOpen(true)}
-                className="px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-xl text-xs font-bold shadow-xs transition flex items-center gap-1.5 shrink-0"
+                className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold shadow-2xs transition flex items-center gap-1.5 self-start sm:self-auto shrink-0"
               >
                 <Plus className="w-4 h-4" />
                 <span>Cadastrar Entidade</span>
               </button>
             </div>
+
+            {/* Fluxo Visual da Hierarquia */}
+            <div className="flex items-center overflow-x-auto scrollbar-none gap-2 py-1 text-xs">
+              <div className="flex items-center gap-2 bg-slate-50 border border-slate-200/80 px-3 py-2 rounded-lg shrink-0">
+                <Building className="w-3.5 h-3.5 text-indigo-600" />
+                <span className="font-bold text-slate-900">{municipality?.name || 'Município'}</span>
+              </div>
+              <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
+              <div className="flex items-center gap-2 bg-slate-50 border border-slate-200/80 px-3 py-2 rounded-lg shrink-0">
+                <MapPin className="w-3.5 h-3.5 text-emerald-600" />
+                <span className="font-semibold text-slate-800">Bairros</span>
+                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white text-slate-600 border border-slate-200">{metrics.neighborhoodsCount}</span>
+              </div>
+              <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
+              <div className="flex items-center gap-2 bg-slate-50 border border-slate-200/80 px-3 py-2 rounded-lg shrink-0">
+                <Map className="w-3.5 h-3.5 text-amber-600" />
+                <span className="font-semibold text-slate-800">Setores</span>
+                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white text-slate-600 border border-slate-200">{metrics.sectorsCount}</span>
+              </div>
+              <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
+              <div className="flex items-center gap-2 bg-slate-50 border border-slate-200/80 px-3 py-2 rounded-lg shrink-0">
+                <Boxes className="w-3.5 h-3.5 text-purple-600" />
+                <span className="font-semibold text-slate-800">Quadras</span>
+                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white text-slate-600 border border-slate-200">{metrics.blocksCount}</span>
+              </div>
+              <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
+              <div className="flex items-center gap-2 bg-slate-50 border border-slate-200/80 px-3 py-2 rounded-lg shrink-0">
+                <Home className="w-3.5 h-3.5 text-blue-600" />
+                <span className="font-semibold text-slate-800">Imóveis</span>
+                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white text-slate-600 border border-slate-200">{metrics.propertiesCount}</span>
+              </div>
+            </div>
           </div>
 
-          {/* Grid dos 9 Cards Métricos com Ações Rápidas */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {/* Grid dos Cards Métricos Limpos e Executivos */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
             {cards.map(card => {
               const Icon = card.icon;
               return (
                 <div
                   key={card.id}
-                  className={`p-4 rounded-2xl border transition-all hover:shadow-md flex flex-col justify-between ${card.color}`}
+                  className="bg-white p-4 rounded-xl border border-slate-200/80 hover:border-slate-300 shadow-2xs hover:shadow-xs transition-all flex flex-col justify-between group"
                 >
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-1">
-                      <span className="text-xs font-bold uppercase tracking-wider">{card.title}</span>
-                      <div className="text-2xl font-black text-slate-900">{card.count.toLocaleString('pt-BR')}</div>
-                      <p className="text-[11px] text-slate-600 leading-snug">{card.desc}</p>
+                  <div>
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 truncate">
+                        {card.title}
+                      </span>
+                      <span className={`p-1.5 rounded-lg flex items-center justify-center shrink-0 ${card.iconClass}`}>
+                        <Icon className="w-4 h-4" />
+                      </span>
                     </div>
 
-                    <div className={`w-10 h-10 rounded-xl ${card.badgeBg} text-white flex items-center justify-center shadow-xs shrink-0`}>
-                      <Icon className="w-5 h-5" />
-                    </div>
+                    <p className="text-2xl font-extrabold tracking-tight text-slate-900 group-hover:text-indigo-600 transition-colors">
+                      {card.count.toLocaleString('pt-BR')}
+                    </p>
+                    <p className="text-[11px] font-medium text-slate-500 mt-0.5 line-clamp-1">
+                      {card.desc}
+                    </p>
                   </div>
 
-                  <div className="pt-4 mt-2 border-t border-slate-200/60 flex items-center justify-between gap-2">
+                  <div className="pt-3 mt-3 border-t border-slate-100 flex items-center justify-between gap-2">
                     <button
                       onClick={card.actionView}
-                      className="text-xs font-bold text-slate-700 hover:text-indigo-600 transition flex items-center gap-1"
+                      className="text-xs font-semibold text-slate-600 hover:text-indigo-600 transition flex items-center gap-1"
                     >
-                      <Eye className="w-3.5 h-3.5" />
+                      <Eye className="w-3.5 h-3.5 text-slate-400 group-hover:text-indigo-500" />
                       <span>Visualizar</span>
                     </button>
 
                     <button
                       onClick={card.actionNew}
-                      className="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-800 rounded-lg text-[11px] font-bold border border-slate-200/80 transition flex items-center gap-1 shadow-2xs"
+                      className="px-2.5 py-1 bg-slate-50 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 rounded-md text-[11px] font-semibold border border-slate-200/70 hover:border-indigo-200 transition flex items-center gap-1 shadow-2xs"
                     >
                       <Plus className="w-3 h-3 text-indigo-600" />
-                      <span>+ Novo</span>
+                      <span>Novo</span>
                     </button>
                   </div>
                 </div>

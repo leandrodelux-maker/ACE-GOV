@@ -19,22 +19,27 @@ export const Breadcrumbs: React.FC<BreadcrumbsProps> = ({
   onHomeClick,
   className = '',
 }) => {
+  // Evitar duplicação quando o primeiro item passado for "Início"
+  const hasFirstItemHome = items.length > 0 && items[0].label.trim().toLowerCase() === 'início';
+  const effectiveHomeClick = onHomeClick || (hasFirstItemHome ? items[0].onClick : undefined);
+  const displayItems = hasFirstItemHome ? items.slice(1) : items;
+
   return (
     <nav
       aria-label="Caminho de navegação"
-      className={`flex items-center gap-1.5 text-xs text-slate-500 py-1.5 px-3 bg-white/80 backdrop-blur-xs border border-slate-200/80 rounded-lg shadow-2xs overflow-x-auto ${className}`}
+      className={`flex items-center gap-1.5 text-xs text-slate-500 py-1 px-2.5 bg-white/90 backdrop-blur-xs border border-slate-200/80 rounded-lg shadow-2xs overflow-x-auto scrollbar-none [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${className}`}
     >
       <button
-        onClick={onHomeClick}
-        className="flex items-center gap-1 text-slate-400 hover:text-slate-800 transition shrink-0 font-medium"
+        onClick={effectiveHomeClick}
+        className="flex items-center gap-1 text-slate-400 hover:text-slate-800 transition shrink-0 font-medium cursor-pointer"
         title="Página Inicial"
       >
         <Home className="w-3.5 h-3.5" />
         <span className="hidden sm:inline">Início</span>
       </button>
 
-      {items.map((item, index) => {
-        const isLast = index === items.length - 1 || item.active;
+      {displayItems.map((item, index) => {
+        const isLast = index === displayItems.length - 1 || item.active;
         const Icon = item.icon;
 
         return (

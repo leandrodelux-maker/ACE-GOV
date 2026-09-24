@@ -178,7 +178,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
         </div>
 
-        <nav className="flex-1 overflow-y-auto px-2.5 py-3 space-y-4 text-xs select-none">
+        <nav className="flex-1 overflow-y-auto scrollbar-thin px-2.5 py-3 space-y-4 text-xs select-none">
           {!menuFilter && favoriteItems.length > 0 && (
             <div className="bg-slate-800/30 rounded-xl p-2 border border-slate-800/60">
               <div className="flex items-center justify-between px-1 mb-1.5">

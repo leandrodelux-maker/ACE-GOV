@@ -462,7 +462,7 @@ function AppContent() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 flex flex-col font-sans text-slate-800 antialiased selection:bg-blue-600 selection:text-white">
+    <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-800 antialiased selection:bg-sky-600 selection:text-white">
       <Header
         currentUser={user}
         realRole={realRole}
@@ -493,7 +493,7 @@ function AppContent() {
           pendingSyncCount={pendingSyncCount}
         />
 
-        <main id="conteudo-principal" className="flex-1 overflow-y-auto p-3 sm:p-6 lg:p-8">
+        <main id="conteudo-principal" className="flex-1 overflow-y-auto scrollbar-thin p-3 sm:p-6 lg:p-8">
           <div className="max-w-7xl mx-auto">
             <Suspense fallback={<p className="text-xs text-slate-500" role="status">Carregando tela...</p>}>{renderView()}</Suspense>
           </div>
