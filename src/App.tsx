@@ -3,6 +3,7 @@ import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
 import { db } from './services/storage';
 import { OFFLINE_QUEUE_EVENT, OFFLINE_QUEUE_KEY, readQueue } from './services/offlineVisitQueue';
+import { pendingModuleCount } from './services/offlineQueue';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { Shield, SearchX, Building2, LogOut } from 'lucide-react';
 import {
@@ -27,6 +28,7 @@ import { ForgotPasswordPage } from './components/auth/ForgotPasswordPage';
 import { ResetPasswordPage } from './components/auth/ResetPasswordPage';
 import { FirstAccessPage } from './components/auth/FirstAccessPage';
 import { AccessDeniedPage } from './components/auth/AccessDeniedPage';
+import { ErrorBoundary } from './components/ui/ErrorBoundary';
 import { MyAccountPage } from './components/auth/MyAccountPage';
 
 // Telas internas carregadas sob demanda (uma parte do bundle por tela)
@@ -60,7 +62,11 @@ const RiskEngineView = lazy(() => import('./components/views/RiskEngineView').th
 const ExecutiveDashboardView = lazy(() => import('./components/views/ExecutiveDashboardView').then((m) => ({ default: m.ExecutiveDashboardView })));
 const AlertsView = lazy(() => import('./components/views/AlertsView').then((m) => ({ default: m.AlertsView })));
 const CyclesView = lazy(() => import('./components/views/CyclesView').then((m) => ({ default: m.CyclesView })));
-const LiraaView = lazy(() => import('./components/views/LiraaView').then((m) => ({ default: m.LiraaView })));
+// LIRAa/LIA: o hub substitui a tela anterior (LiraaView, mantida no repositório e fora das rotas)
+const LiraaHubView = lazy(() => import('./components/liraa/LiraaHubView').then((m) => ({ default: m.LiraaHubView })));
+const ZoonosesHubView = lazy(() => import('./components/zoonoses/ZoonosesHubView').then((m) => ({ default: m.ZoonosesHubView })));
+const RabiesSurveillanceView = lazy(() => import('./components/zoonoses/RabiesSurveillanceView').then((m) => ({ default: m.RabiesSurveillanceView })));
+const VaccinationVerifyView = lazy(() => import('./components/zoonoses/VaccinationVerifyView').then((m) => ({ default: m.VaccinationVerifyView })));
 const VectorControlHubView = lazy(() => import('./components/views/VectorControlHubView').then((m) => ({ default: m.VectorControlHubView })));
 const LabelGeneratorView = lazy(() => import('./components/views/LabelGeneratorView').then((m) => ({ default: m.LabelGeneratorView })));
 const WorkOrdersView = lazy(() => import('./components/views/WorkOrdersView').then((m) => ({ default: m.WorkOrdersView })));
@@ -77,7 +83,7 @@ const FieldPendenciesView = lazy(() => import('./components/views/FieldPendencie
 
 /** Visitas guardadas no aparelho aguardando envio (mesma fila usada pelo PWA). */
 function readPendingOfflineCount(): number {
-  return readQueue().length;
+  return readQueue().length + pendingModuleCount();
 }
 
 const FullScreenMessage: React.FC<{ children: React.ReactNode }> = ({ children }) => (
@@ -162,7 +168,7 @@ function AppContent() {
   useEffect(() => {
     const refresh = () => setPendingSyncCount(readPendingOfflineCount());
     const onStorage = (e: StorageEvent) => {
-      if (e.key === OFFLINE_QUEUE_KEY) refresh();
+      if (e.key === OFFLINE_QUEUE_KEY || e.key?.startsWith('endemias_queue_')) refresh();
     };
     window.addEventListener('storage', onStorage);
     window.addEventListener(OFFLINE_QUEUE_EVENT, refresh);
@@ -230,6 +236,12 @@ function AppContent() {
             onBackToPortal={() => navigate('/publico')}
             onNavigateToTracking={() => navigate('/publico/denuncia/acompanhar')}
           />
+        );
+      case '/verificar-vacina':
+        return (
+          <Suspense fallback={<FullScreenMessage><p className="text-sm" role="status">Carregando...</p></FullScreenMessage>}>
+            <VaccinationVerifyView />
+          </Suspense>
         );
       case '/publico/denuncia/acompanhar':
         return (
@@ -357,7 +369,21 @@ function AppContent() {
           />
         );
       case 'liraa':
-        return <LiraaView />;
+      case 'liraa_surveys':
+      case 'liraa_field':
+      case 'liraa_lab':
+      case 'liraa_reports':
+        return <LiraaHubView initialTab={tabForView('liraa', route.view) ?? 'painel'} onTabChange={tabNavigator('liraa')} />;
+      case 'zoo_dashboard':
+      case 'zoo_campaigns':
+      case 'zoo_vaccination':
+      case 'zoo_animals':
+      case 'zoo_stock':
+      case 'zoo_active_search':
+      case 'zoo_reports':
+        return <ZoonosesHubView initialTab={tabForView('zoonoses', route.view) ?? 'painel'} onTabChange={tabNavigator('zoonoses')} />;
+      case 'zoo_rabies':
+        return <RabiesSurveillanceView />;
       case 'cycles':
         return <CyclesView />;
       case 'ovitraps':
@@ -462,7 +488,13 @@ function AppContent() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-800 antialiased selection:bg-sky-600 selection:text-white">
+    <div className="app-shell min-h-screen bg-slate-100 flex flex-col font-sans text-slate-800 antialiased selection:bg-teal-700 selection:text-white">
+      <a
+        href="#conteudo-principal"
+        className="sr-only z-[100] rounded-md bg-white px-4 py-2 text-sm font-semibold text-slate-950 shadow-lg focus:not-sr-only focus:fixed focus:left-4 focus:top-4"
+      >
+        Ir para o conteúdo principal
+      </a>
       <Header
         currentUser={user}
         realRole={realRole}
@@ -474,6 +506,7 @@ function AppContent() {
         onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
         unreadAlertsCount={unreadAlertsCount}
         municipalityName={municipality.name}
+        municipalityLogoUrl={municipality.coatOfArmsUrl}
         onLogout={handleLogout}
         onNavigate={navigate}
         onOpenQuickCreate={() => setIsQuickCreateOpen(true)}
@@ -493,9 +526,11 @@ function AppContent() {
           pendingSyncCount={pendingSyncCount}
         />
 
-        <main id="conteudo-principal" className="flex-1 overflow-y-auto scrollbar-thin p-3 sm:p-6 lg:p-8">
-          <div className="max-w-7xl mx-auto">
-            <Suspense fallback={<p className="text-xs text-slate-500" role="status">Carregando tela...</p>}>{renderView()}</Suspense>
+        <main id="conteudo-principal" tabIndex={-1} className="app-content flex-1 overflow-y-auto scrollbar-thin p-3 sm:p-5 lg:p-6">
+          <div className="max-w-[1440px] mx-auto">
+            <ErrorBoundary resetKey={currentPath}>
+              <Suspense fallback={<p className="text-xs text-slate-500" role="status">Carregando tela...</p>}>{renderView()}</Suspense>
+            </ErrorBoundary>
           </div>
         </main>
       </div>

@@ -11,7 +11,8 @@
     "depois": "node upgrade.mjs && node sectest.mjs --label=depois",
     "instalacao-limpa": "node apply.mjs",
     "esquema-escritas": "node writecheck.mjs",
-    "sondar-producao": "node collect.mjs && node probe-all.mjs"
+    "sondar-producao": "node collect.mjs && node probe-all.mjs",
+    "modulos": "node ../../node_modules/tsx/dist/cli.mjs modulos.test.ts"
   },
   "dependencies": {
     "embedded-postgres": "15.17.0-beta.17",

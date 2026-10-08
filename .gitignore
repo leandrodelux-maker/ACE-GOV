@@ -13,3 +13,11 @@ scripts/homologacao/results-*.json
 scripts/homologacao/all-queries.json
 scripts/homologacao/probe-results.json
 scripts/homologacao/package-lock.json
+
+# Arquivos compactados (cópias de código não devem ir para o repositório)
+*.rar
+*.zip
+*.7z
+
+# Estado local da CLI do Supabase
+supabase/.temp/

@@ -394,3 +394,59 @@ Resultado: 0 leituras com erro de esquema no projeto real. A única exceção é
   - login pela interface (Supabase Auth);
   - envio real de denúncia pelo portal publicado.
 
+
+---
+
+## 11. Rodada 4 — preparação para produção (08/10/2026)
+
+Primeira rodada com acesso ao projeto Supabase real (`abryzuudmmwnoefhaaxk`, PostgreSQL 17, região `sa-east-1`). As 35 migrações foram aplicadas num banco vazio sem erro, e a 36 foi criada e aplicada nesta rodada. Critérios usados: skills `supabase`, `supabase-audit-rls`, `supabase-postgres-best-practices`, `vercel-react-best-practices` e `web-design-guidelines`.
+
+### 11.1 Banco real: o que foi verificado
+
+| Verificação | Resultado |
+|---|---|
+| `supabase db advisors` (segurança) | Nenhum achado |
+| RLS | 91/91 tabelas com RLS; nenhuma concessão a `anon`; nenhuma política `USING (true)` além de catálogos para `authenticated` |
+| Funções `SECURITY DEFINER` | Todas com `search_path` fixo; as executáveis por `anon` são só as 4 do portal |
+| Acesso anônimo pela API | 68/68 tabelas usadas pelo app recusam (401) |
+| Login real | `get_auth_bootstrap` devolve perfil e papel; telas internas abrem com dados do banco |
+| Hook `custom_access_token_hook` | Opcional: nem as políticas nem o frontend leem `app_metadata` |
+
+### 11.2 Achados e correções
+
+| ID | Achado | Correção |
+|---|---|---|
+| P1 | **Portal do Cidadão mostrava cobertura sempre 0%**: contava `result = 'TRABALHADO'` e a RPC grava `'trabalhado'` | Migração 36 |
+| P2 | Portal: "focos eliminados" contava também os ativos; "quarteirões trabalhados" era `visitados / 25` | Migração 36: só eliminados; quadras distintas dos imóveis visitados |
+| P3 | Autoedição de `profiles` só era barrada para município e situação pela checagem de SELECT no `RETURNING` do PostgREST | Migração 36: gatilho bloqueia município, situação, e-mail, vínculo de login e exclusão lógica (testado com ACE simulado) |
+| P4 | 13 índices duplicados; 23 tabelas sem índice em `municipality_id` (coluna de toda política RLS) | Migração 36 |
+| P5 | Funções de gatilho executáveis por `anon` | Migração 36 (`REVOKE`) |
+| P6 | Etiquetas QR geradas por `api.qrserver.com`, que recebia ID e token de cada imóvel, e apontavam para `endemias.gov.br`, domínio que não é do município | QR gerado no navegador (`qrcode`); URL no domínio publicado; etiquetas antigas continuam legíveis |
+| P7 | Código de verificação de assinatura com `Math.random` | `crypto.getRandomValues` |
+| P8 | Protocolo de denúncia interna com ano fixo `2026` | Ano corrente e gerador criptográfico |
+| P9 | Falha em uma tela, ou pacote antigo após nova publicação, deixava a página em branco | `ErrorBoundary` em volta das telas, com aviso de nova versão e botão de recarregar |
+| P10 | Zoom bloqueado (`user-scalable=no`), ícone `apple-touch-icon.png` inexistente, CSS do mapa vindo de `unpkg.com` | Corrigidos; CSS do Leaflet empacotado |
+| P11 | Sem configuração de hospedagem | `public/.htaccess` (Hostinger): HTTPS, rotas da SPA, CSP, HSTS, cache. CSP validada no Chrome com login: nenhuma violação |
+| P12 | `ACE-GOV.rar` (44 MB) versionado num repositório **público**; o `.env` dentro dele tem só a chave pública de um projeto desativado | Removido do índice; `*.rar`, `*.zip` e `*.7z` no `.gitignore` |
+| P13 | `source-map-js` (ferramenta de build) com vulnerabilidade alta | `npm audit fix`: 0 vulnerabilidades |
+| P14 | **Banco carregado com dados fictícios das migrações de exemplo** (casos, bloqueios, equipamentos, insumos, servidores, bairros, CNES, clima sintético rotulado "INMET") no município `…0001` | Resolvido: criado **Moiporá-GO** (IBGE 5213400, id `dda92e70-580f-44ef-a5b1-5638448a48a3`) com as configurações padrão de risco e gerais; usuários com login movidos; município de exemplo excluído com os dados fictícios. `VITE_PUBLIC_MUNICIPALITY_ID` definido no `.env` |
+
+### 11.3 Validação
+
+- `npm run lint`: 0 erros
+- `npm test`: 57/57, com 3 testes novos: portal, códigos e QR
+- `npm run build`: concluído
+- Navegador (Chrome, build com a CSP do `.htaccess`): login, portal público, Sala de Situação, Mapa, Ovitrampas, Visitas, PWA, Imóveis e Epidemiologia sem erro de console nem bloqueio de CSP.
+
+### 11.4 Pendências para a entrada em produção
+
+Detalhes em `docs/RUNBOOK-HOMOLOGACAO.md`, seção 6.
+
+1. **Cadastro inicial de Moiporá:** a população oficial vem de *Integrações › IBGE › Sincronizar*. Bairros, quadras e imóveis entram pela *Importação* ou pelo cadastro. Os servidores entram em *Administração › Usuários*, e o ACE precisa do vínculo de agente.
+2. **Painel do Supabase:**
+   - plano pago, porque o gratuito pausa por inatividade (foi o que tirou o projeto anterior do ar);
+   - SMTP próprio;
+   - URL do site e redirecionamentos;
+   - cadastro público desativado;
+   - proteção contra senhas vazadas.
+3. **Trocar a senha temporária** do administrador.

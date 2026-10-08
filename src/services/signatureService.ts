@@ -36,10 +36,13 @@ export const signatureService = {
    * Gera código institucional de verificação rápida (Ex: END-SIG-2026-X9K2)
    */
   generateVerificationCode(): string {
+    // Gerador criptográfico: o código autentica o documento e não pode ser previsível.
+    // 32 símbolos dividem 256 exatamente, então o módulo não introduz viés.
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    const bytes = crypto.getRandomValues(new Uint8Array(8));
     let code = '';
-    for (let i = 0; i < 8; i++) {
-      code += chars.charAt(Math.floor(Math.random() * chars.length));
+    for (const b of bytes) {
+      code += chars.charAt(b % chars.length);
     }
     const year = new Date().getFullYear();
     return `END-SIG-${year}-${code.substring(0, 4)}-${code.substring(4, 8)}`;

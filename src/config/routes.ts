@@ -44,11 +44,24 @@ export type ViewModule =
   | 'vector_control'
   | 'chemical_operations'
   | 'liraa'
+  | 'liraa_surveys'
+  | 'liraa_field'
+  | 'liraa_lab'
+  | 'liraa_reports'
   | 'cycles'
   | 'ovitraps'
   | 'entomology_lab'
   | 'epidemiology'
   | 'foci_recurrence'
+  // Zoonoses
+  | 'zoo_dashboard'
+  | 'zoo_campaigns'
+  | 'zoo_vaccination'
+  | 'zoo_animals'
+  | 'zoo_stock'
+  | 'zoo_active_search'
+  | 'zoo_reports'
+  | 'zoo_rabies'
   // Gestão Operacional
   | 'teams'
   | 'productivity'
@@ -126,12 +139,26 @@ export const ROUTES: RouteDefinition[] = [
   // 4. Vigilância
   { view: 'vector_control', path: '/controle-vetorial', aliases: ['/vector_control'], title: 'Controle Vetorial', permission: 'visits.view', searchable: true },
   { view: 'chemical_operations', path: '/controle-vetorial/operacoes', aliases: ['/chemical_operations'], title: 'Operações Químicas & UBV', permission: 'visits.view', searchable: true },
-  { view: 'liraa', path: '/liraa', title: 'LIRAa / LIA', permission: 'dashboard.view', searchable: true },
+  { view: 'liraa', path: '/liraa', title: 'LIRAa / LIA — Painel', permission: 'liraa.view', searchable: true },
+  { view: 'liraa_surveys', path: '/liraa/levantamentos', title: 'LIRAa / LIA — Levantamentos', permission: 'liraa.view', searchable: true },
+  { view: 'liraa_field', path: '/liraa/campo', title: 'LIRAa / LIA — Coleta de campo', permission: 'liraa.coletar', searchable: true },
+  { view: 'liraa_lab', path: '/liraa/laboratorio', title: 'LIRAa / LIA — Laboratório', permission: 'liraa.laboratorio', searchable: true },
+  { view: 'liraa_reports', path: '/liraa/relatorios', title: 'LIRAa / LIA — Relatórios', permission: 'liraa.view', searchable: true },
   { view: 'cycles', path: '/ciclos', aliases: ['/cycles'], title: 'Ciclos', permission: 'cycles.view', searchable: true },
   { view: 'ovitraps', path: '/ovitrampas', aliases: ['/ovitraps'], title: 'Ovitrampas', permission: 'ovitraps.view', searchable: true },
   { view: 'entomology_lab', path: '/laboratorio-entomologico', aliases: ['/entomology_lab'], title: 'Laboratório Entomológico', permission: 'ovitraps.view', searchable: true },
   { view: 'epidemiology', path: '/epidemiologia', aliases: ['/epidemiology'], title: 'Epidemiologia e Bloqueios', permission: 'epidemiology.view', searchable: true },
   { view: 'foci_recurrence', path: '/focos', aliases: ['/foci_recurrence'], title: 'Focos e Reincidências', permission: 'outbreaks.view', searchable: true },
+
+  // Zoonoses
+  { view: 'zoo_dashboard', path: '/zoonoses', aliases: ['/vacinacao-antirrabica'], title: 'Vacinação antirrábica — Painel', permission: 'antirrabica.view', searchable: true },
+  { view: 'zoo_campaigns', path: '/zoonoses/campanhas', title: 'Campanhas de vacinação antirrábica', permission: 'antirrabica.view', searchable: true },
+  { view: 'zoo_vaccination', path: '/zoonoses/vacinacao', title: 'Registro de vacinação antirrábica', permission: 'antirrabica.vacinar', searchable: true },
+  { view: 'zoo_animals', path: '/zoonoses/animais', title: 'Animais e tutores', permission: 'antirrabica.view', searchable: true },
+  { view: 'zoo_stock', path: '/zoonoses/estoque', title: 'Estoque de vacinas antirrábicas', permission: 'antirrabica.view', searchable: true },
+  { view: 'zoo_active_search', path: '/zoonoses/busca-ativa', title: 'Busca ativa de animais', permission: 'antirrabica.busca_ativa', searchable: true },
+  { view: 'zoo_reports', path: '/zoonoses/relatorios', title: 'Relatórios antirrábicos', permission: 'antirrabica.view', searchable: true },
+  { view: 'zoo_rabies', path: '/zoonoses/vigilancia-raiva', title: 'Vigilância da raiva animal', permission: 'raiva.view', searchable: true },
 
   // 5. Gestão Operacional
   { view: 'teams', path: '/equipes', aliases: ['/teams'], title: 'Equipes', permission: 'teams.view', searchable: true },
@@ -179,6 +206,7 @@ export const PUBLIC_PATHS = [
   '/publico',
   '/publico/denuncia',
   '/publico/denuncia/acompanhar',
+  '/verificar-vacina',
 ] as const;
 
 /** Rotas da conta do usuário (exigem sessão, sem permissão específica). */
@@ -352,6 +380,16 @@ export const HUB_TABS = {
   },
   vectorControl: { operacoes: 'vector_control', quimicas: 'chemical_operations' },
   ovitraps: { ovos: 'ovitraps', laboratorio: 'entomology_lab' },
+  liraa: { painel: 'liraa', levantamentos: 'liraa_surveys', campo: 'liraa_field', laboratorio: 'liraa_lab', relatorios: 'liraa_reports' },
+  zoonoses: {
+    painel: 'zoo_dashboard',
+    campanhas: 'zoo_campaigns',
+    vacinacao: 'zoo_vaccination',
+    animais: 'zoo_animals',
+    estoque: 'zoo_stock',
+    busca: 'zoo_active_search',
+    relatorios: 'zoo_reports',
+  },
   teams: { equipes: 'teams', produtividade: 'productivity' },
   complaints: { denuncias: 'complaints', encaminhamentos: 'referrals' },
   stock: { estoque: 'stock', quimicos: 'supplies' },

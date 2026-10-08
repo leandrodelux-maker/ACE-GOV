@@ -28,7 +28,7 @@ import {
   toPath,
   HubId,
 } from '../config/routes';
-import { NAV_GROUPS, getVisibleNavGroups } from '../config/navigation';
+import { NAV_GROUPS, UTILITY_NAV_ITEMS, getVisibleNavGroups } from '../config/navigation';
 import { requireMunicipalityId, MissingMunicipalityError, EXAMPLE_MUNICIPALITY_ID } from '../services/municipalityScope';
 import { situationRoomService } from '../services/situationRoomService';
 import { auditLogService } from '../services/auditLogService';
@@ -39,6 +39,7 @@ import { historicalAnalysisService } from '../services/historicalAnalysisService
 import { db } from '../services/storage';
 import { agentName, isInspectionOverdue, normResult, PENDING_STATUSES } from '../services/schemaHelpers';
 import { ibgeService } from '../services/ibgeService';
+import { runModuleTests } from './modulesTests';
 
 /** Checador de acesso equivalente ao AuthContext para um papel (permissões padrão do papel). */
 function accessFor(role: UserRole): AccessChecker {
@@ -661,8 +662,8 @@ async function main() {
   // -------------------------------------------------------------
   console.log('\n🛡️ 7. CENTRAL DE INTEGRIDADE DO SISTEMA & AUDITORIA:');
 
-  await runTest('Auditoria do Sistema', 'Validação do Catálogo de 51 Páginas/Módulos', () => {
-    assert(ALL_SYSTEM_PAGES.length === 51, `Deve conter 51 páginas mapeadas no catálogo (encontradas: ${ALL_SYSTEM_PAGES.length})`);
+  await runTest('Auditoria do Sistema', 'Validação do Catálogo de 63 Páginas/Módulos', () => {
+    assert(ALL_SYSTEM_PAGES.length === 63, `Deve conter 63 páginas mapeadas no catálogo (encontradas: ${ALL_SYSTEM_PAGES.length})`);
     
     // Nenhuma página pode ter status PARCIAL, SEM_BANCO, MOCK_DATA ou ERRO
     const invalidPages = ALL_SYSTEM_PAGES.filter(p => p.status !== 'FUNCIONAL');
@@ -682,8 +683,8 @@ async function main() {
   // este teste valida o resumo calculado e a conectividade, não a persistência.
   await runTest('Auditoria do Sistema', 'Execução da auditoria completa (resumo e conectividade)', async () => {
     const { summary } = await systemAuditService.runCompleteAudit('test-runner-automated');
-    assert(summary.pagesChecked === 51, `Auditoria deve checar 51 páginas (checou: ${summary.pagesChecked})`);
-    assert(summary.functionalCount === 51, `Auditoria deve validar 51 páginas como FUNCIONAIS (validou: ${summary.functionalCount})`);
+    assert(summary.pagesChecked === 63, `Auditoria deve checar 63 páginas (checou: ${summary.pagesChecked})`);
+    assert(summary.functionalCount === 63, `Auditoria deve validar 63 páginas como FUNCIONAIS (validou: ${summary.functionalCount})`);
     assert(summary.partialCount === 0, `Não deve haver páginas parciais`);
     assert(summary.mockCount === 0, `Não deve haver páginas com mock data`);
     assert(summary.errorCount === 0, `Não deve haver páginas com erro`);
@@ -787,22 +788,22 @@ async function main() {
     assert(canAccessView('ace_pwa', ace) && canAccessView('visits', ace) && canAccessView('ovitraps', ace), 'ACE deve abrir PWA, visitas e ovitrampas');
     assertEquals(getHomeView('ACE', ace), 'ace_pwa', 'Tela inicial do ACE deve ser o PWA');
     const groups = getVisibleNavGroups('ACE', ace);
-    assertEquals(groups[0]?.id, 'campo', 'Para o ACE o grupo Campo ACE vem primeiro');
+    assertEquals(groups[0]?.id, 'campo', 'Para o ACE o grupo Campo vem primeiro');
     assert(!groups.some(g => g.id === 'admin'), 'ACE não vê o grupo Administração');
   });
 
   await runTest('Permissões', 'Administradores mantêm ferramentas administrativas; restrições de papel preservadas', () => {
     const admin = accessFor('MUNICIPAL_ADMIN');
-    const adminGroup = getVisibleNavGroups('MUNICIPAL_ADMIN', admin).find(g => g.id === 'admin');
-    assert(!!adminGroup && adminGroup.items.length === 6, 'Administração deve ter 6 itens para o administrador municipal');
+    const adminUtilities = UTILITY_NAV_ITEMS.filter((item) => canAccessView(item.view, admin));
+    assertEquals(adminUtilities.length, 3, 'Administração municipal deve ter 3 atalhos utilitários essenciais');
     assert(canAccessView('database_health', admin), 'Admin municipal acessa Integridade do Sistema');
     assert(!canAccessView('system_errors', admin), 'Logs de erros continuam exclusivos do SUPER_ADMIN');
     assert(canAccessView('system_errors', accessFor('SUPER_ADMIN')), 'SUPER_ADMIN acessa Logs de erros');
     assert(!canAccessView('supervisor_mobile', accessFor('HEALTH_SECRETARY')), 'Supervisão restrita aos papéis de supervisão');
   });
 
-  await runTest('Permissões', 'Menu: sete grupos na ordem definida e itens sem permissão ocultos', () => {
-    assertEquals(NAV_GROUPS.map(g => g.title).join(' | '), 'Início | Campo ACE | Território | Vigilância | Gestão Operacional | Relatórios | Administração', 'Grupos do menu');
+  await runTest('Permissões', 'Menu institucional: seis grupos (com Zoonoses) e itens sem permissão ocultos', () => {
+    assertEquals(NAV_GROUPS.map(g => g.title).join(' | '), 'Início | Campo | Território | Vigilância | Zoonoses | Resultados', 'Grupos do menu');
     const auditor = getVisibleNavGroups('AUDITOR_VIEWER', accessFor('AUDITOR_VIEWER')).flatMap(g => g.items.map(i => i.view));
     assert(!auditor.includes('ace_pwa'), 'Auditor não vê o PWA de campo');
     assert(auditor.includes('dashboard'), 'Auditor vê a Sala de Situação');
@@ -940,9 +941,10 @@ async function main() {
     assert(!isViewModule('command_center') && !isViewModule('transparency'), 'Views removidas não podem continuar registradas');
   });
 
-  await runTest('Rodada 3', 'Menu inclui Painel do Gestor, Alertas, Motor de Risco e Análise Histórica', () => {
+  await runTest('Rodada 3', 'Menu mantém gestão e alertas, ocultando módulos avançados não homologados', () => {
     const views = NAV_GROUPS.flatMap((g) => g.items.map((i) => i.view));
-    for (const v of ['executive', 'alerts', 'risk_engine', 'historical_analysis']) assert(views.includes(v as any), `${v} deve estar no menu`);
+    for (const v of ['executive', 'alerts']) assert(views.includes(v as any), `${v} deve estar no menu`);
+    for (const v of ['risk_engine', 'historical_analysis', 'integrations', 'communication']) assert(!views.includes(v as any), `${v} deve ficar fora do menu do MVP`);
     const inicio = NAV_GROUPS.find((g) => g.id === 'inicio')!.items.map((i) => i.view);
     assert(inicio.includes('executive') && inicio.includes('alerts'), 'Painel do Gestor e Alertas ficam em Início');
   });
@@ -1016,6 +1018,44 @@ async function main() {
     const m33 = readFileSync(join(process.cwd(), 'supabase', 'migrations', '20260923000033_public_portal_complaint_token.sql'), 'utf8');
     assert(!/gen_random_bytes\(/.test(m33.split('\n').filter((l) => !l.trim().startsWith('--')).join('\n')), 'Token do portal sem pgcrypto');
   });
+
+  await runTest('Produção', 'Portal do Cidadão conta visitas com a grafia gravada pela RPC (minúsculas)', () => {
+    const dir = join(process.cwd(), 'supabase', 'migrations');
+    const rpc = readFileSync(join(dir, '20260907000018_official_visit_atomic_rpc.sql'), 'utf8');
+    assert(/COALESCE\(payload->>'result', 'trabalhado'\)/.test(rpc), 'A RPC de visita grava result em minúsculas');
+    const m36 = readFileSync(join(dir, '20261008000036_production_readiness_fixes.sql'), 'utf8');
+    const overview = m36.slice(m36.indexOf('FUNCTION public.public_portal_overview'), m36.indexOf('REVOKE ALL ON FUNCTION public.public_portal_overview'));
+    assert(overview.length > 0, 'public_portal_overview redefinida na migração 36');
+    assert(!/result\s*=\s*'TRABALHADO'/.test(overview), 'Sem comparação com TRABALHADO maiúsculo');
+    assert(/lower\(v\.result\) = 'trabalhado'/.test(overview), 'Comparação normalizada');
+    assert(!/\/\s*25\b/.test(overview), 'Quarteirões trabalhados não são estimados por divisão fixa');
+    assert(/lower\(bs\.status\) = 'eliminado'/.test(overview), 'Focos eliminados filtram a situação eliminado');
+  });
+
+  await runTest('Produção', 'Códigos de verificação e protocolos sem Math.random nem ano fixo', async () => {
+    const { signatureService } = await import('../services/signatureService');
+    const code = signatureService.generateVerificationCode();
+    assert(new RegExp(`^END-SIG-${new Date().getFullYear()}-[A-Z2-9]{4}-[A-Z2-9]{4}$`).test(code), `Formato do código: ${code}`);
+    const sig = readFileSync(join(process.cwd(), 'src', 'services', 'signatureService.ts'), 'utf8');
+    assert(!/Math\.random/.test(sig), 'signatureService usa gerador criptográfico');
+    const portal = readFileSync(join(process.cwd(), 'src', 'components', 'views', 'CitizenPortalView.tsx'), 'utf8');
+    assert(!/`END-20\d\d-\$\{/.test(portal) && !/Math\.random/.test(portal), 'Protocolo interno usa o ano corrente e gerador criptográfico');
+  });
+
+  await runTest('Produção', 'QR Code gerado localmente e lido de qualquer domínio publicado', async () => {
+    const { qrCodeService } = await import('../services/qrCodeService');
+    const img = qrCodeService.getQrCodeImageUrl('https://municipio.exemplo/qr?t=property&id=abc', 160);
+    assert(img.startsWith('data:image/svg+xml'), 'Imagem do QR é gerada no navegador (sem serviço externo)');
+    const src = readFileSync(join(process.cwd(), 'src', 'services', 'qrCodeService.ts'), 'utf8');
+    assert(!/api\.qrserver\.com/.test(src), 'Sem api.qrserver.com');
+    const novo = qrCodeService.parseQrPayload('https://endemias.municipio.rs.gov.br/qr?t=ovitrap&id=123&c=OVI-1&tk=EG-OVI-1');
+    assertEquals(novo?.type, 'ovitrap', 'Etiqueta do domínio publicado');
+    const antigo = qrCodeService.parseQrPayload('https://endemias.gov.br/qr?t=property&id=9&c=IMV-1&tk=x');
+    assertEquals(antigo?.id, '9', 'Etiqueta antiga continua legível');
+    assertEquals(qrCodeService.parseQrPayload('https://outro.site/pagina?id=1'), null, 'URL sem /qr é ignorada');
+  });
+
+  await runModuleTests(runTest, assert, assertEquals, memoryStorage, accessFor);
 
   // -------------------------------------------------------------
   // RELATÓRIO FINAL

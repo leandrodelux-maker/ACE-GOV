@@ -1,3 +1,4 @@
+import QRCode from 'qrcode';
 import { supabase } from './supabaseClient';
 import { auditLogService } from './auditLogService';
 import { AGENT_EMBED, agentName, formatAddress } from './schemaHelpers';
@@ -50,27 +51,42 @@ export const qrCodeService = {
   },
 
   /**
-   * Cria a URI padronizada do QR Code governamental
+   * Cria a URI do QR Code no domínio onde o sistema está publicado
    */
   generateQrUrl(entityType: QrEntityType, entityId: string, entityCode: string): string {
     const token = this.generateSecureToken(entityType, entityId);
-    return `https://endemias.gov.br/qr?t=${entityType}&id=${entityId}&c=${encodeURIComponent(entityCode)}&tk=${token}`;
+    return `${window.location.origin}/qr?t=${entityType}&id=${entityId}&c=${encodeURIComponent(entityCode)}&tk=${token}`;
   },
 
   /**
-   * Constrói a URL para renderizar imagem QR Code via API pública do SUS / Google Chart segura
+   * Gera a imagem do QR Code no próprio navegador (SVG em data URI), sem enviar
+   * identificadores a serviços externos e funcionando offline.
    */
   getQrCodeImageUrl(content: string, size = 200): string {
-    return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&margin=8&data=${encodeURIComponent(content)}`;
+    const { modules } = QRCode.create(content, { errorCorrectionLevel: 'M' });
+    const margin = 2;
+    const count = modules.size + margin * 2;
+    let path = '';
+    for (let row = 0; row < modules.size; row++) {
+      for (let col = 0; col < modules.size; col++) {
+        if (modules.get(row, col)) path += `M${col + margin} ${row + margin}h1v1h-1z`;
+      }
+    }
+    const svg =
+      `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${count} ${count}" shape-rendering="crispEdges">` +
+      `<rect width="100%" height="100%" fill="#fff"/><path d="${path}" fill="#000"/></svg>`;
+    return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
   },
 
   /**
-   * Decodifica a URL ou payload de um QR escaneado
+   * Decodifica a URL ou payload de um QR escaneado.
+   * Aceita etiquetas de qualquer domínio com caminho /qr (inclusive as antigas
+   * impressas com endemias.gov.br).
    */
   parseQrPayload(qrText: string): QrPayloadData | null {
     try {
-      if (qrText.includes('endemias.gov.br/qr')) {
-        const url = new URL(qrText);
+      if (/^https?:\/\/[^/]+\/qr\?/i.test(qrText.trim())) {
+        const url = new URL(qrText.trim());
         const type = url.searchParams.get('t') as QrEntityType;
         const id = url.searchParams.get('id') || '';
         const code = url.searchParams.get('c') || '';

@@ -124,3 +124,53 @@ Ao final, desative as contas de teste em *Administração › Usuários*.
   - Nenhum dado é alterado por ela.
 - **Migração 35:** `GRANT INSERT, UPDATE, DELETE ON public.trainings, public.training_participants, public.management_targets TO authenticated;`
 - **Migrações 32 e 34:** são aditivas. Os dados criados podem ficar.
+
+---
+
+## 6. Entrada em produção (Hostinger + Supabase)
+
+### 6.1 Painel do Supabase (projeto de produção)
+
+| Onde | O que fazer | Por quê |
+|---|---|---|
+| *Organization › Billing* | Plano pago (Pro) | O plano gratuito pausa o projeto após uma semana sem uso. Foi assim que o projeto anterior deixou de responder. Também inclui backups diários. |
+| *Authentication › URL Configuration* | **Site URL** = `https://<domínio>`; em **Redirect URLs**, incluir `https://<domínio>/redefinir-senha` | Sem isso, o link de recuperação de senha leva para `localhost`. |
+| *Authentication › Emails › SMTP Settings* | Configurar SMTP próprio (e-mail institucional ou serviço transacional) | O SMTP padrão só envia para membros da equipe do projeto e tem limite baixo por hora: ACE e supervisores não recebem a recuperação de senha. |
+| *Authentication › Sign In / Providers* | Desativar **Allow new users to sign up** | O sistema não usa cadastro público: os usuários são criados pela gestão. |
+| *Authentication › Attack Protection* | Ativar a proteção contra senhas vazadas e senha mínima de 8 caracteres | Reforço de senha (recurso do plano pago). |
+| *Authentication › Hooks* | Opcional: `public.custom_access_token_hook` | Só coloca município e papéis no token. As regras RLS não dependem dele. |
+
+### 6.2 Aplicar migrações a partir desta máquina
+
+O acesso direto ao banco (`db.<ref>.supabase.co`) só funciona por IPv6. Por isso, use o *pooler* de sessão, com a senha do banco em `SUPABASE_DB_PASSWORD` no `.env`:
+
+```bash
+npx supabase@latest db push --db-url "postgresql://postgres.<ref>:<senha-url-encoded>@aws-1-sa-east-1.pooler.supabase.com:5432/postgres" --dry-run
+npx supabase@latest db push --db-url "..."          # sem --dry-run para aplicar
+npx supabase@latest db advisors --db-url "..." --type all
+```
+
+### 6.3 Publicar o frontend na Hostinger (hospedagem compartilhada)
+
+1. Confira o `.env` de build: `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` do projeto de **produção**. Se a implantação atender um único município, defina também `VITE_PUBLIC_MUNICIPALITY_ID`.
+2. Rode `npm run build`, que executa os testes antes e interrompe a publicação se algum falhar.
+3. Envie o **conteúdo** de `dist/` para `public_html/` pelo Gerenciador de Arquivos ou por FTP, incluindo o arquivo oculto `.htaccess`.
+4. No hPanel, ative o SSL do domínio. O `.htaccess` força HTTPS e aplica rotas da SPA, CSP, HSTS e cache.
+5. Teste:
+   - `https://<domínio>/login` e uma rota interna aberta direto pela URL, que não pode dar 404;
+   - `https://<domínio>/publico?municipio=<uuid>`;
+   - a recuperação de senha.
+
+**CSP:** a política do `.htaccess` libera só o Supabase (`*.supabase.co`), o IBGE, os mapas do OpenStreetMap e o Google Fonts. Se uma nova integração passar a chamar outro domínio, inclua-o em `connect-src` ou `img-src`.
+
+### 6.4 Município de produção
+
+As migrações de exemplo criam o município `00000000-0000-0000-0000-000000000001` (Santa Cruz do Sul) com dados fictícios: casos, bloqueios, equipamentos, insumos, servidores, bairros e clima sintético. Em produção:
+
+1. cadastre o município real (nome, UF, código IBGE);
+2. mova os perfis reais para ele;
+3. exclua o município de exemplo. A exclusão em cascata remove os dados fictícios ligados a ele.
+   - 55 das 56 referências a `municipalities` são `ON DELETE CASCADE`.
+   - A exceção é `intersectoral_referrals`, que bloqueia a exclusão: apague antes os encaminhamentos do município de exemplo, se houver.
+
+Os catálogos globais (papéis, permissões, categorias de depósito, semanas epidemiológicas) não são afetados.

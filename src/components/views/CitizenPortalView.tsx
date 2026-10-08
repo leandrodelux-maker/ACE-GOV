@@ -70,7 +70,8 @@ export const CitizenPortalView: React.FC = () => {
     if (!address || !description) return;
 
     setSubmitting(true);
-    const newProtocol = `END-2026-${Math.floor(100000 + Math.random() * 900000)}`;
+    const protocolNumber = 100000 + (crypto.getRandomValues(new Uint32Array(1))[0] % 900000);
+    const newProtocol = `END-${new Date().getFullYear()}-${protocolNumber}`;
     const newComplaint: CitizenComplaint = {
       id: `comp-${Date.now()}`,
       protocol: newProtocol,

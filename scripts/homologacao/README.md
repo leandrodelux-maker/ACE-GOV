@@ -21,6 +21,7 @@ npm run start        # porta 54329, somente 127.0.0.1
 npm run antes        # migrações 01–30 + dados de teste + testes (estado atual do projeto)
 npm run depois       # aplica 31+ sobre o mesmo banco + testes
 npm run instalacao-limpa   # instalação do zero com todas as migrações
+npm run modulos            # integração LIRAa/LIA e Zoonoses (recria o banco com todas as migrações)
 npm run stop
 ```
 

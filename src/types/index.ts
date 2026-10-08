@@ -13,7 +13,10 @@ export type UserRole =
   | 'EPIDEMIOLOGY_AGENT'
   | 'SANITARY_AGENT'
   | 'PRIMARY_CARE_ACS'
-  | 'AUDITOR_VIEWER';
+  | 'AUDITOR_VIEWER'
+  | 'LAB_TECHNICIAN'
+  | 'ZOONOSES_VACCINATOR'
+  | 'STOCK_MANAGER';
 
 export interface User {
   id: string;

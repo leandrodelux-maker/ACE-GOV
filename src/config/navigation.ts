@@ -1,5 +1,5 @@
 /**
- * MENU PRINCIPAL (Sidebar) — 7 grupos.
+ * NAVEGAÇÃO DO MVP INSTITUCIONAL — 5 grupos operacionais.
  *
  * Cada item aponta para uma rota de `routes.ts`; a visibilidade usa a mesma
  * checagem de acesso das rotas (`canAccessView`). Itens que representam um hub
@@ -18,30 +18,21 @@ import {
   Map as MapIcon,
   MapPin,
   ScanSearch,
-  Crosshair,
-  Building2,
   Layers,
   Target,
   PieChart,
-  RefreshCcw,
   Activity,
-  Flame,
-  TrendingUp,
   AlertCircle,
-  Boxes,
-  Wrench,
-  ClipboardList,
   FileText,
   UserCheck,
-  KeyRound,
   FileSearch,
   Settings,
-  Server,
-  HeartPulse,
   Briefcase,
   Bell,
-  Gauge,
-  LineChart,
+  Bug,
+  Syringe,
+  PawPrint,
+  ShieldAlert,
 } from 'lucide-react';
 import type { UserRole } from '../types';
 import { AccessChecker, ViewModule, canAccessView } from './routes';
@@ -74,14 +65,17 @@ export const NAV_GROUPS: NavGroup[] = [
   },
   {
     id: 'campo',
-    title: 'Campo ACE',
+    title: 'Campo',
     items: [
-      { view: 'ace_pwa', label: 'PWA do Agente', icon: Smartphone, highlight: true },
-      { view: 'visits', label: 'Visitas', icon: CheckSquare },
+      { view: 'ace_pwa', label: 'Trabalho de campo', icon: Smartphone, highlight: true },
       { view: 'routes', label: 'Minha Rota', icon: NavigationIcon },
+      { view: 'visits', label: 'Visitas', icon: CheckSquare },
       { view: 'field_pendencies', label: 'Pendências', icon: Clock },
       { view: 'planning', label: 'Planejamento', icon: Calendar },
       { view: 'supervisor_mobile', label: 'Supervisão', icon: Users },
+      { view: 'liraa_field', label: 'Coleta LIRAa/LIA', icon: Bug },
+      { view: 'zoo_vaccination', label: 'Vacinação antirrábica', icon: Syringe },
+      { view: 'complaints', label: 'Demandas do cidadão', icon: AlertCircle, activeViews: ['referrals'] },
     ],
   },
   {
@@ -89,16 +83,21 @@ export const NAV_GROUPS: NavGroup[] = [
     title: 'Território',
     items: [
       { view: 'properties', label: 'Imóveis', icon: Home },
-      { view: 'map', label: 'Mapa', icon: MapIcon },
       {
         view: 'territory',
-        label: 'Bairros e Setores',
+        label: 'Bairros e setores',
         icon: MapPin,
-        activeViews: ['territory_neighborhoods', 'territory_sectors', 'territory_blocks', 'territory_microareas'],
+        activeViews: [
+          'territory_neighborhoods',
+          'territory_sectors',
+          'territory_blocks',
+          'territory_microareas',
+          'strategic_points',
+          'special_properties',
+        ],
       },
-      { view: 'geographic_reconnaissance', label: 'Reconhecimento Geográfico', icon: ScanSearch },
-      { view: 'strategic_points', label: 'Pontos Estratégicos', icon: Crosshair },
-      { view: 'special_properties', label: 'Imóveis Especiais', icon: Building2 },
+      { view: 'map', label: 'Mapa do município', icon: MapIcon },
+      { view: 'geographic_reconnaissance', label: 'Reconhecimento geográfico', icon: ScanSearch },
     ],
   },
   {
@@ -106,49 +105,37 @@ export const NAV_GROUPS: NavGroup[] = [
     title: 'Vigilância',
     items: [
       // Módulo CORE: mantido em destaque (CORE_ARCHITECTURE_RULES.md)
-      { view: 'ovitraps', label: 'Ovitrampas & Laboratório', icon: Layers, highlight: true, badge: 'Core', activeViews: ['entomology_lab'] },
+      { view: 'ovitraps', label: 'Ovitrampas e laboratório', icon: Layers, highlight: true, activeViews: ['entomology_lab'] },
       { view: 'vector_control', label: 'Controle Vetorial', icon: Target, activeViews: ['chemical_operations'] },
-      { view: 'liraa', label: 'LIRAa / LIA', icon: PieChart },
-      { view: 'cycles', label: 'Ciclos', icon: RefreshCcw },
+      { view: 'liraa', label: 'LIRAa / LIA', icon: PieChart, activeViews: ['liraa_surveys', 'liraa_field', 'liraa_lab', 'liraa_reports'] },
       { view: 'epidemiology', label: 'Epidemiologia', icon: Activity },
-      { view: 'foci_recurrence', label: 'Focos e Reincidências', icon: Flame },
-      { view: 'risk_engine', label: 'Motor de Risco', icon: Gauge },
-      { view: 'historical_analysis', label: 'Análise Histórica', icon: LineChart },
     ],
   },
   {
-    id: 'gestao',
-    title: 'Gestão Operacional',
+    id: 'zoonoses',
+    title: 'Zoonoses',
     items: [
-      { view: 'teams', label: 'Equipes & Produtividade', icon: TrendingUp, activeViews: ['productivity'] },
-      { view: 'complaints', label: 'Denúncias & Encaminhamentos', icon: AlertCircle, activeViews: ['referrals'] },
-      { view: 'stock', label: 'Estoque & Insumos', icon: Boxes, activeViews: ['supplies'] },
-      { view: 'equipments', label: 'Equipamentos', icon: Wrench },
-      { view: 'work_orders', label: 'Ordens de Serviço', icon: ClipboardList },
+      {
+        view: 'zoo_dashboard',
+        label: 'Vacinação antirrábica',
+        icon: PawPrint,
+        activeViews: ['zoo_campaigns', 'zoo_vaccination', 'zoo_animals', 'zoo_stock', 'zoo_active_search', 'zoo_reports'],
+      },
+      { view: 'zoo_rabies', label: 'Vigilância da raiva', icon: ShieldAlert },
     ],
   },
   {
     id: 'relatorios',
-    title: 'Relatórios',
-    items: [{ view: 'reports', label: 'Relatórios & Documentos', icon: FileText, activeViews: ['documents'] }],
+    title: 'Resultados',
+    items: [{ view: 'reports', label: 'Relatórios', icon: FileText, activeViews: ['documents'] }],
   },
-  {
-    id: 'admin',
-    title: 'Administração',
-    items: [
-      { view: 'admin_users', label: 'Usuários', icon: UserCheck },
-      { view: 'admin_roles', label: 'Perfis e Permissões', icon: KeyRound },
-      { view: 'admin_audit', label: 'Auditoria', icon: FileSearch },
-      { view: 'system_settings', label: 'Configurações', icon: Settings, activeViews: ['multi_disease', 'labels', 'data_import', 'communication'] },
-      { view: 'integrations', label: 'Integrações', icon: Server },
-      {
-        view: 'system_health',
-        label: 'Saúde do Sistema',
-        icon: HeartPulse,
-        activeViews: ['data_quality', 'database_health', 'system_errors'],
-      },
-    ],
-  },
+];
+
+/** Administração é utilitária e não compete com o trabalho diário. */
+export const UTILITY_NAV_ITEMS: NavItem[] = [
+  { view: 'admin_users', label: 'Usuários', icon: UserCheck },
+  { view: 'system_settings', label: 'Configurações', icon: Settings, activeViews: ['multi_disease', 'labels', 'data_import'] },
+  { view: 'admin_audit', label: 'Auditoria', icon: FileSearch },
 ];
 
 /** Perfis cujo trabalho principal é de campo: o grupo "Campo ACE" vem primeiro. */

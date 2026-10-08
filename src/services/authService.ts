@@ -22,7 +22,14 @@ export interface AuthSessionData {
   defaultRoute: string;
 }
 
-const BOOTSTRAP_CACHE_PREFIX = 'endemias_gov_bootstrap_';
+const BOOTSTRAP_CACHE_PREFIX = 'endemias_gov_bootstrap_v2_';
+const LEGACY_BOOTSTRAP_CACHE_PREFIX = 'endemias_gov_bootstrap_';
+const BOOTSTRAP_CACHE_TTL_MS = 8 * 60 * 60 * 1000;
+
+interface CachedBootstrap {
+  cachedAt: number;
+  session: AuthSessionData;
+}
 
 // Mapeamento oficial de rotas iniciais por perfil (RBAC SUS)
 export function getDefaultRouteForRole(role: UserRole): string {
@@ -45,6 +52,12 @@ export function getDefaultRouteForRole(role: UserRole): string {
       return 'system_health';
     case 'MUNICIPAL_ADMIN':
       return 'dashboard';
+    case 'LAB_TECHNICIAN':
+      return 'liraa_lab';
+    case 'ZOONOSES_VACCINATOR':
+      return 'zoo_dashboard';
+    case 'STOCK_MANAGER':
+      return 'zoo_stock';
     case 'ENDEMIAS_COORDINATOR':
     default:
       return 'dashboard';
@@ -90,12 +103,19 @@ export function formatFriendlyAuthError(err: any): string {
 }
 
 // Limpa TODO o cache local do Endemias GOV (importante em máquinas compartilhadas / LGPD)
+/**
+ * Filas offline com registros de campo ainda não enviados: preservadas no logout para
+ * não perder visitas, inspeções e vacinações (cada item guarda município e autor e só
+ * é enviado pela mesma sessão).
+ */
+const PRESERVED_ON_LOGOUT = (key: string) => key === 'endemias_sync_queue' || key.startsWith('endemias_queue_');
+
 export function clearLocalCaches(): void {
   const wipe = (store: Storage) => {
     const keys: string[] = [];
     for (let i = 0; i < store.length; i++) {
       const k = store.key(i);
-      if (k && (k.startsWith('endemias_gov_') || k.startsWith('endemias_'))) keys.push(k);
+      if (k && (k.startsWith('endemias_gov_') || k.startsWith('endemias_')) && !PRESERVED_ON_LOGOUT(k)) keys.push(k);
     }
     keys.forEach((k) => store.removeItem(k));
   };
@@ -167,7 +187,27 @@ async function fetchBootstrap(): Promise<AuthSessionData> {
   if (!data) throw new Error('profile_not_found');
   const session = sessionFromBootstrap(data);
   try {
-    localStorage.setItem(BOOTSTRAP_CACHE_PREFIX + session.user.id, JSON.stringify(session));
+    // O cache offline não inclui CPF, telefone nem configurações administrativas.
+    // O token de sessão continua sob responsabilidade do cliente oficial Supabase.
+    const offlineSession: AuthSessionData = {
+      ...session,
+      user: { ...session.user, cpf: '', phone: '' },
+      municipality: {
+        ...session.municipality,
+        healthSecretaryPhone: '',
+        coordinatorPhone: '',
+        address: '',
+      },
+      settings: {},
+    };
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const key = localStorage.key(i);
+      if (key?.startsWith(LEGACY_BOOTSTRAP_CACHE_PREFIX) && !key.startsWith(BOOTSTRAP_CACHE_PREFIX)) {
+        localStorage.removeItem(key);
+      }
+    }
+    const cached: CachedBootstrap = { cachedAt: Date.now(), session: offlineSession };
+    localStorage.setItem(BOOTSTRAP_CACHE_PREFIX + session.user.id, JSON.stringify(cached));
   } catch { /* ignore */ }
   return session;
 }
@@ -220,9 +260,10 @@ export const authService = {
       for (let i = 0; i < localStorage.length; i++) {
         const k = localStorage.key(i);
         if (k && k.startsWith(BOOTSTRAP_CACHE_PREFIX)) {
-          const parsed = JSON.parse(localStorage.getItem(k) || 'null') as AuthSessionData | null;
-          if (parsed?.profile?.email?.toLowerCase() === session.user.email?.toLowerCase()) {
-            cached = parsed;
+          const parsed = JSON.parse(localStorage.getItem(k) || 'null') as CachedBootstrap | null;
+          const fresh = parsed && Date.now() - parsed.cachedAt <= BOOTSTRAP_CACHE_TTL_MS;
+          if (fresh && parsed.session.profile?.email?.toLowerCase() === session.user.email?.toLowerCase()) {
+            cached = parsed.session;
             break;
           }
         }

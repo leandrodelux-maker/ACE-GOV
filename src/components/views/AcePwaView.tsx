@@ -34,14 +34,42 @@ import { workOrderService, WorkOrderItem } from '../../services/workOrderService
 import { visitOfficialService } from '../../services/visitOfficialService';
 import { ovitrapService, OvitrapPoint } from '../../services/ovitrapService';
 import { QrCode, ClipboardList, ShieldCheck } from 'lucide-react';
+import { FieldModulesShortcuts } from './FieldModulesShortcuts';
 
 interface AcePwaViewProps {
   onNavigate: (module: string) => void;
 }
 
+/** Somente os campos indispensáveis ao trabalho offline; exclui dados do morador. */
+const toOfflineProperty = (property: any) => ({
+  id: property.id,
+  code: property.code,
+  address: property.address,
+  street: property.street,
+  number: property.number,
+  complement: property.complement,
+  reference: property.reference,
+  neighborhood: property.neighborhood,
+  neighborhoodId: property.neighborhoodId,
+  sector: property.sector,
+  sectorId: property.sectorId,
+  microarea: property.microarea,
+  microareaId: property.microareaId,
+  block: property.block,
+  blockId: property.blockId,
+  type: property.type,
+  status: property.status,
+  riskScore: property.riskScore,
+  latitude: property.latitude,
+  longitude: property.longitude,
+  lastVisitAt: property.lastVisitAt,
+});
+
 export const AcePwaView: React.FC<AcePwaViewProps> = ({ onNavigate }) => {
   const { user } = useAuth();
   const municipalityId = useMunicipalityId();
+  const propertyCacheKey = `endemias_cached_properties_v2_${municipalityId}_${user?.id || 'sem-usuario'}`;
+  const ovitrapCacheKey = `endemias_cached_ovitraps_v2_${municipalityId}_${user?.id || 'sem-usuario'}`;
 
   // Detecção de status de conexão em tempo real
   const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
@@ -63,7 +91,9 @@ export const AcePwaView: React.FC<AcePwaViewProps> = ({ onNavigate }) => {
   const [isDownloading, setIsDownloading] = useState<boolean>(false);
   const [offlineDownloaded, setOfflineDownloaded] = useState<boolean>(() => {
     try {
-      return !!localStorage.getItem('endemias_cached_properties');
+      localStorage.removeItem('endemias_cached_properties');
+      localStorage.removeItem('endemias_cached_ovitraps');
+      return !!localStorage.getItem(propertyCacheKey);
     } catch {
       return false;
     }
@@ -117,39 +147,56 @@ export const AcePwaView: React.FC<AcePwaViewProps> = ({ onNavigate }) => {
   const loadMyProperties = useCallback(async () => {
     setIsLoadingProps(true);
     try {
+      const agentId = user?.id
+        ? await supabaseService.getAgentIdForProfile(user.id, municipalityId)
+        : null;
+      if (!agentId) {
+        const cached = localStorage.getItem(propertyCacheKey);
+        setMyProperties(cached ? JSON.parse(cached) : []);
+        return;
+      }
       const res = await supabaseService.getPropertiesPaginated({
         municipalityId,
         page: 1,
-        pageSize: 30,
+        pageSize: 100,
+        assignedAgentId: agentId,
       });
 
       if (res.properties.length > 0) {
-        setMyProperties(res.properties);
-        localStorage.setItem('endemias_cached_properties', JSON.stringify(res.properties));
+        const safeProperties = res.properties.map(toOfflineProperty);
+        setMyProperties(safeProperties);
+        localStorage.setItem(propertyCacheKey, JSON.stringify(safeProperties));
         setOfflineDownloaded(true);
       } else {
-        // Fallback do cache local
-        const cached = localStorage.getItem('endemias_cached_properties');
+        const cached = localStorage.getItem(propertyCacheKey);
         if (cached) setMyProperties(JSON.parse(cached));
       }
     } catch {
-      const cached = localStorage.getItem('endemias_cached_properties');
+      const cached = localStorage.getItem(propertyCacheKey);
       if (cached) setMyProperties(JSON.parse(cached));
     } finally {
       setIsLoadingProps(false);
     }
-  }, [municipalityId]);
+  }, [municipalityId, propertyCacheKey, user?.id]);
 
   const loadOvitrapsPwa = useCallback(async () => {
     try {
-      const res = await ovitrapService.getOvitraps(municipalityId);
+      const agentId = user?.id
+        ? await supabaseService.getAgentIdForProfile(user.id, municipalityId)
+        : null;
+      if (!agentId) {
+        const cached = localStorage.getItem(ovitrapCacheKey);
+        setMyOvitraps(cached ? JSON.parse(cached) : []);
+        return;
+      }
+      const res = await ovitrapService.getOvitraps(municipalityId, { agentId });
       setMyOvitraps(res.ovitraps);
-      localStorage.setItem('endemias_cached_ovitraps', JSON.stringify(res.ovitraps));
+      localStorage.setItem(ovitrapCacheKey, JSON.stringify(res.ovitraps));
     } catch {
-      const cached = localStorage.getItem('endemias_cached_ovitraps');
+      const cached = localStorage.getItem(ovitrapCacheKey);
       if (cached) setMyOvitraps(JSON.parse(cached));
     }
-  }, [municipalityId]);
+  }, [municipalityId, ovitrapCacheKey, user?.id]);
 
   useEffect(() => {
     loadMyProperties();
@@ -255,7 +302,7 @@ export const AcePwaView: React.FC<AcePwaViewProps> = ({ onNavigate }) => {
     setIsDownloading(true);
     try {
       await Promise.all([loadMyProperties(), loadOvitrapsPwa()]);
-      const hasCache = !!localStorage.getItem('endemias_cached_properties');
+      const hasCache = !!localStorage.getItem(propertyCacheKey);
       setOfflineDownloaded(hasCache);
       setSuccessMessage(
         hasCache
@@ -524,6 +571,9 @@ export const AcePwaView: React.FC<AcePwaViewProps> = ({ onNavigate }) => {
           <span>{successMessage}</span>
         </div>
       )}
+
+      {/* Atalhos dos módulos LIRAa/LIA e Vacinação Antirrábica */}
+      <FieldModulesShortcuts onNavigate={onNavigate} />
 
       {/* Cards de Desempenho Diário */}
       <div className="grid grid-cols-3 gap-2 text-center">

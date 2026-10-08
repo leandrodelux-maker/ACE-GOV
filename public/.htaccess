@@ -1,0 +1,58 @@
+# ==============================================================================
+# Endemias GOV - hospedagem Apache (Hostinger)
+# Copiado pelo Vite para dist/. Publique o CONTEÚDO de dist/ em public_html/.
+# ==============================================================================
+
+Options -Indexes
+DirectoryIndex index.html
+
+# --- HTTPS obrigatório e roteamento da SPA ------------------------------------
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+
+  RewriteCond %{HTTPS} !=on
+  RewriteCond %{HTTP:X-Forwarded-Proto} !https
+  RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+  # Arquivos e pastas reais são servidos direto; arquivo de pacote inexistente
+  # devolve 404 (o app mostra "nova versão publicada" em vez de receber HTML).
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+  RewriteRule ^assets/ - [R=404,L]
+
+  # Todas as rotas da aplicação (/dashboard, /publico, /redefinir-senha...) abrem o index.html
+  RewriteRule ^ index.html [L]
+</IfModule>
+
+# --- Cabeçalhos de segurança ---------------------------------------------------
+<IfModule mod_headers.c>
+  Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set X-Frame-Options "DENY"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  Header always set Permissions-Policy "geolocation=(self), camera=(), microphone=(), payment=(), usb=()"
+  # connect-src: Supabase (API, Auth, Realtime) e IBGE. img-src: mapas OpenStreetMap e imagens do Supabase Storage.
+  Header always set Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https://*.tile.openstreetmap.org https://*.supabase.co; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://servicodados.ibge.gov.br; worker-src 'self' blob:; manifest-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
+
+  # index.html sempre revalidado (aponta para os pacotes da versão publicada)
+  <FilesMatch "^(index\.html|manifest\.json|sw\.js)$">
+    Header set Cache-Control "no-cache, must-revalidate"
+  </FilesMatch>
+</IfModule>
+
+# --- Cache: pacotes com hash no nome são imutáveis -----------------------------
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType text/html "access plus 0 seconds"
+</IfModule>
+<IfModule mod_headers.c>
+  <If "%{REQUEST_URI} =~ m#^/assets/#">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </If>
+</IfModule>
+
+# --- Compressão ---------------------------------------------------------------
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/css application/javascript application/json image/svg+xml
+</IfModule>

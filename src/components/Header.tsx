@@ -1,19 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-  Shield,
-  Menu,
-  X,
+  AlertTriangle,
   Bell,
-  Wifi,
-  WifiOff,
-  RefreshCw,
-  UserCheck,
   ChevronDown,
   Download,
-  AlertTriangle,
   LogOut,
-  Search,
+  Menu,
   Plus,
+  RefreshCw,
+  Search,
+  ShieldCheck,
+  UserRound,
+  Wifi,
+  WifiOff,
+  X,
 } from 'lucide-react';
 import { User, UserRole } from '../types';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
@@ -28,28 +28,34 @@ interface HeaderProps {
   onImpersonateRole: (role: UserRole) => void;
   onStopImpersonation?: () => void;
   pendingSyncCount: number;
-  /** Abre o PWA do ACE, onde a fila offline é sincronizada com o banco */
   onOpenPendingSync: () => void;
   onToggleSidebar: () => void;
   unreadAlertsCount: number;
   municipalityName: string;
+  municipalityLogoUrl?: string;
   onLogout?: () => void;
   onNavigate?: (module: string) => void;
   onOpenQuickCreate?: () => void;
 }
 
-const ROLES_LIST: { role: UserRole; label: string; badgeColor: string }[] = [
-  { role: 'ENDEMIAS_COORDINATOR', label: 'Coordenador de Endemias', badgeColor: 'bg-blue-600 text-white' },
-  { role: 'ACE', label: 'Agente de Combate às Endemias (ACE)', badgeColor: 'bg-emerald-600 text-white' },
-  { role: 'HEALTH_SECRETARY', label: 'Secretário Municipal de Saúde', badgeColor: 'bg-purple-600 text-white' },
-  { role: 'FIELD_SUPERVISOR', label: 'Supervisor de Campo', badgeColor: 'bg-cyan-700 text-white' },
-  { role: 'EPIDEMIOLOGY_AGENT', label: 'Vigilância Epidemiológica', badgeColor: 'bg-rose-600 text-white' },
-  { role: 'SANITARY_AGENT', label: 'Vigilância Sanitária', badgeColor: 'bg-amber-600 text-white' },
-  { role: 'MUNICIPAL_ADMIN', label: 'Administrador Municipal', badgeColor: 'bg-indigo-600 text-white' },
-  { role: 'PRIMARY_CARE_ACS', label: 'Atenção Primária / ACS', badgeColor: 'bg-teal-600 text-white' },
-  { role: 'AUDITOR_VIEWER', label: 'Auditor / Visualizador SUS', badgeColor: 'bg-slate-700 text-white' },
-  { role: 'SUPER_ADMIN', label: 'Super Administrador', badgeColor: 'bg-red-700 text-white' },
+const ROLES: { role: UserRole; label: string }[] = [
+  { role: 'ENDEMIAS_COORDINATOR', label: 'Coordenação de endemias' },
+  { role: 'ACE', label: 'Agente de campo' },
+  { role: 'HEALTH_SECRETARY', label: 'Secretaria de Saúde' },
+  { role: 'FIELD_SUPERVISOR', label: 'Supervisão de campo' },
+  { role: 'EPIDEMIOLOGY_AGENT', label: 'Vigilância epidemiológica' },
+  { role: 'SANITARY_AGENT', label: 'Vigilância sanitária' },
+  { role: 'MUNICIPAL_ADMIN', label: 'Administração municipal' },
+  { role: 'PRIMARY_CARE_ACS', label: 'Atenção primária' },
+  { role: 'AUDITOR_VIEWER', label: 'Consulta e auditoria' },
+  { role: 'LAB_TECHNICIAN', label: 'Laboratório entomológico' },
+  { role: 'ZOONOSES_VACCINATOR', label: 'Vacinação antirrábica' },
+  { role: 'STOCK_MANAGER', label: 'Gestão de estoque' },
+  { role: 'SUPER_ADMIN', label: 'Administração da plataforma' },
 ];
+
+const iconButton =
+  'inline-flex h-11 w-11 items-center justify-center rounded-lg text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700';
 
 export const Header: React.FC<HeaderProps> = ({
   currentUser,
@@ -62,6 +68,7 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleSidebar,
   unreadAlertsCount,
   municipalityName,
+  municipalityLogoUrl,
   onLogout,
   onNavigate,
   onOpenQuickCreate,
@@ -69,302 +76,216 @@ export const Header: React.FC<HeaderProps> = ({
   const canImpersonate = realRole === 'SUPER_ADMIN' || realRole === 'MUNICIPAL_ADMIN';
   const isOnline = useOnlineStatus();
   const { isInstallable, isInstalled, install, isIOS } = usePWAInstall();
-  const [roleDropdownOpen, setRoleDropdownOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const [showIosModal, setShowIosModal] = useState(false);
-  const [searchModalOpen, setSearchModalOpen] = useState(false);
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const roleLabel = ROLES.find((item) => item.role === currentUser.role)?.label ?? 'Usuário';
 
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
-        e.preventDefault();
-        setSearchModalOpen(true);
+    const openSearch = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        setSearchOpen(true);
       }
+      if (event.key === 'Escape') setProfileOpen(false);
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener('keydown', openSearch);
+    return () => window.removeEventListener('keydown', openSearch);
   }, []);
 
-  const currentRoleInfo = ROLES_LIST.find(r => r.role === currentUser.role) || ROLES_LIST[0];
-
   return (
-    <header className="sticky top-0 z-30 bg-slate-900/95 backdrop-blur-md text-white border-b border-slate-800/80 shadow-2xs">
-      <div className="flex items-center justify-between px-3 sm:px-6 py-2">
-        {/* Left: Brand & Mobile Menu Toggle */}
-        <div className="flex items-center gap-3">
-          <button
-            onClick={onToggleSidebar}
-            className="p-1.5 -ml-1 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg lg:hidden transition"
-            aria-label="Abrir menu"
-          >
-            <Menu className="w-5 h-5" />
-          </button>
+    <header className="sticky top-0 z-30 border-b border-slate-200 bg-white text-slate-900">
+      <div className="flex min-h-16 items-center gap-3 px-3 sm:px-5 lg:px-6">
+        <button type="button" onClick={onToggleSidebar} className={`${iconButton} lg:hidden`} aria-label="Abrir menu">
+          <Menu className="h-5 w-5" aria-hidden="true" />
+        </button>
 
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-sky-700 flex items-center justify-center shadow-inner shrink-0">
-              <Shield className="w-4 h-4 text-white" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-extrabold tracking-tight text-sm sm:text-base leading-tight text-white">
-                  Endemias <span className="text-sky-400">GOV</span>
-                </span>
-                <span className="hidden md:inline-flex items-center px-1.5 py-0.2 rounded text-[9.5px] font-semibold bg-sky-950/80 text-sky-300 border border-sky-800/70">
-                  SUS / MS
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-400 leading-none truncate max-w-[180px] sm:max-w-[260px] mt-0.5">
-                {municipalityName}
-              </p>
-            </div>
+        <div className="flex min-w-0 items-center gap-3">
+          {municipalityLogoUrl ? (
+            <img src={municipalityLogoUrl} alt="" className="h-10 w-10 shrink-0 object-contain" width="40" height="40" />
+          ) : (
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-teal-800 text-white">
+              <ShieldCheck className="h-5 w-5" aria-hidden="true" />
+            </span>
+          )}
+          <div className="min-w-0">
+            <p className="truncate text-sm font-bold text-slate-950 sm:text-base">Vigilância de Endemias</p>
+            <p className="truncate text-xs text-slate-500">Secretaria Municipal de Saúde · {municipalityName}</p>
           </div>
         </div>
 
-        {/* Center: Busca Global Instantânea */}
-        <div className="hidden md:flex items-center flex-1 max-w-md mx-4">
+        <div className="mx-auto hidden min-w-0 max-w-xl flex-1 md:block">
           <button
-            onClick={() => setSearchModalOpen(true)}
-            className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800/60 hover:bg-slate-800 border border-slate-700/60 text-xs text-slate-300 transition cursor-pointer"
+            type="button"
+            onClick={() => setSearchOpen(true)}
+            className="flex min-h-11 w-full items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-500 transition-colors hover:border-slate-300 hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700"
           >
-            <Search className="w-3.5 h-3.5 text-slate-400" />
-            <span className="flex-1 text-left truncate text-slate-400">Buscar imóvel, ACE, bairro, PE, denúncia...</span>
-            <kbd className="text-[10px] font-mono bg-slate-900/90 px-1.5 py-0.5 rounded text-slate-400 border border-slate-700/80">Ctrl+K</kbd>
+            <Search className="h-4 w-4" aria-hidden="true" />
+            <span className="min-w-0 flex-1 truncate text-left">Buscar imóvel, bairro, agente ou protocolo</span>
+            <kbd className="hidden rounded border border-slate-200 bg-white px-1.5 py-0.5 text-xs text-slate-500 lg:inline">Ctrl K</kbd>
           </button>
         </div>
 
-        {/* Right: Actions, Quick Create, Sync, Notifications & Role Switcher */}
-        <div className="flex items-center gap-2 sm:gap-2.5">
-          {/* Botão de Destaque Global: + Novo Cadastro */}
-          {onOpenQuickCreate && (
+        <div className="ml-auto flex items-center gap-1 sm:gap-2">
+          {onOpenQuickCreate ? (
             <button
+              type="button"
               onClick={onOpenQuickCreate}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-2xs transition transform active:scale-95 cursor-pointer"
-              title="Abertura rápida de novo cadastro (Imóvel, Denúncia, Visita, etc.)"
+              className="hidden min-h-11 items-center gap-2 rounded-lg bg-teal-700 px-4 text-sm font-semibold text-white transition-colors hover:bg-teal-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700 sm:inline-flex"
             >
-              <Plus className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Novo Cadastro</span>
+              <Plus className="h-4 w-4" aria-hidden="true" />
+              Novo registro
             </button>
-          )}
+          ) : null}
 
-          {/* Botão de Busca Mobile */}
-          <button
-            onClick={() => setSearchModalOpen(true)}
-            className="p-2 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg md:hidden transition"
-            title="Buscar"
-          >
-            <Search className="w-4 h-4" />
+          <button type="button" onClick={() => setSearchOpen(true)} className={`${iconButton} md:hidden`} aria-label="Abrir busca">
+            <Search className="h-5 w-5" aria-hidden="true" />
           </button>
 
-          {/* PWA Install Button */}
-          {!isInstalled && (
-            <>
-              {isInstallable && (
-                <button
-                  onClick={install}
-                  className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white transition shadow-sm"
-                  title="Instalar App no dispositivo"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  <span>Instalar PWA</span>
-                </button>
-              )}
-              {isIOS && (
-                <button
-                  onClick={() => setShowIosModal(true)}
-                  className="hidden sm:flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700"
-                >
-                  <span>PWA no iOS</span>
-                </button>
-              )}
-            </>
+          {!isInstalled && isInstallable ? (
+            <button type="button" onClick={install} className={iconButton} aria-label="Instalar aplicativo">
+              <Download className="h-5 w-5" aria-hidden="true" />
+            </button>
+          ) : null}
+          {!isInstalled && isIOS ? (
+            <button type="button" onClick={() => setShowIosModal(true)} className={`${iconButton} hidden sm:inline-flex`} aria-label="Como instalar no iPhone">
+              <Download className="h-5 w-5" aria-hidden="true" />
+            </button>
+          ) : null}
+
+          {pendingSyncCount > 0 ? (
+            <button
+              type="button"
+              onClick={onOpenPendingSync}
+              className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-amber-100 px-3 text-sm font-semibold text-amber-900 hover:bg-amber-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-700"
+              aria-label={`${pendingSyncCount} registros aguardando envio`}
+            >
+              <RefreshCw className="h-4 w-4" aria-hidden="true" />
+              <span>{pendingSyncCount}</span>
+            </button>
+          ) : (
+            <span className={`hidden items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold lg:flex ${isOnline ? 'text-emerald-700' : 'bg-amber-50 text-amber-800'}`}>
+              {isOnline ? <Wifi className="h-4 w-4" aria-hidden="true" /> : <WifiOff className="h-4 w-4" aria-hidden="true" />}
+              {isOnline ? 'Online' : 'Sem conexão'}
+            </span>
           )}
 
-          {/* Online / Offline & Sync Indicator */}
-          <div className="flex items-center">
-            {isOnline ? (
-              <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-slate-800/80 text-emerald-400 text-xs border border-slate-700">
-                <Wifi className="w-3.5 h-3.5 text-emerald-400" />
-                <span className="hidden sm:inline text-[11px] font-medium">Online</span>
-              </div>
-            ) : (
-              <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-amber-950/80 text-amber-300 text-xs border border-amber-800">
-                <WifiOff className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
-                <span className="text-[11px] font-medium">Offline</span>
-              </div>
-            )}
-
-            {/* Offline Pending Sync Badge */}
-            {pendingSyncCount > 0 && (
-              <button
-                onClick={onOpenPendingSync}
-                className="ml-2 flex items-center gap-1 px-2.5 py-1 rounded bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-semibold shadow transition"
-                title="Visitas guardadas no aparelho aguardando envio — abrir o PWA para sincronizar"
-              >
-                <RefreshCw className="w-3.5 h-3.5" />
-                <span>{pendingSyncCount} pendente{pendingSyncCount > 1 ? 's' : ''}</span>
-              </button>
-            )}
-          </div>
-
-          {/* Alerts Bell com Abertura de Drawer Lateral */}
           <button
-            onClick={() => setDrawerOpen(true)}
-            className="relative p-2 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition"
-            title="Central de Alertas"
-            aria-label={unreadAlertsCount > 0 ? `Alertas: ${unreadAlertsCount} não resolvidos` : 'Alertas'}
+            type="button"
+            onClick={() => setNotificationsOpen(true)}
+            className={`${iconButton} relative`}
+            aria-label={unreadAlertsCount > 0 ? `${unreadAlertsCount} alertas não resolvidos` : 'Abrir alertas'}
           >
-            <Bell className="w-4 h-4" />
-            {unreadAlertsCount > 0 && (
-              <span className="absolute top-1 right-1 w-2.5 h-2.5 rounded-full bg-rose-500 ring-2 ring-slate-900 animate-ping" />
-            )}
-            {unreadAlertsCount > 0 && (
-              <span className="absolute top-1 right-1 w-2.5 h-2.5 rounded-full bg-rose-500 ring-2 ring-slate-900" />
-            )}
+            <Bell className="h-5 w-5" aria-hidden="true" />
+            {unreadAlertsCount > 0 ? (
+              <span className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full bg-rose-600 ring-2 ring-white" aria-hidden="true" />
+            ) : null}
           </button>
 
-          {/* Perfil do usuário + (apenas admin) simulação de perfil auditada */}
           <div className="relative">
             <button
-              onClick={() => setRoleDropdownOpen(!roleDropdownOpen)}
-              className={`flex items-center gap-2 pl-2 pr-2.5 py-1.5 rounded-lg border transition ${
-                isImpersonating
-                  ? 'bg-amber-600/20 border-amber-500/60 hover:bg-amber-600/30'
-                  : 'bg-slate-800 hover:bg-slate-700/80 border-slate-700'
+              type="button"
+              onClick={() => setProfileOpen((open) => !open)}
+              aria-expanded={profileOpen}
+              aria-haspopup="menu"
+              className={`flex min-h-11 items-center gap-2 rounded-lg border px-2.5 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700 ${
+                isImpersonating ? 'border-amber-300 bg-amber-50' : 'border-slate-200 hover:bg-slate-50'
               }`}
-              title={canImpersonate ? 'Perfil e simulação de perfil (auditada)' : 'Meu perfil'}
             >
-              <div className="w-6 h-6 rounded-full bg-sky-600 flex items-center justify-center text-xs font-bold text-white">
-                {currentUser.name.charAt(0)}
-              </div>
-              <div className="text-left hidden md:block">
-                <p className="text-xs font-medium text-slate-200 leading-tight">{currentUser.name}</p>
-                <p className={`text-[10px] leading-none ${isImpersonating ? 'text-amber-300' : 'text-sky-400'}`}>
-                  {isImpersonating ? `Simulando: ${currentRoleInfo.label}` : currentRoleInfo.label}
-                </p>
-              </div>
-              <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 text-sm font-bold text-slate-700">
+                {currentUser.name?.charAt(0).toUpperCase() || <UserRound className="h-4 w-4" aria-hidden="true" />}
+              </span>
+              <span className="hidden max-w-36 text-left lg:block">
+                <span className="block truncate text-xs font-semibold text-slate-900">{currentUser.name}</span>
+                <span className="block truncate text-xs text-slate-500">{roleLabel}</span>
+              </span>
+              <ChevronDown className="hidden h-4 w-4 text-slate-400 sm:block" aria-hidden="true" />
             </button>
 
-            {roleDropdownOpen && (
-              <div className="absolute right-0 mt-2 w-72 bg-white rounded-xl shadow-2xl border border-slate-200 py-2 z-50 text-slate-800 animate-in fade-in zoom-in-95">
-                {canImpersonate && (
-                  <>
-                    <div className="px-3 py-2 border-b border-slate-100">
-                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Simular Perfil (auditado)</p>
-                      <p className="text-[11px] text-slate-500">
-                        Pré-visualização de menu/permissões. O acesso a dados continua sendo o do seu perfil real.
-                      </p>
-                    </div>
-                    {isImpersonating && onStopImpersonation && (
-                      <button
-                        onClick={() => { onStopImpersonation(); setRoleDropdownOpen(false); }}
-                        className="w-full text-left px-3 py-2 text-xs font-semibold text-amber-700 hover:bg-amber-50 transition flex items-center gap-2"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                        Encerrar simulação (voltar a {realRole})
-                      </button>
-                    )}
-                    <div className="max-h-72 overflow-y-auto divide-y divide-slate-100">
-                      {ROLES_LIST.map(({ role, label, badgeColor }) => {
-                        const isSelected = currentUser.role === role;
-                        return (
-                          <button
-                            key={role}
-                            onClick={() => {
-                              onImpersonateRole(role);
-                              setRoleDropdownOpen(false);
-                            }}
-                            className={`w-full text-left px-3 py-2.5 hover:bg-slate-50 transition flex items-center justify-between ${
-                              isSelected ? 'bg-sky-50 font-semibold' : ''
-                            }`}
-                          >
-                            <div>
-                              <p className="text-xs text-slate-900">{label}</p>
-                              <span className={`inline-block px-1.5 py-0.5 mt-0.5 rounded text-[9px] font-medium ${badgeColor}`}>
-                                {role}
-                              </span>
-                            </div>
-                            {isSelected && <UserCheck className="w-4 h-4 text-sky-600 flex-shrink-0" />}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </>
-                )}
-
-                {/* Botões de Perfil e Logout */}
-                <div className="p-2 border-t border-slate-100 bg-slate-50 rounded-b-xl space-y-1">
-                  <button
-                    onClick={() => {
-                      setRoleDropdownOpen(false);
-                      if (onNavigate) onNavigate('/minha-conta');
-                    }}
-                    className="w-full py-1.5 px-3 rounded-lg text-xs font-semibold text-slate-700 hover:bg-slate-200/70 transition flex items-center justify-center gap-2 cursor-pointer"
-                  >
-                    <UserCheck className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>Meu Perfil & Segurança</span>
-                  </button>
-
-                  {onLogout && (
-                    <button
-                      onClick={() => {
-                        setRoleDropdownOpen(false);
-                        onLogout();
-                      }}
-                      className="w-full py-1.5 px-3 rounded-lg text-xs font-semibold text-rose-700 hover:bg-rose-100/70 transition flex items-center justify-center gap-2 cursor-pointer"
-                    >
-                      <LogOut className="w-3.5 h-3.5" />
-                      <span>Sair do Sistema / Desconectar</span>
-                    </button>
-                  )}
+            {profileOpen ? (
+              <div role="menu" className="absolute right-0 mt-2 w-72 rounded-xl border border-slate-200 bg-white p-2 shadow-xl">
+                <div className="border-b border-slate-100 px-3 py-2">
+                  <p className="truncate text-sm font-semibold text-slate-950">{currentUser.name}</p>
+                  <p className="truncate text-xs text-slate-500">{currentUser.email}</p>
+                  {isImpersonating ? <p className="mt-2 text-xs font-semibold text-amber-700">Visualizando como {roleLabel}</p> : null}
                 </div>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => { setProfileOpen(false); onNavigate?.('/minha-conta'); }}
+                  className="mt-1 flex min-h-10 w-full items-center gap-2 rounded-lg px-3 text-sm text-slate-700 hover:bg-slate-100"
+                >
+                  <UserRound className="h-4 w-4" aria-hidden="true" /> Minha conta
+                </button>
+                {canImpersonate ? (
+                  <div className="mt-1 border-t border-slate-100 pt-2">
+                    <p className="px-3 pb-1 text-xs font-semibold text-slate-500">Pré-visualizar perfil</p>
+                    <div className="max-h-52 overflow-y-auto">
+                      {ROLES.filter((item) => item.role !== realRole).map((item) => (
+                        <button
+                          type="button"
+                          role="menuitem"
+                          key={item.role}
+                          onClick={() => { onImpersonateRole(item.role); setProfileOpen(false); }}
+                          className="flex min-h-10 w-full items-center rounded-lg px-3 text-left text-sm text-slate-700 hover:bg-slate-100"
+                        >
+                          {item.label}
+                        </button>
+                      ))}
+                    </div>
+                    {isImpersonating ? (
+                      <button type="button" onClick={() => { onStopImpersonation?.(); setProfileOpen(false); }} className="mt-1 min-h-10 w-full rounded-lg bg-amber-50 px-3 text-left text-sm font-semibold text-amber-800 hover:bg-amber-100">
+                        Voltar ao meu perfil
+                      </button>
+                    ) : null}
+                  </div>
+                ) : null}
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={onLogout}
+                  className="mt-1 flex min-h-10 w-full items-center gap-2 border-t border-slate-100 px-3 pt-2 text-sm font-medium text-rose-700 hover:bg-rose-50"
+                >
+                  <LogOut className="h-4 w-4" aria-hidden="true" /> Sair
+                </button>
               </div>
-            )}
+            ) : null}
           </div>
         </div>
       </div>
 
-      {/* iOS PWA Installation Guide Modal */}
-      {showIosModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl text-slate-900">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <h3 className="text-base font-bold text-slate-900">Instalar no iPhone / iPad</h3>
-              <button onClick={() => setShowIosModal(false)} className="text-slate-400 hover:text-slate-600">
-                <X className="w-5 h-5" />
+      {isImpersonating ? (
+        <div className="flex items-center justify-center gap-2 border-t border-amber-200 bg-amber-50 px-4 py-1.5 text-xs font-medium text-amber-900" role="status">
+          <AlertTriangle className="h-4 w-4" aria-hidden="true" /> Pré-visualização de acesso ativa. Nenhuma permissão real foi alterada.
+        </div>
+      ) : null}
+
+      {showIosModal ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4" role="dialog" aria-modal="true" aria-labelledby="ios-install-title">
+          <div className="w-full max-w-sm rounded-xl bg-white p-5 shadow-2xl">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 id="ios-install-title" className="text-lg font-bold text-slate-950">Instalar no iPhone ou iPad</h2>
+                <p className="mt-2 text-sm leading-6 text-slate-600">No Safari, toque em Compartilhar e escolha “Adicionar à Tela de Início”.</p>
+              </div>
+              <button type="button" onClick={() => setShowIosModal(false)} className={iconButton} aria-label="Fechar instruções">
+                <X className="h-5 w-5" aria-hidden="true" />
               </button>
             </div>
-            <div className="mt-3 space-y-3 text-sm text-slate-600">
-              <p>1. No navegador Safari, toque no botão <strong>Compartilhar</strong> (ícone do quadrado com a seta para cima).</p>
-              <p>2. Role a lista para baixo e selecione <strong>Adicionar à Tela de Início</strong>.</p>
-              <p>3. Toque em <strong>Adicionar</strong> no canto superior direito.</p>
-            </div>
-            <button
-              onClick={() => setShowIosModal(false)}
-              className="mt-5 w-full rounded-xl bg-blue-600 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition"
-            >
-              Entendido
-            </button>
           </div>
         </div>
-      )}
+      ) : null}
 
-      {/* Modal de Busca Global com Debounce */}
       <GlobalSearchModal
-        isOpen={searchModalOpen}
-        onClose={() => setSearchModalOpen(false)}
-        onSelectResult={(mod) => {
-          if (onNavigate) onNavigate(mod);
-        }}
+        isOpen={searchOpen}
+        onClose={() => setSearchOpen(false)}
+        onSelectResult={(module) => onNavigate?.(module)}
       />
-
-      {/* Gaveta Lateral de Notificações com Ciência Obrigatória */}
       <NotificationsDrawer
-        isOpen={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
-        onNavigateToModule={(mod) => {
-          if (onNavigate) onNavigate(mod);
-        }}
+        isOpen={notificationsOpen}
+        onClose={() => setNotificationsOpen(false)}
+        onNavigateToModule={(module) => onNavigate?.(module)}
       />
     </header>
   );

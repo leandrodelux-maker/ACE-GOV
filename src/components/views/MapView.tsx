@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import 'leaflet/dist/leaflet.css';
 import {
   Layers,
   MapPin,

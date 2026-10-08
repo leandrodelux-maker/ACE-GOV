@@ -110,6 +110,31 @@ export const PERMISSIONS_CATALOG: PermissionDefinition[] = [
   { slug: 'configuracoes.manage', module: 'configuracoes', action: 'manage', label: 'Administrar Sistema', description: 'Controle de sistema, integrações e endemias' },
 
   { slug: 'auditoria.view', module: 'auditoria', action: 'view', label: 'Visualizar Auditoria', description: 'Acessar logs de conformidade SUS/LGPD' },
+
+  // Migration 37 — LIRAa/LIA
+  { slug: 'liraa.view', module: 'liraa', action: 'view', label: 'Visualizar LIRAa/LIA', description: 'Levantamentos, indicadores e relatórios' },
+  { slug: 'liraa.planejar', module: 'liraa', action: 'manage', label: 'Planejar LIRAa/LIA', description: 'Levantamentos, estratos e sorteio amostral' },
+  { slug: 'liraa.coletar', module: 'liraa', action: 'collect', label: 'Coleta LIRAa/LIA', description: 'Registrar inspeções de campo' },
+  { slug: 'liraa.supervisionar', module: 'liraa', action: 'approve', label: 'Supervisionar LIRAa/LIA', description: 'Conferir inspeções e redistribuir amostras' },
+  { slug: 'liraa.laboratorio', module: 'liraa', action: 'analyze', label: 'Laboratório LIRAa/LIA', description: 'Receber tubitos e registrar resultados' },
+  { slug: 'liraa.encerrar', module: 'liraa', action: 'close', label: 'Encerrar LIRAa/LIA', description: 'Encerrar ou cancelar levantamentos' },
+  { slug: 'liraa.reabrir', module: 'liraa', action: 'manage', label: 'Reabrir LIRAa/LIA', description: 'Reabertura formal com justificativa auditada' },
+  { slug: 'liraa.export', module: 'liraa', action: 'export', label: 'Exportar LIRAa/LIA', description: 'Exportar relatórios em PDF, Excel e CSV' },
+
+  // Migration 37 — Vacinação antirrábica e vigilância da raiva
+  { slug: 'antirrabica.view', module: 'antirrabica', action: 'view', label: 'Visualizar Vacinação Antirrábica', description: 'Campanhas, indicadores e relatórios' },
+  { slug: 'antirrabica.campanhas', module: 'antirrabica', action: 'manage', label: 'Planejar Campanhas', description: 'Campanhas, postos, metas e estimativas' },
+  { slug: 'antirrabica.vacinar', module: 'antirrabica', action: 'create', label: 'Registrar Vacinação', description: 'Registrar doses aplicadas' },
+  { slug: 'antirrabica.cadastro', module: 'antirrabica', action: 'update', label: 'Cadastro Animal', description: 'Cadastrar e editar animais e tutores' },
+  { slug: 'antirrabica.tutores_dados', module: 'antirrabica', action: 'view', label: 'Dados de Tutores (LGPD)', description: 'Ver nome, telefone e endereço de tutores' },
+  { slug: 'antirrabica.estoque', module: 'antirrabica', action: 'manage', label: 'Estoque de Vacinas', description: 'Entradas, distribuições, devoluções e perdas' },
+  { slug: 'antirrabica.estoque_ajuste', module: 'antirrabica', action: 'manage', label: 'Ajuste de Estoque', description: 'Ajustes de inventário com justificativa' },
+  { slug: 'antirrabica.anular', module: 'antirrabica', action: 'delete', label: 'Anular Vacinação', description: 'Anular registros com justificativa' },
+  { slug: 'antirrabica.busca_ativa', module: 'antirrabica', action: 'manage', label: 'Busca Ativa', description: 'Gerar e executar listas de busca ativa' },
+  { slug: 'antirrabica.export', module: 'antirrabica', action: 'export', label: 'Exportar Vacinação', description: 'Exportar relatórios antirrábicos' },
+  { slug: 'raiva.view', module: 'raiva', action: 'view', label: 'Visualizar Vigilância da Raiva', description: 'Eventos e acompanhamento' },
+  { slug: 'raiva.registrar', module: 'raiva', action: 'create', label: 'Registrar Ocorrências de Raiva', description: 'Ocorrências e acompanhamento' },
+  { slug: 'raiva.decidir', module: 'raiva', action: 'approve', label: 'Decisões Técnicas (Raiva)', description: 'Classificação, encerramento e bloqueio de foco' },
 ];
 
 const ALL_PERMISSION_SLUGS = PERMISSIONS_CATALOG.map((p) => p.slug);
@@ -157,6 +182,9 @@ export const ROLES_REGISTRY: Record<UserRole, RoleDefinition> = {
       'denuncias.view', 'denuncias.manage',
       'planejamento.view', 'planejamento.manage',
       'relatorios.view', 'motor_risco.view',
+      'liraa.view', 'liraa.coletar', 'liraa.supervisionar', 'liraa.export',
+      'antirrabica.view', 'antirrabica.vacinar', 'antirrabica.cadastro', 'antirrabica.tutores_dados',
+      'antirrabica.busca_ativa', 'antirrabica.estoque', 'antirrabica.export', 'raiva.view', 'raiva.registrar',
     ],
   },
   ACE: {
@@ -170,6 +198,8 @@ export const ROLES_REGISTRY: Record<UserRole, RoleDefinition> = {
       'territorio.view', 'ciclos.view', 'planejamento.view',
       'ovitrampas.view', 'ovitrampas.install', 'ovitrampas.collect', 'ovitrampas.update',
       'denuncias.view',
+      'liraa.view', 'liraa.coletar',
+      'antirrabica.view', 'antirrabica.vacinar', 'antirrabica.cadastro', 'antirrabica.tutores_dados', 'antirrabica.busca_ativa',
     ],
   },
   EPIDEMIOLOGY_AGENT: {
@@ -183,6 +213,7 @@ export const ROLES_REGISTRY: Record<UserRole, RoleDefinition> = {
       'ovitrampas.view', 'ovitrampas.results', 'ovitrampas.analyze', 'ovitrampas.export',
       'visitas.view', 'imoveis.view', 'territorio.view', 'ciclos.view',
       'relatorios.view', 'relatorios.export', 'motor_risco.view',
+      'liraa.view', 'liraa.export', 'antirrabica.view', 'antirrabica.export', 'raiva.view', 'raiva.registrar', 'raiva.decidir',
     ],
   },
   HEALTH_SECRETARY: {
@@ -196,6 +227,7 @@ export const ROLES_REGISTRY: Record<UserRole, RoleDefinition> = {
       'equipes.view', 'ovitrampas.view', 'ovitrampas.analyze', 'ovitrampas.export',
       'pontos_estrategicos.view', 'imoveis_especiais.view', 'motor_risco.view',
       'auditoria.view', 'configuracoes.view',
+      'liraa.view', 'liraa.export', 'antirrabica.view', 'antirrabica.export', 'raiva.view',
     ],
   },
   AUDITOR_VIEWER: {
@@ -207,6 +239,7 @@ export const ROLES_REGISTRY: Record<UserRole, RoleDefinition> = {
       'painel.view', 'mapas.view', 'relatorios.view', 'relatorios.export', 'auditoria.view',
       'visitas.view', 'imoveis.view', 'territorio.view', 'ciclos.view',
       'pontos_estrategicos.view', 'imoveis_especiais.view', 'configuracoes.view',
+      'liraa.view', 'antirrabica.view', 'raiva.view',
     ],
   },
   SANITARY_AGENT: {
@@ -219,6 +252,7 @@ export const ROLES_REGISTRY: Record<UserRole, RoleDefinition> = {
       'imoveis_especiais.view', 'imoveis_especiais.manage',
       'denuncias.view', 'denuncias.manage',
       'territorio.view', 'imoveis.view', 'visitas.view', 'relatorios.view',
+      'raiva.view', 'raiva.registrar',
     ],
   },
   PRIMARY_CARE_ACS: {
@@ -229,6 +263,31 @@ export const ROLES_REGISTRY: Record<UserRole, RoleDefinition> = {
     defaultPermissions: [
       'territorio.view', 'imoveis.view', 'denuncias.view', 'visitas.view',
     ],
+  },
+  LAB_TECHNICIAN: {
+    slug: 'LAB_TECHNICIAN',
+    name: 'Laboratório Entomológico',
+    description: 'Recebimento e análise de amostras entomológicas',
+    badgeColor: 'bg-fuchsia-700 text-white',
+    defaultPermissions: ['liraa.view', 'liraa.laboratorio', 'ovitrampas.view', 'ovitrampas.results'],
+  },
+  ZOONOSES_VACCINATOR: {
+    slug: 'ZOONOSES_VACCINATOR',
+    name: 'Vacinação Antirrábica / Zoonoses',
+    description: 'Campanhas, registro de doses, cadastro animal e busca ativa',
+    badgeColor: 'bg-orange-700 text-white',
+    defaultPermissions: [
+      'antirrabica.view', 'antirrabica.campanhas', 'antirrabica.vacinar', 'antirrabica.cadastro', 'antirrabica.tutores_dados',
+      'antirrabica.estoque', 'antirrabica.anular', 'antirrabica.busca_ativa', 'antirrabica.export',
+      'raiva.view', 'raiva.registrar', 'territorio.view', 'imoveis.view',
+    ],
+  },
+  STOCK_MANAGER: {
+    slug: 'STOCK_MANAGER',
+    name: 'Gestor de Estoque',
+    description: 'Lotes, distribuição e inventário de imunobiológicos',
+    badgeColor: 'bg-stone-700 text-white',
+    defaultPermissions: ['antirrabica.view', 'antirrabica.estoque', 'antirrabica.estoque_ajuste', 'antirrabica.export', 'equipes.view'],
   },
 };
 
