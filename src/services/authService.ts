@@ -294,9 +294,17 @@ export const authService = {
     if (!email || !email.includes('@')) {
       throw new Error('Informe um e-mail válido para recuperação.');
     }
-    await supabase.auth.resetPasswordForEmail(email, {
+    // O Supabase responde igual para e-mail cadastrado ou não (sem expor quem tem conta);
+    // erros aqui são falhas reais de envio (limite de tentativas, serviço de e-mail).
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/redefinir-senha`,
     });
+    if (error) {
+      if (/rate limit|too many|seconds|over_email_send_rate_limit/i.test(error.message)) {
+        throw new Error('Muitas solicitações em pouco tempo. Aguarde alguns minutos antes de pedir um novo link.');
+      }
+      throw new Error('Não foi possível enviar o e-mail de recuperação agora. Tente novamente em instantes; se persistir, procure o administrador do sistema.');
+    }
     return {
       success: true,
       message:
