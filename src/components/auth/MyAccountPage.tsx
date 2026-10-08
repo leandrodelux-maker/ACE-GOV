@@ -288,12 +288,9 @@ export const MyAccountPage: React.FC<MyAccountPageProps> = ({ onNavigate }) => {
 
   // Abas do perfil
   const tabs: TabSwitcherItem[] = [
-    { id: 'CADASTRO', label: 'Dados Cadastrais', icon: User },
-    { id: 'CRACHA', label: 'Credencial Digital (SUS)', icon: BadgeCheck, badge: 'Oficial' },
-    { id: 'SEGURANCA', label: 'Segurança & Senha', icon: KeyRound },
-    { id: 'PREFERENCIAS', label: 'Preferências & Campo', icon: Sliders },
-    { id: 'PERMISSOES', label: 'Permissões RBAC', icon: ShieldCheck },
-    { id: 'AUDITORIA', label: 'Minhas Ações (LGPD)', icon: Activity },
+    { id: 'CADASTRO', label: 'Dados cadastrais', icon: User },
+    { id: 'SEGURANCA', label: 'Segurança', icon: KeyRound },
+    { id: 'AUDITORIA', label: 'Minhas ações', icon: Activity },
   ];
 
   // Paleta de gradiente do avatar
@@ -327,15 +324,14 @@ export const MyAccountPage: React.FC<MyAccountPageProps> = ({ onNavigate }) => {
       {/* 1. CABEÇALHO DO SISTEMA VISUAL ENDEMIAS (PAGEHEADER)    */}
       {/* ======================================================== */}
       <PageHeader
-        icon={BadgeCheck}
-        title="Perfil & Credencial do Operador"
-        subtitle="Identificação funcional, credencial digital oficial (SUS), segurança de acesso, preferências de campo e conformidade LGPD."
+        icon={User}
+        title="Minha conta"
+        subtitle="Dados funcionais, segurança de acesso e histórico de atividades."
         badge={[
-          { label: 'SESSÃO ATIVA', tone: 'success' },
+          { label: 'Sessão ativa', tone: 'success' },
           { label: user?.role || 'ACE', tone: 'info' },
-          { label: municipality?.name ? `${municipality.name} - ${municipality.state}` : 'MUNICÍPIO CONECTADO', tone: 'info' },
+          { label: municipality?.name ? `${municipality.name} - ${municipality.state}` : 'Município conectado', tone: 'info' },
         ]}
-        live
         actions={
           <div className="flex items-center gap-2">
             <button
@@ -395,7 +391,7 @@ export const MyAccountPage: React.FC<MyAccountPageProps> = ({ onNavigate }) => {
           <div className="min-w-0 flex-1">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Lotação Municipal</span>
             <h4 className="text-sm font-black text-slate-900 truncate">{municipality?.name || 'Moiporá'}</h4>
-            <span className="text-[11px] text-slate-500 font-mono block truncate">IBGE: {municipality?.ibgeCode || '5213408'}</span>
+            <span className="text-[11px] text-slate-500 font-mono block truncate">IBGE: {municipality?.ibgeCode || 'Não informado'}</span>
           </div>
         </div>
 

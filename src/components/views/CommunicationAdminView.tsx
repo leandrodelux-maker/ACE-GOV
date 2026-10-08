@@ -20,7 +20,6 @@ import {
   communicationService,
   MessageTemplate,
   MessageLog,
-  WhatsAppProviderConfig,
   OperationalEvent
 } from '../../services/communicationService';
 import { PageHeader } from '../ui';
@@ -32,24 +31,6 @@ export const CommunicationAdminView: React.FC = () => {
   const [templates, setTemplates] = useState<MessageTemplate[]>([]);
   const [logs, setLogs] = useState<MessageLog[]>([]);
   const [loading, setLoading] = useState(false);
-
-  // Configuração local de Gateway
-  const [providerConfig, setProviderConfig] = useState<WhatsAppProviderConfig>(() => {
-    const saved = localStorage.getItem('endemias_wpp_provider_config');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch {}
-    }
-    return {
-      providerType: 'zapi',
-      endpointUrl: 'https://api.z-api.io/instances/gov-instance',
-      apiToken: '••••••••••••••••••••',
-      instanceId: 'GOV-ENDEMIAS-01',
-      active: true
-    };
-  });
-  const [configSaved, setConfigSaved] = useState(false);
 
   // Form de disparo operacional
   const [recipientPhone, setRecipientPhone] = useState('');
@@ -125,13 +106,6 @@ export const CommunicationAdminView: React.FC = () => {
   const handleToggleTemplate = async (templateId: string, currentActive: boolean) => {
     await communicationService.toggleTemplate(templateId, !currentActive);
     loadData();
-  };
-
-  const handleSaveProviderConfig = (e: React.FormEvent) => {
-    e.preventDefault();
-    localStorage.setItem('endemias_wpp_provider_config', JSON.stringify(providerConfig));
-    setConfigSaved(true);
-    setTimeout(() => setConfigSaved(false), 3000);
   };
 
   return (
@@ -404,80 +378,18 @@ export const CommunicationAdminView: React.FC = () => {
 
       {/* ABA 4: CONFIGURAÇÃO DE GATEWAY */}
       {activeTab === 'SETTINGS' && (
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs max-w-2xl space-y-4">
+        <div className="max-w-2xl space-y-4 rounded-xl border border-slate-200 bg-white p-6">
           <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
             <Server className="w-4 h-4 text-emerald-600" />
-            <span>Configuração do Provedor de Mensageria (Desacoplado)</span>
+            <span>Integração de mensageria</span>
           </h3>
 
-          <p className="text-xs text-slate-500">
-            A arquitetura desacoplada permite alternar entre gateways oficiais e instâncias de WhatsApp sem alterar regras de negócio.
+          <p className="text-sm leading-6 text-slate-600">
+            Nenhum provedor está habilitado. Por segurança, endereços e tokens de API não podem ser configurados ou armazenados no navegador.
           </p>
-
-          {configSaved && (
-            <div className="p-3 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-xl text-xs flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4" />
-              <span>Configurações do Gateway salvas com sucesso!</span>
-            </div>
-          )}
-
-          <form onSubmit={handleSaveProviderConfig} className="space-y-4 text-xs">
-            <div>
-              <label className="block font-bold text-slate-600 mb-1">Provedor Ativo</label>
-              <select
-                value={providerConfig.providerType}
-                onChange={e => setProviderConfig({ ...providerConfig, providerType: e.target.value as any })}
-                className="w-full py-2 px-3 rounded-lg border border-slate-200 bg-white font-medium"
-              >
-                <option value="zapi">Z-API (WhatsApp Oficial / Não Oficial)</option>
-                <option value="evolution">Evolution API (Open Source)</option>
-                <option value="twilio">Twilio Programmable SMS / WhatsApp</option>
-                <option value="gupshup">Gupshup Enterprise Gateway</option>
-                <option value="webhook_custom">Custom Webhook Gateway</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block font-bold text-slate-600 mb-1">API Endpoint URL</label>
-              <input
-                type="url"
-                value={providerConfig.endpointUrl}
-                onChange={e => setProviderConfig({ ...providerConfig, endpointUrl: e.target.value })}
-                className="w-full py-2 px-3 rounded-lg border border-slate-200 font-mono"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block font-bold text-slate-600 mb-1">Instance ID / Token de Sessão</label>
-                <input
-                  type="text"
-                  value={providerConfig.instanceId || ''}
-                  onChange={e => setProviderConfig({ ...providerConfig, instanceId: e.target.value })}
-                  className="w-full py-2 px-3 rounded-lg border border-slate-200 font-mono"
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-600 mb-1">API Key / Token de Acesso</label>
-                <input
-                  type="password"
-                  value={providerConfig.apiToken}
-                  onChange={e => setProviderConfig({ ...providerConfig, apiToken: e.target.value })}
-                  className="w-full py-2 px-3 rounded-lg border border-slate-200"
-                />
-              </div>
-            </div>
-
-            <div className="pt-2 flex justify-end">
-              <button
-                type="submit"
-                className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold transition"
-              >
-                Salvar Configurações do Provedor
-              </button>
-            </div>
-          </form>
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+            A integração deverá ser feita no backend, com segredo protegido e trilha de auditoria, antes da liberação deste módulo.
+          </div>
         </div>
       )}
     </div>

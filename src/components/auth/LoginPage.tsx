@@ -1,17 +1,5 @@
 import React, { useState } from 'react';
-import {
-  Shield,
-  Lock,
-  Mail,
-  Eye,
-  EyeOff,
-  AlertCircle,
-  CheckCircle2,
-  ArrowRight,
-  UserCheck,
-  Building2,
-  Sparkles,
-} from 'lucide-react';
+import { AlertCircle, ArrowRight, Eye, EyeOff, Lock, Mail, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
 interface LoginPageProps {
@@ -21,7 +9,6 @@ interface LoginPageProps {
 
 export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate, redirectTo }) => {
   const { login } = useAuth();
-
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -29,219 +16,153 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate, redirectTo }) 
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
 
-  const validate = (): boolean => {
+  const validate = () => {
     const errors: { email?: string; password?: string } = {};
-
-    if (!email.trim()) {
-      errors.email = 'Informe o seu e-mail institucional.';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-      errors.email = 'Formato de e-mail inválido.';
-    }
-
-    if (!password) {
-      errors.password = 'Informe sua senha de acesso.';
-    } else if (password.length < 8) {
-      errors.password = 'A senha deve conter ao menos 8 caracteres.';
-    }
-
+    if (!email.trim()) errors.email = 'Informe o e-mail institucional.';
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) errors.email = 'Digite um e-mail válido.';
+    if (!password) errors.password = 'Informe sua senha.';
+    else if (password.length < 8) errors.password = 'A senha deve ter pelo menos 8 caracteres.';
     setFieldErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (isSubmitting) return; // Prevenção de múltiplos envios
-
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (isSubmitting) return;
     setErrorMessage(null);
-
     if (!validate()) {
+      window.setTimeout(() => document.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus(), 0);
       return;
     }
 
     setIsSubmitting(true);
-
     try {
       const session = await login(email, password);
-
-      // Redirecionamento após autenticação
-      if (redirectTo && redirectTo !== '/login') {
-        onNavigate(redirectTo);
-      } else {
-        onNavigate(session.defaultRoute);
-      }
-    } catch (err: any) {
-      setErrorMessage(err.message || 'Falha ao autenticar. Verifique seus dados.');
+      onNavigate(redirectTo && redirectTo !== '/login' ? redirectTo : session.defaultRoute);
+    } catch (error: unknown) {
+      setErrorMessage(error instanceof Error ? error.message : 'Não foi possível entrar. Verifique os dados e tente novamente.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-sky-950 flex items-center justify-center p-4 selection:bg-sky-500 selection:text-white relative overflow-hidden">
-      {/* Elementos visuais de fundo em vidro e iluminação */}
-      <div className="absolute -top-32 -left-32 w-96 h-96 bg-blue-600/15 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-sky-500/15 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-slate-900/40 rounded-full blur-2xl pointer-events-none" />
+    <main className="min-h-screen bg-slate-100 p-4 sm:p-6 lg:grid lg:grid-cols-[minmax(320px,0.85fr)_minmax(480px,1.15fr)] lg:p-0">
+      <section className="hidden bg-slate-950 p-10 text-white lg:flex lg:flex-col lg:justify-between xl:p-14" aria-label="Apresentação do sistema">
+        <div className="flex items-center gap-3">
+          <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-teal-700">
+            <ShieldCheck className="h-6 w-6" aria-hidden="true" />
+          </span>
+          <div>
+            <p className="text-lg font-bold">Vigilância de Endemias</p>
+            <p className="text-sm text-slate-400">Secretaria Municipal de Saúde</p>
+          </div>
+        </div>
 
-      {/* Card Principal */}
-      <div className="w-full max-w-md z-10">
-        <div className="bg-slate-900/80 backdrop-blur-xl border border-slate-800/80 rounded-2xl p-6 sm:p-8 shadow-2xl shadow-black/50">
-          {/* Cabeçalho Oficial do Logo e Sistema */}
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 via-sky-600 to-sky-700 shadow-lg shadow-sky-600/30 ring-1 ring-white/20 mb-4">
-              <Shield className="w-8 h-8 text-white" />
-            </div>
+        <div className="max-w-lg">
+          <h1 className="text-4xl font-bold leading-tight tracking-tight xl:text-5xl">Informação de campo para decisões de saúde pública.</h1>
+          <p className="mt-5 max-w-md text-base leading-7 text-slate-300">
+            Registre visitas, acompanhe o território e organize as prioridades da equipe em um único ambiente municipal.
+          </p>
+        </div>
 
-            {/* Logo SUS / MS */}
-            <div className="flex items-center justify-center gap-2 mb-2">
-              <span className="text-2xl font-black tracking-tight text-white">
-                Endemias <span className="text-sky-400 font-extrabold">GOV</span>
-              </span>
-              <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-sky-950/90 text-sky-300 border border-sky-800">
-                SUS / MS
-              </span>
-            </div>
+        <p className="text-sm text-slate-400">Acesso restrito a servidores e colaboradores autorizados.</p>
+      </section>
 
-            {/* Título e Subtítulo */}
-            <h1 className="text-lg font-bold text-slate-100 tracking-tight">
-              Acesso ao Endemias GOV
-            </h1>
-            <p className="text-xs text-slate-400 mt-1 max-w-xs mx-auto">
-              Sistema Municipal de Vigilância e Controle de Endemias
-            </p>
+      <section className="flex min-h-[calc(100vh-2rem)] items-center justify-center lg:min-h-screen">
+        <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+          <div className="mb-8 lg:hidden">
+            <span className="mb-4 flex h-11 w-11 items-center justify-center rounded-lg bg-teal-800 text-white">
+              <ShieldCheck className="h-6 w-6" aria-hidden="true" />
+            </span>
+            <p className="text-sm font-semibold text-teal-800">Secretaria Municipal de Saúde</p>
           </div>
 
-          {/* Mensagem de Erro Amigável */}
-          {errorMessage && (
-            <div className="mb-5 p-3.5 rounded-xl bg-rose-950/70 border border-rose-800/80 text-rose-200 text-xs flex items-start gap-2.5 animate-in fade-in slide-in-from-top-2">
-              <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
-              <div className="flex-1 leading-relaxed">{errorMessage}</div>
-            </div>
-          )}
+          <div>
+            <h2 className="text-2xl font-bold tracking-tight text-slate-950">Entrar no sistema</h2>
+            <p className="mt-2 text-sm leading-6 text-slate-600">Use as credenciais fornecidas pela administração municipal.</p>
+          </div>
 
-          {/* Formulário de Login */}
-          <form onSubmit={handleSubmit} className="space-y-4" noValidate>
-            {/* Campo E-mail */}
+          {errorMessage ? (
+            <div className="mt-6 flex gap-3 rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800" role="alert" aria-live="polite">
+              <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
+              <span>{errorMessage}</span>
+            </div>
+          ) : null}
+
+          <form onSubmit={handleSubmit} className="mt-6 space-y-5" noValidate>
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                E-mail institucional
-              </label>
+              <label htmlFor="login-email" className="mb-2 block text-sm font-semibold text-slate-800">E-mail institucional</label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                  <Mail className="w-4 h-4" />
-                </div>
+                <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" aria-hidden="true" />
                 <input
+                  id="login-email"
+                  name="email"
                   type="email"
+                  autoComplete="username"
+                  spellCheck={false}
+                  inputMode="email"
                   value={email}
-                  onChange={(e) => {
-                    setEmail(e.target.value);
-                    if (fieldErrors.email) setFieldErrors({ ...fieldErrors, email: undefined });
-                  }}
-                  placeholder="nome.servidor@municipio.gov.br"
+                  onChange={(event) => { setEmail(event.target.value); setFieldErrors((current) => ({ ...current, email: undefined })); }}
+                  placeholder="servidor@municipio.gov.br"
                   disabled={isSubmitting}
-                  className={`w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-950/60 border text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 transition ${
-                    fieldErrors.email
-                      ? 'border-rose-500 focus:ring-rose-500/30'
-                      : 'border-slate-700/80 focus:border-sky-500 focus:ring-sky-500/20'
-                  }`}
+                  aria-invalid={Boolean(fieldErrors.email)}
+                  aria-describedby={fieldErrors.email ? 'login-email-error' : undefined}
+                  className={`min-h-12 w-full rounded-lg border bg-white py-3 pl-11 pr-4 text-base text-slate-950 placeholder:text-slate-400 focus:outline-none focus:ring-2 ${fieldErrors.email ? 'border-rose-500 focus:ring-rose-200' : 'border-slate-300 focus:border-teal-700 focus:ring-teal-100'}`}
                 />
               </div>
-              {fieldErrors.email && (
-                <p className="text-[11px] text-rose-400 mt-1 pl-1">{fieldErrors.email}</p>
-              )}
+              {fieldErrors.email ? <p id="login-email-error" className="mt-1.5 text-sm text-rose-700">{fieldErrors.email}</p> : null}
             </div>
 
-            {/* Campo Senha */}
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                Senha de acesso
-              </label>
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <label htmlFor="login-password" className="text-sm font-semibold text-slate-800">Senha</label>
+                <button type="button" onClick={() => onNavigate('/esqueci-senha')} className="text-sm font-semibold text-teal-800 hover:underline focus-visible:rounded-sm">Esqueci minha senha</button>
+              </div>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                  <Lock className="w-4 h-4" />
-                </div>
+                <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" aria-hidden="true" />
                 <input
+                  id="login-password"
+                  name="password"
                   type={showPassword ? 'text' : 'password'}
+                  autoComplete="current-password"
                   value={password}
-                  onChange={(e) => {
-                    setPassword(e.target.value);
-                    if (fieldErrors.password) setFieldErrors({ ...fieldErrors, password: undefined });
-                  }}
-                  placeholder="••••••••"
+                  onChange={(event) => { setPassword(event.target.value); setFieldErrors((current) => ({ ...current, password: undefined })); }}
+                  placeholder="Digite sua senha"
                   disabled={isSubmitting}
-                  className={`w-full pl-10 pr-10 py-2.5 rounded-xl bg-slate-950/60 border text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 transition ${
-                    fieldErrors.password
-                      ? 'border-rose-500 focus:ring-rose-500/30'
-                      : 'border-slate-700/80 focus:border-sky-500 focus:ring-sky-500/20'
-                  }`}
+                  aria-invalid={Boolean(fieldErrors.password)}
+                  aria-describedby={fieldErrors.password ? 'login-password-error' : undefined}
+                  className={`min-h-12 w-full rounded-lg border bg-white py-3 pl-11 pr-12 text-base text-slate-950 placeholder:text-slate-400 focus:outline-none focus:ring-2 ${fieldErrors.password ? 'border-rose-500 focus:ring-rose-200' : 'border-slate-300 focus:border-teal-700 focus:ring-teal-100'}`}
                 />
                 <button
                   type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-200 transition"
-                  tabIndex={-1}
-                  title={showPassword ? 'Ocultar senha' : 'Exibir senha'}
+                  onClick={() => setShowPassword((visible) => !visible)}
+                  className="absolute right-1 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+                  aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                  aria-pressed={showPassword}
                 >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {showPassword ? <EyeOff className="h-5 w-5" aria-hidden="true" /> : <Eye className="h-5 w-5" aria-hidden="true" />}
                 </button>
               </div>
-              {fieldErrors.password && (
-                <p className="text-[11px] text-rose-400 mt-1 pl-1">{fieldErrors.password}</p>
-              )}
+              {fieldErrors.password ? <p id="login-password-error" className="mt-1.5 text-sm text-rose-700">{fieldErrors.password}</p> : null}
             </div>
 
-            {/* Recuperação de senha */}
-            <div className="flex items-center justify-end pt-1">
-              <button
-                type="button"
-                onClick={() => onNavigate('/esqueci-senha')}
-                className="text-xs text-sky-400 hover:text-sky-300 transition hover:underline"
-              >
-                Esqueci minha senha
-              </button>
-            </div>
-
-            {/* Botão Entrar */}
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full mt-2 py-3 px-4 rounded-xl font-semibold text-sm text-white bg-gradient-to-r from-blue-600 via-sky-600 to-sky-500 hover:from-blue-500 hover:to-sky-400 shadow-lg shadow-sky-600/25 active:scale-[0.99] transition flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+              className="flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-teal-800 px-4 text-base font-semibold text-white transition-colors hover:bg-teal-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-800 disabled:cursor-wait disabled:opacity-70"
             >
-              {isSubmitting ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  <span>Validando credenciais...</span>
-                </>
-              ) : (
-                <>
-                  <span>Entrar no Sistema</span>
-                  <ArrowRight className="w-4 h-4" />
-                </>
-              )}
+              <span>{isSubmitting ? 'Verificando acesso…' : 'Entrar'}</span>
+              {!isSubmitting ? <ArrowRight className="h-5 w-5" aria-hidden="true" /> : null}
             </button>
           </form>
 
-          {/* Links Inferiores */}
-          <div className="mt-6 pt-5 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
-            <span>Primeiro acesso municipal?</span>
-            <button
-              type="button"
-              onClick={() => onNavigate('/primeiro-acesso')}
-              className="text-sky-400 hover:text-sky-300 font-medium transition hover:underline"
-            >
-              Primeiro acesso
-            </button>
+          <div className="mt-7 border-t border-slate-200 pt-5 text-sm text-slate-600">
+            Primeiro acesso?{' '}
+            <button type="button" onClick={() => onNavigate('/primeiro-acesso')} className="font-semibold text-teal-800 hover:underline focus-visible:rounded-sm">Consulte as orientações</button>
           </div>
         </div>
-
-        {/* Rodapé Institucional */}
-        <div className="mt-4 text-center">
-          <p className="text-[11px] text-slate-500">
-            Sistema municipal de vigilância e controle de arboviroses
-          </p>
-        </div>
-      </div>
-    </div>
+      </section>
+    </main>
   );
 };

@@ -1,578 +1,240 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Home,
-  CheckCircle2,
-  PieChart as PieChartIcon,
-  Clock,
-  DoorClosed,
-  UserX,
-  Flame,
-  ShieldCheck,
-  Repeat,
-  Layers,
-  Activity,
   AlertCircle,
-  Crosshair,
-  Users,
-  Filter,
   ArrowUpRight,
-  TrendingUp,
+  CheckCircle2,
+  ClipboardList,
+  Flame,
+  Layers,
+  Map,
   MapPin,
-  Calendar,
   RefreshCw,
-  Plus,
+  Route,
 } from 'lucide-react';
 import { situationRoomService, SituationRoomData } from '../../services/situationRoomService';
 import { supabaseService } from '../../services/supabaseService';
 import { Neighborhood } from '../../types';
-import { PageHeader, StatCard, Breadcrumbs } from '../ui';
+import { PageHeader, StatCard } from '../ui';
 import { useMunicipalityId } from '../../contexts/AuthContext';
 
 interface DashboardViewProps {
   onNavigate: (module: string) => void;
 }
 
+const PERIODS = [
+  { id: 'today', label: 'Hoje' },
+  { id: '7days', label: '7 dias' },
+  { id: '30days', label: '30 dias' },
+  { id: 'cycle', label: 'Ciclo atual' },
+] as const;
+
 export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
   const municipalityId = useMunicipalityId();
-  const [periodFilter, setPeriodFilter] = useState<'today' | '7days' | '30days' | 'cycle'>('cycle');
-  const [neighborhoodFilter, setNeighborhoodFilter] = useState<string>('ALL');
-  const [neighborhoodsList, setNeighborhoodsList] = useState<Neighborhood[]>([]);
-  const [dashboardData, setDashboardData] = useState<SituationRoomData | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [periodFilter, setPeriodFilter] = useState<(typeof PERIODS)[number]['id']>('cycle');
+  const [neighborhoodFilter, setNeighborhoodFilter] = useState('ALL');
+  const [neighborhoods, setNeighborhoods] = useState<Neighborhood[]>([]);
+  const [data, setData] = useState<SituationRoomData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  // Lista de bairros do município da sessão para o filtro
   useEffect(() => {
     let active = true;
-    supabaseService.getNeighborhoods(municipalityId).then((neighs) => {
-      if (active) setNeighborhoodsList(neighs || []);
+    supabaseService.getNeighborhoods(municipalityId).then((items) => {
+      if (active) setNeighborhoods(items || []);
     });
-    return () => {
-      active = false;
-    };
+    return () => { active = false; };
   }, [municipalityId]);
 
-  // Carregar dados reais agregados com cache
-  const loadSituationData = useCallback(async (force = false) => {
+  const load = useCallback(async (forceRefresh = false) => {
     setIsLoading(true);
     try {
-      const data = await situationRoomService.getSituationData({
+      const result = await situationRoomService.getSituationData({
         municipalityId,
         periodFilter,
         neighborhoodId: neighborhoodFilter,
-        forceRefresh: force,
+        forceRefresh,
       });
-      setDashboardData(data);
+      setData(result);
       setLoadError(null);
-    } catch (err) {
-      console.error('Erro ao carregar dados da Sala de Situação:', err);
-      setDashboardData(null);
-      setLoadError('Não foi possível carregar os dados da Sala de Situação. Verifique a conexão e tente novamente.');
+    } catch (error) {
+      console.error('Erro ao carregar a Sala de Situação:', error);
+      setData(null);
+      setLoadError('Não foi possível atualizar os indicadores. Verifique a conexão e tente novamente.');
     } finally {
       setIsLoading(false);
     }
-  }, [municipalityId, periodFilter, neighborhoodFilter]);
+  }, [municipalityId, neighborhoodFilter, periodFilter]);
 
-  useEffect(() => {
-    loadSituationData();
-  }, [loadSituationData]);
+  useEffect(() => { load(); }, [load]);
 
-  const kpis = dashboardData?.kpis;
-  const cycleName = dashboardData
-    ? dashboardData.activeCycleName ?? 'nenhum ciclo em andamento'
+  const kpis = data?.kpis;
+  const value = (current: number | string | null | undefined, suffix = '') => {
+    if (isLoading) return '…';
+    if (current === null || current === undefined) return '—';
+    return `${current}${suffix}`;
+  };
+  const ipo = kpis && kpis.totalOvitraps > 0
+    ? Math.round((kpis.positiveOvitraps / kpis.totalOvitraps) * 100)
     : null;
-  /** Valor do KPI: '...' carregando, '—' sem dados (erro), senão o valor real. */
-  const kpiValue = (v: string | number | undefined) => (isLoading ? '...' : kpis ? v ?? '—' : '—');
-  const ipoPercent =
-    kpis && kpis.totalOvitraps > 0 ? Math.round((kpis.positiveOvitraps / kpis.totalOvitraps) * 100) : null;
-  const hasDeposits = (dashboardData?.depositDistribution || []).some((d) => d.count > 0);
+  const updatedAt = useMemo(() => {
+    if (!data?.calculatedAt) return null;
+    return new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(data.calculatedAt));
+  }, [data?.calculatedAt]);
+  const criticalAreas = (data?.neighborhoods || []).filter((item) => item.riskLevel === 'CRITICO' || item.riskLevel === 'ALTO');
 
   return (
     <div className="space-y-5">
-      {/* Breadcrumbs de Navegação */}
-      <Breadcrumbs
-        items={[
-          { label: 'Início', onClick: () => onNavigate('dashboard') },
-          { label: 'Sala de Situação' },
-        ]}
-      />
-
-      {/* Header & Filter Bar */}
       <PageHeader
-        live
-        title="Sala de Situação de Endemias"
-        subtitle={`Monitoramento entomológico, epidemiológico e operacional${cycleName ? ` — ${cycleName}` : ''}`}
+        title="Sala de Situação"
+        subtitle={`Visão municipal para organizar o trabalho de campo${data?.activeCycleName ? ` no ${data.activeCycleName}` : ''}.`}
         actions={
-          <>
-            <div className="flex items-center rounded-lg bg-slate-100 p-1 border border-slate-200 text-xs font-medium">
-              <button
-                onClick={() => setPeriodFilter('today')}
-                className={`px-3 py-1.5 rounded-md transition ${periodFilter === 'today' ? 'bg-white text-blue-700 shadow-xs font-semibold' : 'text-slate-600 hover:text-slate-900'}`}
-              >
-                Hoje
-              </button>
-              <button
-                onClick={() => setPeriodFilter('7days')}
-                className={`px-3 py-1.5 rounded-md transition ${periodFilter === '7days' ? 'bg-white text-blue-700 shadow-xs font-semibold' : 'text-slate-600 hover:text-slate-900'}`}
-              >
-                7 Dias
-              </button>
-              <button
-                onClick={() => setPeriodFilter('30days')}
-                className={`px-3 py-1.5 rounded-md transition ${periodFilter === '30days' ? 'bg-white text-blue-700 shadow-xs font-semibold' : 'text-slate-600 hover:text-slate-900'}`}
-              >
-                30 Dias
-              </button>
-              <button
-                onClick={() => setPeriodFilter('cycle')}
-                className={`px-3 py-1.5 rounded-md transition ${periodFilter === 'cycle' ? 'bg-white text-blue-700 shadow-xs font-semibold' : 'text-slate-600 hover:text-slate-900'}`}
-              >
-                Ciclo Atual
-              </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex overflow-x-auto rounded-lg border border-slate-200 bg-slate-50 p-1" aria-label="Período dos indicadores">
+              {PERIODS.map((period) => (
+                <button
+                  type="button"
+                  key={period.id}
+                  onClick={() => setPeriodFilter(period.id)}
+                  aria-pressed={periodFilter === period.id}
+                  className={`min-h-10 whitespace-nowrap rounded-md px-3 text-sm font-semibold transition-colors ${periodFilter === period.id ? 'bg-white text-teal-800 shadow-sm' : 'text-slate-600 hover:text-slate-950'}`}
+                >
+                  {period.label}
+                </button>
+              ))}
             </div>
-
-            <div className="flex items-center gap-1.5 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200 text-xs">
-              <MapPin className="w-3.5 h-3.5 text-slate-500" />
-              <select
-                value={neighborhoodFilter}
-                onChange={e => setNeighborhoodFilter(e.target.value)}
-                className="bg-transparent font-medium text-slate-700 outline-none cursor-pointer"
-              >
-                <option value="ALL">Todos os Bairros ({neighborhoodsList.length})</option>
-                {neighborhoodsList.map(n => (
-                  <option key={n.id} value={n.id}>
-                    {n.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <button
-              onClick={() => loadSituationData(true)}
-              disabled={isLoading}
-              className="p-2 text-slate-500 hover:text-slate-800 rounded-lg hover:bg-slate-100 transition"
-              title="Atualizar dados do banco"
+            <label className="sr-only" htmlFor="dashboard-neighborhood">Filtrar por bairro</label>
+            <select
+              id="dashboard-neighborhood"
+              value={neighborhoodFilter}
+              onChange={(event) => setNeighborhoodFilter(event.target.value)}
+              className="min-h-11 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700"
             >
-              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-blue-600' : ''}`} />
+              <option value="ALL">Todo o município</option>
+              {neighborhoods.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+            </select>
+            <button
+              type="button"
+              onClick={() => load(true)}
+              disabled={isLoading}
+              className="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:cursor-wait"
+              aria-label="Atualizar indicadores"
+            >
+              <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} aria-hidden="true" />
             </button>
-          </>
+          </div>
         }
       />
 
-      {loadError && (
-        <div role="alert" className="p-3 rounded-xl border border-rose-200 bg-rose-50 text-rose-800 text-xs flex items-center justify-between gap-3">
+      {loadError ? (
+        <div role="alert" className="flex flex-col gap-3 rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900 sm:flex-row sm:items-center sm:justify-between">
           <span>{loadError}</span>
-          <button onClick={() => loadSituationData(true)} className="px-3 py-1 rounded-lg bg-rose-600 text-white font-semibold">
-            Tentar novamente
-          </button>
+          <button type="button" onClick={() => load(true)} className="min-h-10 rounded-lg bg-rose-700 px-4 font-semibold text-white">Tentar novamente</button>
         </div>
-      )}
-      {!loadError && dashboardData && dashboardData.failedSources.length > 0 && (
-        <div role="status" className="p-3 rounded-xl border border-amber-200 bg-amber-50 text-amber-800 text-xs">
-          Alguns dados não puderam ser carregados ({dashboardData.failedSources.join(', ')}). Os indicadores dessas fontes podem estar incompletos.
+      ) : null}
+
+      {!loadError && data?.failedSources.length ? (
+        <div role="status" className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+          Dados temporariamente indisponíveis: {data.failedSources.join(', ')}. Os demais indicadores continuam válidos.
         </div>
-      )}
+      ) : null}
 
-      {/* 8 Headline KPIs Operacionais Priorizados (Diretriz & Skill kpi-dashboard-design) */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
-        {/* KPI 1: Visitas Realizadas */}
-        <StatCard
-          title="Ver registro completo de visitas domiciliares"
-          onClick={() => onNavigate('visits')}
-          icon={CheckCircle2}
-          tone="success"
-          label="Visitas Realizadas"
-          value={kpiValue(kpis?.visited.toLocaleString('pt-BR'))}
-          caption={kpis ? `${kpis.coveragePercent}% dos imóveis cadastrados →` : 'Sem dados →'}
-        />
+      <section aria-labelledby="dashboard-kpis-title">
+        <div className="mb-3 flex items-end justify-between gap-3">
+          <div>
+            <h2 id="dashboard-kpis-title" className="text-base font-bold text-slate-950">Indicadores principais</h2>
+            <p className="text-sm text-slate-500">{updatedAt ? `Atualizado em ${updatedAt}` : 'Aguardando atualização'}</p>
+          </div>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          <StatCard label="Visitas realizadas" value={value(kpis?.visited)} icon={CheckCircle2} tone="success" caption={`${value(kpis?.totalProperties)} imóveis cadastrados`} onClick={() => onNavigate('visits')} />
+          <StatCard label="Cobertura do período" value={value(kpis?.coveragePercent, '%')} icon={MapPin} tone={kpis && kpis.coveragePercent < 80 ? 'warning' : 'success'} caption="Imóveis trabalhados no território" onClick={() => onNavigate('map')} />
+          <StatCard label="Pendências de retorno" value={value(kpis?.pending)} icon={ClipboardList} tone={kpis?.pending ? 'warning' : 'neutral'} caption="Fechados, recusas e retornos" onClick={() => onNavigate('field_pendencies')} />
+          <StatCard label="Focos ativos" value={value(kpis?.fociActive)} icon={Flame} tone={kpis?.fociActive ? 'danger' : 'success'} caption={`${value(kpis?.eliminated)} eliminados no período`} onClick={() => onNavigate('foci_recurrence')} highlighted={Boolean(kpis?.fociActive)} />
+          <StatCard label="IPO de ovitrampas" value={value(ipo, ipo === null ? '' : '%')} icon={Layers} tone={ipo && ipo > 20 ? 'danger' : 'info'} caption={`${value(kpis?.positiveOvitraps)} positivas de ${value(kpis?.totalOvitraps)}`} onClick={() => onNavigate('ovitraps')} />
+        </div>
+      </section>
 
-        {/* KPI 2: Imóveis Cadastrados & Cobertura */}
-        <StatCard
-          title="Abrir Central de Território e Imóveis"
-          onClick={() => onNavigate('territory')}
-          icon={Home}
-          tone="info"
-          label="Imóveis no Território"
-          value={kpiValue(kpis?.totalProperties.toLocaleString('pt-BR'))}
-          footer={
-            <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden mt-1">
-              <div
-                className={`h-full rounded-full ${
-                  (kpis?.coveragePercent || 0) >= 80
-                    ? 'bg-emerald-500'
-                    : (kpis?.coveragePercent || 0) >= 60
-                    ? 'bg-amber-500'
-                    : 'bg-rose-500'
-                }`}
-                style={{ width: `${Math.min(100, kpis?.coveragePercent || 0)}%` }}
-              />
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.6fr)_minmax(320px,0.8fr)]">
+        <section className="overflow-hidden rounded-xl border border-slate-200 bg-white" aria-labelledby="territory-title">
+          <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-5 py-4">
+            <div>
+              <h2 id="territory-title" className="text-base font-bold text-slate-950">Situação por território</h2>
+              <p className="mt-0.5 text-sm text-slate-500">Áreas ordenadas por prioridade operacional.</p>
             </div>
-          }
-        />
-
-        {/* KPI 3: Focos Ativos de Vetores */}
-        <StatCard
-          title="Ver focos ativos e mapeamento de risco"
-          onClick={() => onNavigate('foci_recurrence')}
-          icon={Flame}
-          tone="danger"
-          highlighted
-          pulse
-          label="Focos Ativos de Aedes"
-          value={kpiValue(kpis?.fociActive)}
-          caption="Aedes aegypti identificado →"
-        />
-
-        {/* KPI 4: Focos Eliminados e Tratados */}
-        <StatCard
-          title="Ver controle vetorial e condutas adotadas"
-          onClick={() => onNavigate('vector_control')}
-          icon={ShieldCheck}
-          tone="success"
-          label="Focos Tratados / Eliminados"
-          value={kpiValue(kpis?.eliminated)}
-          caption="Tratamento químico / mecânico →"
-        />
-
-        {/* KPI 5: Pendências e Fechados */}
-        <StatCard
-          title="Ver pendências de campo e imóveis fechados para resgate"
-          onClick={() => onNavigate('field_pendencies')}
-          icon={Clock}
-          tone="warning"
-          label="Pendências / Fechados"
-          value={kpiValue(kpis ? kpis.pending + kpis.closed : undefined)}
-          caption={kpis ? `${kpis.refusals} recusas registradas →` : 'Sem dados →'}
-        />
-
-        {/* KPI 6: Ovitrampas (Rede Sentinela) */}
-        <StatCard
-          title="Abrir Rede Sentinela de Ovitrampas"
-          onClick={() => onNavigate('ovitraps')}
-          icon={Layers}
-          tone="info"
-          label="Ovitrampas Positivas (IPO)"
-          value={kpiValue(kpis ? `${kpis.positiveOvitraps} / ${kpis.totalOvitraps}` : undefined)}
-          caption={ipoPercent !== null ? `${ipoPercent}% positividade sentinela →` : 'Sem ovitrampas cadastradas →'}
-        />
-
-        {/* KPI 7: Pontos Estratégicos (PE) */}
-        <StatCard
-          title="Ver monitoramento de Pontos Estratégicos"
-          onClick={() => onNavigate('strategic_points')}
-          icon={Crosshair}
-          tone="danger"
-          label="Pontos Estratégicos (PE)"
-          value={kpiValue(kpis ? `${kpis.overduePE} pendentes` : undefined)}
-          caption="Imóveis críticos quinzenais →"
-        />
-
-        {/* KPI 8: Denúncias da População */}
-        <StatCard
-          title="Ver denúncias da comunidade no portal"
-          onClick={() => onNavigate('complaints')}
-          icon={AlertCircle}
-          tone="warning"
-          label="Denúncias Comunitárias"
-          value={kpiValue(kpis?.openComplaints)}
-          caption="Aguardando inspeção ACE →"
-        />
-      </div>
-
-      {/* Main Charts and Analytical Panels */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left 2 Cols: Focos por Bairro e Cobertura */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Bairros e Risco */}
-          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h2 className="text-sm font-bold text-slate-900">Situação Territorial por Bairro</h2>
-                <p className="text-xs text-slate-500">Índice de Risco Entomológico, Cobertura do Ciclo e Focos</p>
-              </div>
-              <button
-                onClick={() => onNavigate('territory')}
-                className="text-xs font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1"
-              >
-                <span>Ver Território Completo</span>
-                <ArrowUpRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs text-left">
-                <thead className="bg-slate-50 text-slate-500 uppercase text-[10px] font-semibold border-y border-slate-200">
-                  <tr>
-                    <th className="py-2.5 px-3">Bairro / Localidade</th>
-                    <th className="py-2.5 px-3">Imóveis</th>
-                    <th className="py-2.5 px-3">Cobertura</th>
-                    <th className="py-2.5 px-3">Focos</th>
-                    <th className="py-2.5 px-3">Índice Risco</th>
-                    <th className="py-2.5 px-3 text-right">Ação</th>
+            <button type="button" onClick={() => onNavigate('map')} className="inline-flex min-h-10 items-center gap-2 rounded-lg px-3 text-sm font-semibold text-teal-800 hover:bg-teal-50">
+              <Map className="h-4 w-4" aria-hidden="true" /> Ver mapa
+            </button>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[680px] text-left text-sm">
+              <thead className="bg-slate-50 text-slate-600">
+                <tr>
+                  <th scope="col" className="px-5 py-3 font-semibold">Bairro</th>
+                  <th scope="col" className="px-3 py-3 font-semibold">Cobertura</th>
+                  <th scope="col" className="px-3 py-3 font-semibold">Pendências</th>
+                  <th scope="col" className="px-3 py-3 font-semibold">Focos</th>
+                  <th scope="col" className="px-5 py-3 text-right font-semibold">Risco</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {isLoading ? (
+                  <tr><td colSpan={5} className="px-5 py-10 text-center text-slate-500">Carregando situação territorial…</td></tr>
+                ) : data?.neighborhoods.length ? data.neighborhoods.slice(0, 8).map((area) => (
+                  <tr key={area.id} className="hover:bg-slate-50/70">
+                    <td className="px-5 py-3.5"><span className="font-semibold text-slate-900">{area.name}</span><span className="mt-0.5 block text-xs text-slate-500">{area.totalProperties} imóveis</span></td>
+                    <td className="px-3 py-3.5">{area.coveragePercentage === null ? 'Não calculada' : `${area.coveragePercentage}%`}</td>
+                    <td className="px-3 py-3.5">{area.pendingCount}</td>
+                    <td className="px-3 py-3.5">{area.fociCount}</td>
+                    <td className="px-5 py-3.5 text-right"><span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${area.riskLevel === 'CRITICO' ? 'bg-rose-100 text-rose-800' : area.riskLevel === 'ALTO' ? 'bg-orange-100 text-orange-800' : area.riskLevel === 'ATENCAO' ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'}`}>{area.riskLevel === 'ATENCAO' ? 'Atenção' : area.riskLevel.charAt(0) + area.riskLevel.slice(1).toLowerCase()}</span></td>
                   </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {isLoading ? (
-                    <tr>
-                      <td colSpan={6} className="py-8 text-center text-slate-400">
-                        <RefreshCw className="w-5 h-5 animate-spin mx-auto text-blue-600 mb-1" />
-                        <span>Carregando situação territorial do banco...</span>
-                      </td>
-                    </tr>
-                  ) : (dashboardData?.neighborhoods || []).length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="py-8 text-center text-slate-400">
-                        {loadError ? 'Não foi possível carregar.' : 'Sem bairros registrados para o município.'}
-                      </td>
-                    </tr>
-                  ) : (dashboardData?.neighborhoods || []).map(n => {
-                    const isCritical = n.riskLevel === 'CRITICO';
-                    const isHigh = n.riskLevel === 'ALTO';
-                    return (
-                      <tr key={n.id} className="hover:bg-slate-50/80 transition">
-                        <td className="py-3 px-3 font-semibold text-slate-900">
-                          {n.name}
-                          {isCritical && (
-                            <span className="ml-2 inline-flex items-center px-1.5 py-0.2 rounded text-[9px] font-bold bg-rose-100 text-rose-700">
-                              Alerta Crítico
-                            </span>
-                          )}
-                        </td>
-                        <td className="py-3 px-3 text-slate-600">{n.totalProperties.toLocaleString('pt-BR')}</td>
-                        <td className="py-3 px-3">
-                          {n.coveragePercentage === null ? (
-                            <span className="text-slate-400">Sem imóveis cadastrados</span>
-                          ) : (
-                            <div className="flex items-center gap-2">
-                              <span className="font-semibold text-slate-800">{n.coveragePercentage}%</span>
-                              <div className="w-16 bg-slate-100 rounded-full h-1.5 overflow-hidden">
-                                <div
-                                  className={`h-full rounded-full ${n.coveragePercentage >= 80 ? 'bg-emerald-500' : 'bg-amber-500'}`}
-                                  style={{ width: `${n.coveragePercentage}%` }}
-                                />
-                              </div>
-                            </div>
-                          )}
-                        </td>
-                        <td className="py-3 px-3">
-                          <span className={`px-2 py-0.5 rounded font-bold ${n.fociCount > 0 ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-700'}`}>
-                            {n.fociCount}
-                          </span>
-                        </td>
-                        <td className="py-3 px-3">
-                          <div className="flex items-center gap-1.5">
-                            <span className={`w-2 h-2 rounded-full ${isCritical ? 'bg-rose-500' : isHigh ? 'bg-orange-500' : 'bg-emerald-500'}`} />
-                            <span className="font-bold text-slate-800">{n.riskScore}/100</span>
-                            <span className="text-[10px] text-slate-500">({n.riskLevel})</span>
-                          </div>
-                        </td>
-                        <td className="py-3 px-3 text-right">
-                          <button
-                            onClick={() => onNavigate('map')}
-                            className="px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-medium transition"
-                          >
-                            Ver no Mapa
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* Bloco Oficial: SITUAÇÃO DAS OVITRAMPAS */}
-          <div className="bg-white p-5 rounded-xl border border-slate-200/90 shadow-2xs space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-3">
-                <span className="p-2 rounded-lg bg-sky-50 text-sky-600 border border-sky-100">
-                  <Layers className="w-5 h-5" />
-                </span>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-bold text-slate-900 tracking-tight">Situação das Ovitrampas</h3>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-sky-50 text-sky-700 border border-sky-200">
-                      Rede Sentinela
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-500">Dispersão precoce de fêmeas e contagem de ovos no território</p>
-                </div>
-              </div>
-
-              <button
-                onClick={() => onNavigate('ovitraps')}
-                className="px-3 py-1.5 rounded-lg border border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs transition self-start sm:self-auto flex items-center gap-1.5 shadow-2xs"
-              >
-                <span>Acessar Módulo Completo</span>
-                <ArrowUpRight className="w-3.5 h-3.5 text-slate-400" />
-              </button>
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-              <div className="bg-slate-50/70 p-3.5 rounded-lg border border-slate-200/60">
-                <span className="text-[10px] text-slate-500 uppercase font-semibold">Armadilhas Ativas</span>
-                <p className="text-xl font-extrabold text-slate-900 mt-0.5">{kpiValue(kpis?.totalOvitraps)}</p>
-                <span className="text-[10px] text-slate-400">Pontos sentinela</span>
-              </div>
-
-              <div className="bg-slate-50/70 p-3.5 rounded-lg border border-slate-200/60">
-                <span className="text-[10px] text-rose-600 uppercase font-semibold">Armadilhas Positivas</span>
-                <p className="text-xl font-extrabold text-rose-600 mt-0.5">{kpiValue(kpis?.positiveOvitraps)}</p>
-                <span className="text-[10px] text-slate-400 font-medium">Presença de ovos</span>
-              </div>
-
-              <div className="bg-slate-50/70 p-3.5 rounded-lg border border-slate-200/60">
-                <span className="text-[10px] text-slate-500 uppercase font-semibold">Positividade (IPO)</span>
-                <p className="text-xl font-extrabold text-slate-900 mt-0.5">
-                  {isLoading ? '...' : ipoPercent !== null ? `${ipoPercent}%` : '—'}
-                </p>
-                <span className="text-[10px] text-slate-400">Índice Municipal</span>
-              </div>
-
-              <div className="bg-slate-50/70 p-3.5 rounded-lg border border-slate-200/60">
-                <span className="text-[10px] text-purple-600 uppercase font-semibold">Foco Prioritário</span>
-                {dashboardData?.topEggDensityNeighborhood ? (
-                  <>
-                    <p className="text-xl font-extrabold text-purple-700 mt-0.5 truncate">{dashboardData.topEggDensityNeighborhood.name}</p>
-                    <span className="text-[10px] text-slate-400">
-                      Densidade: {dashboardData.topEggDensityNeighborhood.averageEggs} ovos/armadilha
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    <p className="text-sm font-semibold text-slate-400 mt-1.5">{isLoading ? '...' : 'Sem dados registrados'}</p>
-                    <span className="text-[10px] text-slate-400">Maior densidade de ovos</span>
-                  </>
+                )) : (
+                  <tr><td colSpan={5} className="px-5 py-10 text-center text-slate-500">Nenhum território cadastrado para o filtro selecionado.</td></tr>
                 )}
-              </div>
-            </div>
+              </tbody>
+            </table>
           </div>
+        </section>
 
-          {/* Tipos de Criadouros A1 a E (Ministério da Saúde) */}
-          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
-            <div className="flex items-center justify-between mb-3">
+        <div className="space-y-5">
+          <section className="rounded-xl border border-slate-200 bg-white p-5" aria-labelledby="priorities-title">
+            <div className="mb-4 flex items-start justify-between gap-3">
               <div>
-                <h2 className="text-sm font-bold text-slate-900">Tipologia de Criadouros Encontrados (Padrão MS / LIRAa)</h2>
-                <p className="text-xs text-slate-500">Distribuição dos recipientes positivos e inspecionados por categoria</p>
+                <h2 id="priorities-title" className="text-base font-bold text-slate-950">Prioridades de hoje</h2>
+                <p className="mt-0.5 text-sm text-slate-500">{criticalAreas.length} área(s) em risco alto ou crítico.</p>
               </div>
+              <AlertCircle className="h-5 w-5 text-amber-600" aria-hidden="true" />
             </div>
-
-            <div className="space-y-3 mt-4">
-              {!isLoading && !hasDeposits && (
-                <p className="text-xs text-slate-400 py-4 text-center">Sem depósitos registrados nas visitas do período.</p>
-              )}
-              {hasDeposits && (dashboardData?.depositDistribution || []).map(dep => {
-                const maxCount = Math.max(1, ...(dashboardData?.depositDistribution || []).map(d => d.count));
-                const percent = Math.min(100, Math.round((dep.count / maxCount) * 100));
-
-                return (
-                  <div key={dep.code} className="space-y-1">
-                    <div className="flex justify-between text-xs font-medium">
-                      <span className="text-slate-700">
-                        <strong className="text-slate-900 mr-1.5">[{dep.code}]</strong>
-                        {dep.name}
-                      </span>
-                      <span className="text-slate-900 font-bold">{dep.count} depósitos</span>
-                    </div>
-                    <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
-                      <div
-                        className={`h-full rounded-full ${dep.color}`}
-                        style={{ width: `${percent}%` }}
-                      />
-                    </div>
+            <div className="space-y-3">
+              {isLoading ? <p className="py-5 text-center text-sm text-slate-500">Calculando prioridades…</p> : data?.priorities.length ? data.priorities.slice(0, 5).map((priority) => (
+                <article key={priority.id} className="rounded-lg border border-slate-200 p-3.5">
+                  <div className="flex items-start justify-between gap-3">
+                    <h3 className="text-sm font-semibold text-slate-950">{priority.title}</h3>
+                    <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">{priority.badgeLabel}</span>
                   </div>
-                );
-              })}
+                  <p className="mt-1.5 text-sm leading-5 text-slate-600">{priority.description}</p>
+                  <button type="button" onClick={() => onNavigate(priority.targetModule)} className="mt-2 inline-flex min-h-9 items-center gap-1 text-sm font-semibold text-teal-800 hover:underline">
+                    Abrir atividade <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
+                  </button>
+                </article>
+              )) : <p className="rounded-lg bg-emerald-50 p-4 text-sm text-emerald-800">Nenhuma prioridade urgente para o período selecionado.</p>}
             </div>
-          </div>
-        </div>
+          </section>
 
-        {/* Right Col: Prioridades Operacionais de Hoje e Atalhos */}
-        <div className="space-y-6">
-          <div className="bg-white p-5 rounded-xl border border-slate-200/90 shadow-2xs space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
-                <span className="p-1.5 rounded-md bg-amber-50 text-amber-600">
-                  <AlertCircle className="w-4 h-4" />
-                </span>
-                <span>Prioridades Operacionais</span>
-              </div>
-              <span className="text-[11px] font-medium text-slate-400">Hoje</span>
+          <section className="rounded-xl border border-slate-200 bg-white p-5" aria-labelledby="shortcuts-title">
+            <h2 id="shortcuts-title" className="text-base font-bold text-slate-950">Acesso rápido</h2>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
+              {[
+                { label: 'Abrir trabalho de campo', target: 'ace_pwa', icon: Route },
+                { label: 'Consultar imóveis', target: 'properties', icon: MapPin },
+                { label: 'Ver ovitrampas', target: 'ovitraps', icon: Layers },
+                { label: 'Emitir relatório', target: 'reports', icon: ClipboardList },
+              ].map(({ label, target, icon: Icon }) => (
+                <button type="button" key={target} onClick={() => onNavigate(target)} className="flex min-h-11 w-full items-center gap-3 rounded-lg border border-slate-200 px-3 text-left text-sm font-semibold text-slate-700 hover:border-teal-300 hover:bg-teal-50 hover:text-teal-900">
+                  <Icon className="h-4 w-4 text-teal-700" aria-hidden="true" /> {label}
+                </button>
+              ))}
             </div>
-
-            <div className="space-y-2.5 text-xs">
-              {isLoading ? (
-                <div className="py-6 text-center text-slate-400">
-                  <RefreshCw className="w-4 h-4 animate-spin mx-auto text-slate-400 mb-1" />
-                  <span>Calculando prioridades do dia...</span>
-                </div>
-              ) : (dashboardData?.priorities || []).length === 0 ? (
-                <div className="p-4 rounded-lg bg-slate-50 border border-slate-100 text-slate-500 text-center">
-                  <p className="font-semibold text-slate-700">{loadError ? 'Não foi possível calcular as prioridades.' : 'Nenhuma prioridade urgente.'}</p>
-                  {!loadError && <p className="text-[11px] text-slate-400 mt-0.5">Território operando dentro dos parâmetros de normalidade.</p>}
-                </div>
-              ) : (
-                (dashboardData?.priorities || []).map(prio => (
-                  <div key={prio.id} className="p-3 rounded-lg bg-slate-50/60 hover:bg-slate-50 border border-slate-200/70 text-slate-900 transition space-y-1.5">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="font-semibold text-slate-900 text-xs truncate">{prio.title}</p>
-                      <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold border shrink-0 ${prio.badgeColor}`}>
-                        {prio.badgeLabel}
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-slate-500 leading-relaxed">{prio.description}</p>
-                    <button
-                      onClick={() => onNavigate(prio.targetModule)}
-                      className="text-[11px] font-semibold text-blue-600 hover:text-blue-700 hover:underline flex items-center gap-0.5 pt-0.5"
-                    >
-                      <span>Acessar Ação</span>
-                      <ArrowUpRight className="w-3 h-3" />
-                    </button>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-
-          {/* Atalhos Rápidos para Ação */}
-          <div className="bg-white p-5 rounded-xl border border-slate-200/90 shadow-2xs space-y-3">
-            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Ações Imediatas</h3>
-
-            <div className="space-y-2">
-              <button
-                onClick={() => onNavigate('ace_pwa')}
-                className="w-full flex items-center justify-between p-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-xs shadow-2xs transition group"
-              >
-                <span>Abrir Modo Agente em Campo (PWA)</span>
-                <ArrowUpRight className="w-4 h-4 opacity-90 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-              </button>
-
-              <button
-                onClick={() => onNavigate('planning')}
-                className="w-full flex items-center justify-between p-2.5 rounded-lg border border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-medium text-xs transition group"
-              >
-                <span>Gerar Planejamento de Amanhã</span>
-                <ArrowUpRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600" />
-              </button>
-
-              <button
-                onClick={() => onNavigate('map')}
-                className="w-full flex items-center justify-between p-2.5 rounded-lg border border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-medium text-xs transition group"
-              >
-                <span>Mapa Geral de Focos & Ovitrampas</span>
-                <ArrowUpRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600" />
-              </button>
-
-              <button
-                onClick={() => onNavigate('reports')}
-                className="w-full flex items-center justify-between p-2.5 rounded-lg border border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-medium text-xs transition group"
-              >
-                <span>Emitir Boletim Oficial SUS (PDF/CSV)</span>
-                <ArrowUpRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600" />
-              </button>
-            </div>
-          </div>
+          </section>
         </div>
       </div>
     </div>

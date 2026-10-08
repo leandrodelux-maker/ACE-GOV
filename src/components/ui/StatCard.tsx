@@ -65,18 +65,21 @@ export const StatCard: React.FC<StatCardProps> = ({
     neutral: 'bg-slate-100 text-slate-600',
   };
 
+  const Component: React.ElementType = interactive ? 'button' : 'div';
+
   return (
-    <div
+    <Component
+      type={interactive ? 'button' : undefined}
       onClick={onClick}
       title={title}
-      className={`rounded-xl border p-4 transition-all group ${
+      className={`group w-full rounded-xl border p-4 text-left transition-[border-color,box-shadow,background-color] ${
         highlighted
-          ? 'border-rose-200 bg-rose-50/30 shadow-2xs'
-          : 'bg-white border-slate-200/80 shadow-2xs hover:border-slate-300 hover:shadow-xs'
-      } ${interactive ? `cursor-pointer ${TONE_HOVER_BORDER[tone]}` : ''}`}
+          ? 'border-rose-200 bg-rose-50/40'
+          : 'border-slate-200 bg-white hover:border-slate-300'
+      } ${interactive ? `cursor-pointer ${TONE_HOVER_BORDER[tone]} focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700` : ''}`}
     >
       <div className="flex items-center justify-between gap-2 mb-2">
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 truncate">
+        <span className="truncate text-xs font-semibold text-slate-600">
           {label}
         </span>
         {Icon && (
@@ -89,17 +92,17 @@ export const StatCard: React.FC<StatCardProps> = ({
         )}
       </div>
 
-      <p className={`text-2xl font-extrabold tracking-tight ${highlighted && tone === 'danger' ? 'text-rose-600' : 'text-slate-900'}`}>
+      <p className={`text-2xl font-bold tracking-tight ${highlighted && tone === 'danger' ? 'text-rose-700' : 'text-slate-950'}`}>
         {value}
       </p>
 
       {footer ? (
         <div className="mt-2">{footer}</div>
       ) : caption ? (
-        <p className="text-[11px] font-medium text-slate-500 mt-1 truncate">
+        <p className="mt-1 truncate text-xs font-medium text-slate-500">
           {caption}
         </p>
       ) : null}
-    </div>
+    </Component>
   );
 };

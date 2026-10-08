@@ -278,6 +278,7 @@ export const supabaseService = {
     microareaId?: string;
     status?: string;
     propertyType?: string;
+    assignedAgentId?: string;
     orderBy?: string;
     ascending?: boolean;
   }): Promise<{ properties: any[]; totalCount: number }> {
@@ -291,6 +292,7 @@ export const supabaseService = {
         microareaId,
         status,
         propertyType,
+        assignedAgentId,
         orderBy = 'property_code',
         ascending = true,
       } = options;
@@ -318,6 +320,9 @@ export const supabaseService = {
       if (propertyType && propertyType !== 'ALL') {
         query = query.eq('property_type', propertyType);
       }
+      if (assignedAgentId) {
+        query = query.eq('assigned_agent_id', assignedAgentId);
+      }
 
       if (searchTerm.trim()) {
         const term = searchTerm.trim();
@@ -344,13 +349,13 @@ export const supabaseService = {
         complement: p.complement || '',
         reference: p.reference || '',
         postalCode: p.postal_code || '',
-        neighborhood: p.neighborhoods?.name || 'Centro',
+        neighborhood: p.neighborhoods?.name || 'Não informado',
         neighborhoodId: p.neighborhood_id,
-        sector: p.sectors?.name || 'Setor Geral',
+        sector: p.sectors?.name || 'Não informado',
         sectorId: p.sector_id,
-        microarea: p.microareas?.name || 'Microárea Geral',
+        microarea: p.microareas?.name || 'Não informado',
         microareaId: p.microarea_id,
-        block: p.blocks?.code || 'QD-01',
+        block: p.blocks?.code || 'Não informado',
         blockId: p.block_id,
         type: p.property_type || 'RESIDENCIA',
         status: p.status || 'NORMAL',
@@ -581,7 +586,7 @@ export const supabaseService = {
 
         const street = v.properties?.street || 'Rua não identificada';
         const num = v.properties?.number || 'S/N';
-        const neighborhood = v.properties?.neighborhoods?.name || 'Centro';
+        const neighborhood = v.properties?.neighborhoods?.name || 'Não informado';
 
         return {
           id: v.id,
@@ -1240,5 +1245,3 @@ export const supabaseService = {
     }
   },
 };
-
-

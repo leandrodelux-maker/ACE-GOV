@@ -11,12 +11,12 @@
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
   /* Azul institucional já declarado como theme-color do PWA (index.html) */
-  --color-brand-primary: #03487a;
-  --color-brand-primary-hover: #0b5fa0;
-  --color-brand-primary-tint: #e6eef5;
+  --color-brand-primary: #0b4f6c;
+  --color-brand-primary-hover: #083f57;
+  --color-brand-primary-tint: #e7f0f4;
 
   /* Semântica fixa: nunca decorativa, sempre o mesmo significado em todo módulo */
-  --color-brand-success: #059669;
+  --color-brand-success: #147d64;
   --color-brand-success-tint: #e3f5ee;
 
   --color-brand-warning: #d97706;
@@ -35,7 +35,7 @@
 @layer base {
   body {
     font-family: var(--font-sans);
-    background-color: #f8fafc;
+    background-color: #f4f7f9;
     color: #0f172a;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -69,6 +69,63 @@
   * {
     scrollbar-width: thin;
     scrollbar-color: rgba(148, 163, 184, 0.35) transparent;
+  }
+
+  button,
+  a,
+  input,
+  select,
+  textarea {
+    touch-action: manipulation;
+  }
+
+  :focus-visible {
+    outline: 2px solid #0f766e;
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: #0f766e;
+    color: white;
+  }
+}
+
+/* Piso de qualidade compartilhado pelas telas antigas enquanto são migradas. */
+@layer components {
+  .app-content input:not([type='checkbox']):not([type='radio']),
+  .app-content select,
+  .app-content textarea {
+    min-height: 2.75rem;
+  }
+
+  .app-content button:not([disabled]),
+  .app-content a[href] {
+    cursor: pointer;
+  }
+
+  .app-content table {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .app-content h1,
+  .app-content h2,
+  .app-content h3 {
+    text-wrap: balance;
+  }
+
+  .app-content p {
+    text-wrap: pretty;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }
 

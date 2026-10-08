@@ -465,9 +465,9 @@ export const ovitrapService = {
           name: t.name || t.code,
           municipalityId: t.municipality_id,
           neighborhoodId: t.neighborhood_id,
-          neighborhoodName: t.neighborhoods?.name || 'Centro',
+          neighborhoodName: t.neighborhoods?.name || 'Não informado',
           sectorId: t.sector_id,
-          sectorName: t.sectors?.name || 'Setor Geral',
+          sectorName: t.sectors?.name || 'Não informado',
           microareaId: t.microarea_id,
           propertyId: t.property_id,
           street: t.street || t.address || 'Logradouro não informado',
@@ -480,10 +480,10 @@ export const ovitrapService = {
           responsibleName: t.responsible_name || '',
           responsiblePhone: t.responsible_phone || '',
           responsibleAgentId: t.responsible_agent_id || t.assigned_agent_id,
-          responsibleAgentName: t.agents?.profiles?.full_name || 'ACE Não Atribuído',
+          responsibleAgentName: t.agents?.profiles?.full_name || 'Não atribuído',
           assignedAgentId: t.assigned_agent_id || t.responsible_agent_id,
           teamId: t.team_id,
-          teamName: t.teams?.name || 'Equipe Geral',
+          teamName: t.teams?.name || 'Não informada',
           status: calcStatus,
           notes: t.notes || '',
           installationFrequencyDays: t.installation_frequency_days || 28,
@@ -1328,7 +1328,7 @@ export const ovitrapService = {
       }>();
 
       ovitraps.forEach((t) => {
-        const secName = t.sectorName || 'Setor Geral';
+        const secName = t.sectorName || 'Não informado';
         const curr = sectorMap.get(secName) || { name: secName, traps: 0, positive: 0, eggs: 0 };
         curr.traps++;
         if (t.isPositive) curr.positive++;

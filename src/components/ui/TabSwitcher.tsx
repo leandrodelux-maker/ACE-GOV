@@ -23,7 +23,7 @@ export const TabSwitcher: React.FC<TabSwitcherProps> = ({ tabs, activeTab, onCha
   return (
     <div
       role="tablist"
-      className="flex items-center gap-1 bg-white p-1 rounded-xl border border-slate-200/90 shadow-2xs overflow-x-auto scrollbar-none [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      className="flex items-center gap-1 overflow-x-auto rounded-xl border border-slate-200 bg-white p-1.5 scrollbar-none [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
     >
       {tabs.map((tab) => {
         const Icon = tab.icon;
@@ -34,10 +34,11 @@ export const TabSwitcher: React.FC<TabSwitcherProps> = ({ tabs, activeTab, onCha
             type="button"
             role="tab"
             aria-selected={isActive}
+            tabIndex={isActive ? 0 : -1}
             onClick={() => onChange(tab.id)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition cursor-pointer ${
+            className={`flex min-h-10 items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-teal-700 ${
               isActive
-                ? 'bg-slate-900 text-white shadow-2xs'
+                ? 'bg-teal-800 text-white'
                 : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
             }`}
           >
@@ -45,7 +46,7 @@ export const TabSwitcher: React.FC<TabSwitcherProps> = ({ tabs, activeTab, onCha
             <span>{tab.label}</span>
             {tab.badge && (
               <span
-                className={`text-[9.5px] px-1.5 py-0.2 rounded-full font-bold ${
+                className={`rounded-full px-1.5 py-0.5 text-xs font-semibold ${
                   isActive ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600 border border-slate-200/60'
                 }`}
               >

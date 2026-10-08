@@ -620,7 +620,7 @@ export const EpidemiologyView: React.FC = () => {
                       </span>
                     </td>
                     <td className="py-2.5 px-3 font-sans font-semibold text-slate-800">
-                      {c.neighborhoods?.name || c.probable_infection_location || 'Centro'}
+                      {c.neighborhoods?.name || c.probable_infection_location || 'Não informado'}
                     </td>
                     <td className="py-2.5 px-3 font-sans text-slate-600">
                       {c.notification_unit || 'UBS Central'}

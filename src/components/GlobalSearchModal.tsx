@@ -17,6 +17,12 @@ import {
 import { db } from '../services/storage';
 import { useAuth } from '../contexts/AuthContext';
 import { ROUTES, canAccessView, isViewModule } from '../config/routes';
+import { NAV_GROUPS, UTILITY_NAV_ITEMS } from '../config/navigation';
+
+const MVP_SEARCHABLE_VIEWS = new Set([
+  ...NAV_GROUPS.flatMap((group) => group.items.map((item) => item.view)),
+  ...UTILITY_NAV_ITEMS.map((item) => item.view),
+]);
 
 interface GlobalSearchModalProps {
   isOpen: boolean;
@@ -53,6 +59,15 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
     }
   }, [isOpen]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [isOpen, onClose]);
+
   // Busca com debounce de 250ms conectada a todas as entidades reais
   useEffect(() => {
     if (!searchTerm.trim()) {
@@ -67,7 +82,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
       const found: SearchResultItem[] = [];
 
       // 0. Telas do sistema (mapa central de rotas)
-      ROUTES.filter((r) => r.searchable).forEach((r) => {
+      ROUTES.filter((r) => r.searchable && MVP_SEARCHABLE_VIEWS.has(r.view)).forEach((r) => {
         if (r.title.toLowerCase().includes(term) || r.path.toLowerCase().includes(term)) {
           found.push({
             category: 'NAVEGAÇÃO / MÓDULO',
@@ -213,14 +228,17 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-16 sm:pt-24 px-4 bg-black/50 backdrop-blur-xs">
-      <div className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-200 text-slate-900">
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 px-4 pt-16 sm:pt-24" role="dialog" aria-modal="true" aria-label="Busca global">
+      <div className="w-full max-w-2xl overflow-hidden rounded-xl border border-slate-200 bg-white text-slate-900 shadow-2xl">
         {/* Input de Busca */}
         <div className="p-4 border-b border-slate-200 flex items-center gap-3 bg-slate-50">
           <Search className="w-5 h-5 text-slate-400 flex-shrink-0" />
           <input
             ref={inputRef}
             type="text"
+            name="global-search"
+            aria-label="Buscar no sistema"
+            autoComplete="off"
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
             placeholder="Pesquise por Imóvel, Endereço, Bairro, ACE, Denúncia, Ovitrampa ou Bloqueio..."
@@ -229,14 +247,16 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
           {searchTerm && (
             <button
               onClick={() => setSearchTerm('')}
-              className="p-1 text-slate-400 hover:text-slate-600 rounded"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+              aria-label="Limpar busca"
             >
               <X className="w-4 h-4" />
             </button>
           )}
           <button
             onClick={onClose}
-            className="text-xs font-semibold px-2 py-1 rounded bg-slate-200 text-slate-700 hover:bg-slate-300"
+            className="min-h-10 rounded-lg bg-slate-200 px-3 text-sm font-semibold text-slate-700 hover:bg-slate-300"
+            aria-label="Fechar busca"
           >
             ESC
           </button>
@@ -253,13 +273,14 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
             results.map((item, idx) => {
               const Icon = item.icon;
               return (
-                <div
+                <button
+                  type="button"
                   key={`${item.category}-${item.title}-${idx}`}
                   onClick={() => {
                     onSelectResult(item.module, item.itemId);
                     onClose();
                   }}
-                  className="p-3.5 hover:bg-slate-50 cursor-pointer flex items-center justify-between group transition"
+                  className="group flex w-full items-center justify-between p-4 text-left transition-colors hover:bg-slate-50"
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="p-2 rounded-lg bg-slate-100 text-slate-700 group-hover:bg-blue-50 group-hover:text-blue-700 transition">
@@ -267,20 +288,20 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                     </div>
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
+                        <span className="rounded bg-slate-100 px-1.5 py-0.5 text-xs font-semibold text-slate-600">
                           {item.category}
                         </span>
-                        <h4 className="text-xs font-bold text-slate-900 truncate">
+                        <span className="truncate text-sm font-bold text-slate-900">
                           {item.title}
-                        </h4>
+                        </span>
                       </div>
-                      <p className="text-[11px] text-slate-500 truncate mt-0.5">
+                      <p className="mt-0.5 truncate text-xs text-slate-500">
                         {item.subtitle}
                       </p>
                     </div>
                   </div>
                   <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-blue-600 group-hover:translate-x-0.5 transition flex-shrink-0 ml-2" />
-                </div>
+                </button>
               );
             })
           ) : searchTerm ? (

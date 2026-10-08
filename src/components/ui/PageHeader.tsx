@@ -33,27 +33,28 @@ export const PageHeader: React.FC<PageHeaderProps> = ({ icon: Icon, title, subti
   const badges = badge ? (Array.isArray(badge) ? badge : [badge]) : [];
 
   return (
-    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-white p-4 sm:p-5 rounded-xl border border-slate-200/90 shadow-2xs">
+    <div className="flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-5 sm:p-6 md:flex-row md:items-center md:justify-between">
       <div className="flex items-start gap-3">
         {Icon && (
-          <span className="p-2 rounded-lg bg-sky-50 text-sky-700 border border-sky-100 flex items-center justify-center shrink-0 mt-0.5" aria-hidden="true">
+          <span className="mt-0.5 flex shrink-0 items-center justify-center rounded-lg bg-teal-50 p-2.5 text-teal-800" aria-hidden="true">
             <Icon className="w-5 h-5" />
           </span>
         )}
         <div>
           <div className="flex items-center gap-2 flex-wrap">
-            {live && <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" aria-hidden="true" title="Atualização em tempo real" />}
-            <h1 className="text-lg sm:text-xl font-extrabold text-slate-900 tracking-tight">{title}</h1>
+            {live && <span className="h-2.5 w-2.5 rounded-full bg-emerald-600" aria-hidden="true" />}
+            {live && <span className="sr-only">Dados atualizados automaticamente.</span>}
+            <h1 className="text-xl font-bold tracking-tight text-slate-950 sm:text-2xl">{title}</h1>
             {badges.map((b, i) => (
               <span
                 key={i}
-                className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold ${BADGE_TONE_CLASSES[b.tone || 'info']}`}
+                className={`rounded-full px-2.5 py-1 text-xs font-semibold ${BADGE_TONE_CLASSES[b.tone || 'info']}`}
               >
                 {b.label}
               </span>
             ))}
           </div>
-          {subtitle && <p className="text-xs text-slate-500 mt-1 leading-relaxed">{subtitle}</p>}
+          {subtitle && <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-600">{subtitle}</p>}
         </div>
       </div>
 
