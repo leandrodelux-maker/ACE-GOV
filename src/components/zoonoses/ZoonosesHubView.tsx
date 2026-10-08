@@ -32,7 +32,7 @@ export const ZoonosesHubView: React.FC<{ initialTab?: ZoonosesTab; onTabChange?:
   return (
     <div className="space-y-4">
       <TabSwitcher activeTab={activeTab} onChange={(id) => setActiveTab(id as ZoonosesTab)} tabs={tabs} />
-      <Suspense fallback={<p className="text-xs text-slate-500" role="status">Carregando...</p>}>
+      <Suspense fallback={<p className="text-xs text-slate-500" role="status">Carregando…</p>}>
         {activeTab === 'painel' && <ZooDashboardView />}
         {activeTab === 'campanhas' && <ZooCampaignsView />}
         {activeTab === 'vacinacao' && <ZooVaccinationView />}

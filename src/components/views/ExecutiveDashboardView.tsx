@@ -98,18 +98,18 @@ export const ExecutiveDashboardView: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Executive Header */}
-      <div className="bg-gradient-to-r from-purple-900 to-slate-900 text-white p-6 rounded-2xl shadow-md space-y-2">
+      <div className="rounded-xl border border-white/10 bg-brand-deep p-6 text-white shadow-md shadow-brand-deep/10 space-y-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Crown className="w-5 h-5 text-amber-400" />
-            <span className="text-xs font-bold uppercase tracking-wider text-purple-300">
+            <span className="text-xs font-bold uppercase tracking-wider text-emerald-200">
               Gabinete da Secretaria Municipal de Saúde — Painel do Gestor
             </span>
           </div>
           <button
             onClick={loadExecutiveData}
             disabled={isLoading}
-            className="p-1.5 text-purple-200 hover:text-white rounded-lg hover:bg-white/10 transition"
+            className="p-1.5 text-sky-100/70 hover:text-white rounded-lg hover:bg-white/10 transition-colors"
             title="Atualizar dados executivos"
           >
             <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
@@ -118,7 +118,7 @@ export const ExecutiveDashboardView: React.FC = () => {
         <h1 className="text-xl font-black">
           Painel Executivo de Endemias & Arboviroses — {municipality?.name || 'Município'}
         </h1>
-        <p className="text-xs text-purple-200">
+        <p className="text-xs text-sky-100/70">
           Visão consolidada para alta governança municipal: "O que precisa da minha atenção em 30 segundos para tomada de decisão?"
         </p>
       </div>
@@ -221,7 +221,7 @@ export const ExecutiveDashboardView: React.FC = () => {
 
         <div className="text-xs text-slate-700 space-y-3 leading-relaxed">
           {!kpis ? (
-            <p className="text-slate-500">{isLoading ? 'Carregando...' : 'Sem dados carregados para compor a síntese.'}</p>
+            <p className="text-slate-500">{isLoading ? 'Carregando…' : 'Sem dados carregados para compor a síntese.'}</p>
           ) : (
             <>
               <p>

@@ -17,7 +17,7 @@ const PADDING_MAP: Record<NonNullable<CardProps['padding']>, string> = {
  * border border-slate-200 shadow-xs` repetido manualmente em cada tela.
  */
 export const Card: React.FC<CardProps> = ({ children, padding = 'default', className = '' }) => (
-  <div className={`rounded-xl border border-slate-200 bg-white ${PADDING_MAP[padding]} ${className}`}>
+  <div className={`rounded-xl border border-brand-line bg-white ${PADDING_MAP[padding]} ${className}`}>
     {children}
   </div>
 );

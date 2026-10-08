@@ -33,10 +33,11 @@ export const PageHeader: React.FC<PageHeaderProps> = ({ icon: Icon, title, subti
   const badges = badge ? (Array.isArray(badge) ? badge : [badge]) : [];
 
   return (
-    <div className="flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-5 sm:p-6 md:flex-row md:items-center md:justify-between">
+    <div className="relative flex flex-col gap-4 overflow-hidden rounded-xl border border-brand-line bg-white p-5 sm:p-6 md:flex-row md:items-center md:justify-between">
+      <span className="absolute inset-y-0 left-0 w-1 bg-brand-primary" aria-hidden="true" />
       <div className="flex items-start gap-3">
         {Icon && (
-          <span className="mt-0.5 flex shrink-0 items-center justify-center rounded-lg bg-teal-50 p-2.5 text-teal-800" aria-hidden="true">
+          <span className="mt-0.5 flex shrink-0 items-center justify-center rounded-lg border border-teal-100 bg-teal-50 p-2.5 text-brand-primary" aria-hidden="true">
             <Icon className="w-5 h-5" />
           </span>
         )}
@@ -44,7 +45,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({ icon: Icon, title, subti
           <div className="flex items-center gap-2 flex-wrap">
             {live && <span className="h-2.5 w-2.5 rounded-full bg-emerald-600" aria-hidden="true" />}
             {live && <span className="sr-only">Dados atualizados automaticamente.</span>}
-            <h1 className="text-xl font-bold tracking-tight text-slate-950 sm:text-2xl">{title}</h1>
+            <h1 className="text-xl font-bold tracking-[-0.025em] text-brand-ink sm:text-2xl">{title}</h1>
             {badges.map((b, i) => (
               <span
                 key={i}

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ChevronDown, ChevronRight, Settings2, X } from 'lucide-react';
+import { ChevronDown, ChevronRight, Settings2, ShieldCheck, X } from 'lucide-react';
 import { UserRole } from '../types';
 import { AccessChecker, ViewModule, canAccessView } from '../config/routes';
 import { NavItem, UTILITY_NAV_ITEMS, getVisibleNavGroups, isItemActive } from '../config/navigation';
@@ -94,10 +94,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
           aria-current={active ? 'page' : undefined}
           className={`group flex min-h-11 w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white ${
             active
-              ? 'bg-white text-slate-950 shadow-sm'
+              ? 'bg-white text-brand-ink shadow-[0_8px_24px_-18px_rgba(0,0,0,0.8)]'
               : utility
-                ? 'text-slate-300 hover:bg-white/8 hover:text-white'
-                : 'text-slate-200 hover:bg-white/8 hover:text-white'
+                ? 'text-sky-100/70 hover:bg-white/8 hover:text-white'
+                : 'text-sky-50/85 hover:bg-white/8 hover:text-white'
           }`}
         >
           <Icon
@@ -128,7 +128,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       <aside
         aria-label="Navegação principal"
-        className={`fixed inset-y-0 left-0 z-50 flex w-72 flex-col border-r border-slate-800 bg-slate-950 text-white transition-transform duration-200 lg:static lg:z-20 lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 flex w-72 flex-col border-r border-white/10 bg-brand-deep text-white shadow-2xl transition-transform duration-200 lg:static lg:z-20 lg:translate-x-0 lg:shadow-none ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -147,9 +147,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
         </div>
 
-        <div className="hidden border-b border-white/10 px-4 py-4 lg:block">
-          <p className="text-sm font-semibold text-white">Área de trabalho</p>
-          <p className="mt-0.5 text-xs text-slate-400">{ROLE_LABELS[userRole]}</p>
+        <div className="hidden border-b border-white/10 px-4 py-[0.875rem] lg:block">
+          <div className="flex items-center gap-3">
+            <span className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-white/8 text-emerald-300">
+              <ShieldCheck className="h-4 w-4" aria-hidden="true" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-white">Área de trabalho</p>
+              <p className="mt-0.5 truncate text-xs text-sky-100/55">{ROLE_LABELS[userRole]}</p>
+            </div>
+          </div>
         </div>
 
         <nav className="flex-1 overflow-y-auto px-3 py-4" aria-label="Módulos do sistema">

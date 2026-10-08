@@ -55,7 +55,7 @@ const ROLES: { role: UserRole; label: string }[] = [
 ];
 
 const iconButton =
-  'inline-flex h-11 w-11 items-center justify-center rounded-lg text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700';
+  'inline-flex h-11 w-11 items-center justify-center rounded-lg text-slate-600 transition-colors hover:bg-brand-primary-tint hover:text-brand-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700';
 
 export const Header: React.FC<HeaderProps> = ({
   currentUser,
@@ -95,8 +95,8 @@ export const Header: React.FC<HeaderProps> = ({
   }, []);
 
   return (
-    <header className="sticky top-0 z-30 border-b border-slate-200 bg-white text-slate-900">
-      <div className="flex min-h-16 items-center gap-3 px-3 sm:px-5 lg:px-6">
+    <header className="sticky top-0 z-30 border-b border-brand-line bg-white/95 text-slate-900 shadow-[0_1px_0_rgba(6,56,75,0.03)] backdrop-blur-md">
+      <div className="flex min-h-[4.25rem] items-center gap-3 px-3 sm:px-5 lg:px-6">
         <button type="button" onClick={onToggleSidebar} className={`${iconButton} lg:hidden`} aria-label="Abrir menu">
           <Menu className="h-5 w-5" aria-hidden="true" />
         </button>
@@ -105,13 +105,13 @@ export const Header: React.FC<HeaderProps> = ({
           {municipalityLogoUrl ? (
             <img src={municipalityLogoUrl} alt="" className="h-10 w-10 shrink-0 object-contain" width="40" height="40" />
           ) : (
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-teal-800 text-white">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-primary text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.14)]">
               <ShieldCheck className="h-5 w-5" aria-hidden="true" />
             </span>
           )}
           <div className="min-w-0">
-            <p className="truncate text-sm font-bold text-slate-950 sm:text-base">Vigilância de Endemias</p>
-            <p className="truncate text-xs text-slate-500">Secretaria Municipal de Saúde · {municipalityName}</p>
+            <p className="truncate text-sm font-bold tracking-tight text-brand-ink sm:text-base">Endemias GOV</p>
+            <p className="truncate text-xs text-slate-500">Vigilância municipal · {municipalityName}</p>
           </div>
         </div>
 
@@ -119,7 +119,7 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             type="button"
             onClick={() => setSearchOpen(true)}
-            className="flex min-h-11 w-full items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-500 transition-colors hover:border-slate-300 hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700"
+            className="flex min-h-11 w-full items-center gap-3 rounded-lg border border-brand-line bg-[#f6f9fa] px-3 text-sm text-slate-500 transition-colors hover:border-[#adc2c8] hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700"
           >
             <Search className="h-4 w-4" aria-hidden="true" />
             <span className="min-w-0 flex-1 truncate text-left">Buscar imóvel, bairro, agente ou protocolo</span>

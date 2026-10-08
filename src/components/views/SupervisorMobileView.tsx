@@ -117,7 +117,7 @@ export const SupervisorMobileView: React.FC<SupervisorMobileViewProps> = ({ muni
   return (
     <div className="max-w-2xl mx-auto space-y-4 pb-20">
       {/* Top Banner Mobile-first */}
-      <div className="bg-gradient-to-r from-emerald-800 to-teal-900 text-white p-4 rounded-2xl shadow-md">
+      <div className="rounded-xl border border-white/10 bg-brand-deep p-4 text-white shadow-md shadow-brand-deep/10">
         <div className="flex justify-between items-center">
           <div>
             <span className="text-[10px] font-bold uppercase tracking-wider bg-white/20 px-2 py-0.5 rounded-full">
@@ -324,7 +324,7 @@ export const SupervisorMobileView: React.FC<SupervisorMobileViewProps> = ({ muni
           </h3>
           <div className="space-y-2 text-xs">
             {openOrders === null ? (
-              <p className="text-slate-500" role="status">Carregando...</p>
+              <p className="text-slate-500" role="status">Carregando…</p>
             ) : openOrders.length === 0 ? (
               <p className="text-slate-500">Sem ordens de serviço em aberto no município.</p>
             ) : (

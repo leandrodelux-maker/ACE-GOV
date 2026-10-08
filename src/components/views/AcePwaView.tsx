@@ -491,7 +491,7 @@ export const AcePwaView: React.FC<AcePwaViewProps> = ({ onNavigate }) => {
   return (
     <div className="max-w-xl mx-auto space-y-4 pb-24">
       {/* Header do PWA */}
-      <div className="bg-gradient-to-r from-blue-900 to-sky-900 text-white p-5 rounded-2xl shadow-md space-y-3">
+      <div className="rounded-xl border border-white/10 bg-brand-deep p-5 text-white shadow-md shadow-brand-deep/10 space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Smartphone className="w-5 h-5 text-sky-400" />

@@ -137,7 +137,7 @@ export const EmptyState: React.FC<{ title: string; description?: string; action?
   </div>
 );
 
-export const LoadingBlock: React.FC<{ label?: string }> = ({ label = 'Carregando...' }) => (
+export const LoadingBlock: React.FC<{ label?: string }> = ({ label = 'Carregando…' }) => (
   <p className="flex items-center gap-2 py-6 text-sm text-slate-500" role="status">
     <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> {label}
   </p>
@@ -216,7 +216,7 @@ export interface Column<T> {
   className?: string;
 }
 
-export function DataTable<T>({ rows, columns, rowKey, pageSize = 25, searchable = true, searchPlaceholder = 'Pesquisar...', emptyText = 'Sem registros.', onRowClick, toolbar, caption }: {
+export function DataTable<T>({ rows, columns, rowKey, pageSize = 25, searchable = true, searchPlaceholder = 'Pesquisar…', emptyText = 'Sem registros.', onRowClick, toolbar, caption }: {
   rows: T[];
   columns: Column<NoInfer<T>>[];
   rowKey: (row: NoInfer<T>) => string;

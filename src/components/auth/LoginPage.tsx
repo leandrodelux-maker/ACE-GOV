@@ -1,5 +1,18 @@
 import React, { useState } from 'react';
-import { AlertCircle, ArrowRight, Eye, EyeOff, Lock, Mail, ShieldCheck } from 'lucide-react';
+import {
+  Activity,
+  AlertCircle,
+  ArrowRight,
+  CheckCircle2,
+  Eye,
+  EyeOff,
+  Lock,
+  Mail,
+  MapPinned,
+  Radio,
+  Route,
+  ShieldCheck,
+} from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
 interface LoginPageProps {
@@ -47,41 +60,78 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate, redirectTo }) 
   };
 
   return (
-    <main className="min-h-screen bg-slate-100 p-4 sm:p-6 lg:grid lg:grid-cols-[minmax(320px,0.85fr)_minmax(480px,1.15fr)] lg:p-0">
-      <section className="hidden bg-slate-950 p-10 text-white lg:flex lg:flex-col lg:justify-between xl:p-14" aria-label="Apresentação do sistema">
+    <main className="min-h-screen bg-[#eef3f4] lg:grid lg:grid-cols-[minmax(480px,1.05fr)_minmax(520px,0.95fr)]">
+      <section className="login-territory-panel hidden min-h-screen overflow-hidden p-10 text-white lg:flex lg:flex-col lg:justify-between xl:p-14 2xl:p-16" aria-label="Apresentação do sistema">
         <div className="flex items-center gap-3">
-          <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-teal-700">
-            <ShieldCheck className="h-6 w-6" aria-hidden="true" />
+          <span className="flex h-12 w-12 items-center justify-center rounded-xl border border-white/15 bg-white/10">
+            <ShieldCheck className="h-6 w-6 text-emerald-300" aria-hidden="true" />
           </span>
           <div>
-            <p className="text-lg font-bold">Vigilância de Endemias</p>
-            <p className="text-sm text-slate-400">Secretaria Municipal de Saúde</p>
+            <p className="text-lg font-bold tracking-tight">Endemias GOV</p>
+            <p className="text-sm text-sky-100/70">Inteligência municipal em saúde</p>
           </div>
         </div>
 
-        <div className="max-w-lg">
-          <h1 className="text-4xl font-bold leading-tight tracking-tight xl:text-5xl">Informação de campo para decisões de saúde pública.</h1>
-          <p className="mt-5 max-w-md text-base leading-7 text-slate-300">
-            Registre visitas, acompanhe o território e organize as prioridades da equipe em um único ambiente municipal.
+        <div className="max-w-2xl py-12">
+          <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-emerald-300/20 bg-emerald-300/10 px-3 py-1.5 text-sm font-semibold text-emerald-100">
+            <span className="territory-signal h-2 w-2 rounded-full bg-emerald-300" aria-hidden="true" />
+            Território em acompanhamento
+          </div>
+          <h1 className="max-w-xl text-4xl font-bold leading-[1.12] tracking-[-0.035em] xl:text-5xl 2xl:text-[3.5rem]">
+            Cada registro de campo fortalece o cuidado com a cidade.
+          </h1>
+          <p className="mt-6 max-w-xl text-base leading-7 text-sky-50/72 xl:text-lg">
+            Planejamento, vigilância e resposta municipal conectados para orientar equipes e proteger a população.
           </p>
+
+          <div className="mt-10 grid max-w-xl grid-cols-3 overflow-hidden rounded-xl border border-white/12 bg-[#073346]/80">
+            <div className="border-r border-white/10 p-4">
+              <Route className="mb-3 h-5 w-5 text-emerald-300" aria-hidden="true" />
+              <p className="text-sm font-semibold">Campo</p>
+              <p className="mt-1 text-xs leading-5 text-sky-100/60">Rotas e visitas</p>
+            </div>
+            <div className="border-r border-white/10 p-4">
+              <MapPinned className="mb-3 h-5 w-5 text-emerald-300" aria-hidden="true" />
+              <p className="text-sm font-semibold">Território</p>
+              <p className="mt-1 text-xs leading-5 text-sky-100/60">Risco localizado</p>
+            </div>
+            <div className="p-4">
+              <Activity className="mb-3 h-5 w-5 text-emerald-300" aria-hidden="true" />
+              <p className="text-sm font-semibold">Decisão</p>
+              <p className="mt-1 text-xs leading-5 text-sky-100/60">Ação prioritária</p>
+            </div>
+          </div>
         </div>
 
-        <p className="text-sm text-slate-400">Acesso restrito a servidores e colaboradores autorizados.</p>
+        <div className="flex items-center justify-between gap-6 text-xs text-sky-100/60">
+          <p>Acesso exclusivo para equipes autorizadas.</p>
+          <span className="inline-flex items-center gap-2"><Radio className="h-3.5 w-3.5 text-emerald-300" aria-hidden="true" /> Operação municipal segura</span>
+        </div>
       </section>
 
-      <section className="flex min-h-[calc(100vh-2rem)] items-center justify-center lg:min-h-screen">
-        <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-          <div className="mb-8 lg:hidden">
-            <span className="mb-4 flex h-11 w-11 items-center justify-center rounded-lg bg-teal-800 text-white">
+      <section className="relative flex min-h-screen items-center justify-center p-4 sm:p-8 lg:p-12">
+        <div className="absolute inset-x-0 top-0 h-1 bg-[#0b4f6c] lg:hidden" aria-hidden="true" />
+        <div className="w-full max-w-[440px]">
+          <div className="mb-8 flex items-center gap-3 lg:hidden">
+            <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#0b4f6c] text-white">
               <ShieldCheck className="h-6 w-6" aria-hidden="true" />
             </span>
-            <p className="text-sm font-semibold text-teal-800">Secretaria Municipal de Saúde</p>
+            <div>
+              <p className="font-bold tracking-tight text-[#102a33]">Endemias GOV</p>
+              <p className="text-xs text-slate-500">Inteligência municipal em saúde</p>
+            </div>
           </div>
 
-          <div>
-            <h2 className="text-2xl font-bold tracking-tight text-slate-950">Entrar no sistema</h2>
-            <p className="mt-2 text-sm leading-6 text-slate-600">Use as credenciais fornecidas pela administração municipal.</p>
-          </div>
+          <div className="rounded-2xl border border-[#d8e3e6] bg-white p-6 shadow-[0_24px_70px_-42px_rgba(6,56,75,0.45)] sm:p-9">
+            <div className="mb-7 flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-2xl font-bold tracking-[-0.025em] text-[#102a33] sm:text-[1.75rem]">Acesse sua área de trabalho</h2>
+                <p className="mt-2 text-sm leading-6 text-slate-600">Entre com as credenciais da administração municipal.</p>
+              </div>
+              <span className="hidden shrink-0 items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-800 sm:inline-flex">
+                <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" /> Seguro
+              </span>
+            </div>
 
           {errorMessage ? (
             <div className="mt-6 flex gap-3 rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800" role="alert" aria-live="polite">
@@ -128,7 +178,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate, redirectTo }) 
                   autoComplete="current-password"
                   value={password}
                   onChange={(event) => { setPassword(event.target.value); setFieldErrors((current) => ({ ...current, password: undefined })); }}
-                  placeholder="Digite sua senha"
+                  placeholder="Digite sua senha…"
                   disabled={isSubmitting}
                   aria-invalid={Boolean(fieldErrors.password)}
                   aria-describedby={fieldErrors.password ? 'login-password-error' : undefined}
@@ -161,6 +211,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate, redirectTo }) 
             Primeiro acesso?{' '}
             <button type="button" onClick={() => onNavigate('/primeiro-acesso')} className="font-semibold text-teal-800 hover:underline focus-visible:rounded-sm">Consulte as orientações</button>
           </div>
+          </div>
+
+          <p className="mt-5 text-center text-xs leading-5 text-slate-500">
+            Plataforma oficial de vigilância e controle de endemias.
+          </p>
         </div>
       </section>
     </main>

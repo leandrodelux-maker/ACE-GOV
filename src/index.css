@@ -14,6 +14,10 @@
   --color-brand-primary: #0b4f6c;
   --color-brand-primary-hover: #083f57;
   --color-brand-primary-tint: #e7f0f4;
+  --color-brand-deep: #06384b;
+  --color-brand-ink: #102a33;
+  --color-brand-canvas: #eef3f4;
+  --color-brand-line: #d8e3e6;
 
   /* Semântica fixa: nunca decorativa, sempre o mesmo significado em todo módulo */
   --color-brand-success: #147d64;
@@ -33,12 +37,25 @@
 }
 
 @layer base {
+  html {
+    background-color: #eef3f4;
+    scroll-behavior: smooth;
+  }
+
   body {
     font-family: var(--font-sans);
-    background-color: #f4f7f9;
-    color: #0f172a;
+    background-color: #eef3f4;
+    color: #102a33;
+    line-height: 1.5;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
   }
 
   /* Dado rastreável (códigos, protocolos, coordenadas) — nunca texto corrido */
@@ -92,10 +109,45 @@
 
 /* Piso de qualidade compartilhado pelas telas antigas enquanto são migradas. */
 @layer components {
+  .app-shell {
+    background: #eef3f4;
+  }
+
+  .app-content {
+    background-color: #eef3f4;
+    background-image:
+      linear-gradient(rgba(11, 79, 108, 0.028) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(11, 79, 108, 0.028) 1px, transparent 1px);
+    background-size: 32px 32px;
+    background-position: -1px -1px;
+  }
+
+  .app-content > div {
+    padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+  }
+
   .app-content input:not([type='checkbox']):not([type='radio']),
   .app-content select,
   .app-content textarea {
     min-height: 2.75rem;
+    border-color: #cbd9dd;
+    background-color: rgba(255, 255, 255, 0.96);
+    color: #102a33;
+    transition-property: border-color, box-shadow, background-color;
+    transition-duration: 160ms;
+  }
+
+  .app-content input:not([type='checkbox']):not([type='radio']):hover,
+  .app-content select:hover,
+  .app-content textarea:hover {
+    border-color: #9fb6bd;
+  }
+
+  .app-content input:not([type='checkbox']):not([type='radio']):focus,
+  .app-content select:focus,
+  .app-content textarea:focus {
+    border-color: #0b4f6c;
+    box-shadow: 0 0 0 3px rgba(11, 79, 108, 0.12);
   }
 
   .app-content button:not([disabled]),
@@ -107,6 +159,19 @@
     font-variant-numeric: tabular-nums;
   }
 
+  .app-content thead {
+    color: #49636c;
+  }
+
+  .app-content tbody tr {
+    transition: background-color 140ms ease;
+  }
+
+  .app-content .bg-white.border,
+  .app-content .bg-white[class*='border-'] {
+    border-color: #d8e3e6;
+  }
+
   .app-content h1,
   .app-content h2,
   .app-content h3 {
@@ -115,6 +180,56 @@
 
   .app-content p {
     text-wrap: pretty;
+  }
+
+  .login-territory-panel {
+    position: relative;
+    isolation: isolate;
+    background: #06384b;
+  }
+
+  .login-territory-panel::before {
+    position: absolute;
+    inset: 0;
+    z-index: -2;
+    content: '';
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.055) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.055) 1px, transparent 1px);
+    background-size: 42px 42px;
+    -webkit-mask-image: linear-gradient(to bottom, black 10%, transparent 94%);
+    mask-image: linear-gradient(to bottom, black 10%, transparent 94%);
+  }
+
+  .login-territory-panel::after {
+    position: absolute;
+    right: -11rem;
+    bottom: -14rem;
+    z-index: -1;
+    width: 34rem;
+    height: 34rem;
+    content: '';
+    border: 1px solid rgba(115, 199, 177, 0.18);
+    border-radius: 47% 53% 58% 42%;
+    box-shadow:
+      0 0 0 4rem rgba(115, 199, 177, 0.035),
+      0 0 0 8rem rgba(115, 199, 177, 0.025);
+    transform: rotate(-18deg);
+  }
+
+  .territory-signal {
+    box-shadow: 0 0 0 5px rgba(52, 211, 153, 0.11);
+  }
+}
+
+:where(button, a, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid #0f766e;
+  outline-offset: 3px;
+}
+
+@media (max-width: 1023px) {
+  .app-content {
+    background-size: 24px 24px;
   }
 }
 

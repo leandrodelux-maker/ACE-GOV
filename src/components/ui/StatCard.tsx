@@ -72,11 +72,11 @@ export const StatCard: React.FC<StatCardProps> = ({
       type={interactive ? 'button' : undefined}
       onClick={onClick}
       title={title}
-      className={`group w-full rounded-xl border p-4 text-left transition-[border-color,box-shadow,background-color] ${
+      className={`group w-full rounded-xl border p-4 text-left transition-[border-color,box-shadow,background-color,transform] ${
         highlighted
           ? 'border-rose-200 bg-rose-50/40'
-          : 'border-slate-200 bg-white hover:border-slate-300'
-      } ${interactive ? `cursor-pointer ${TONE_HOVER_BORDER[tone]} focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700` : ''}`}
+          : 'border-brand-line bg-white hover:border-slate-300'
+      } ${interactive ? `cursor-pointer hover:-translate-y-0.5 ${TONE_HOVER_BORDER[tone]} focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700` : ''}`}
     >
       <div className="flex items-center justify-between gap-2 mb-2">
         <span className="truncate text-xs font-semibold text-slate-600">

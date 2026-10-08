@@ -87,8 +87,8 @@ function readPendingOfflineCount(): number {
 }
 
 const FullScreenMessage: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4 text-white text-center">
-    <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-sky-600 flex items-center justify-center shadow-xl shadow-sky-600/30 mb-4">
+  <div className="min-h-screen bg-brand-deep flex flex-col items-center justify-center p-4 text-white text-center">
+    <div className="w-14 h-14 rounded-2xl border border-white/15 bg-white/10 flex items-center justify-center mb-4">
       <Shield className="w-8 h-8 text-white" />
     </div>
     {children}
@@ -239,7 +239,7 @@ function AppContent() {
         );
       case '/verificar-vacina':
         return (
-          <Suspense fallback={<FullScreenMessage><p className="text-sm" role="status">Carregando...</p></FullScreenMessage>}>
+            <Suspense fallback={<FullScreenMessage><p className="text-sm" role="status">Carregando…</p></FullScreenMessage>}>
             <VaccinationVerifyView />
           </Suspense>
         );
@@ -309,7 +309,7 @@ function AppContent() {
       if (resolution.kind === 'home' && !homeView) return <AccessDeniedPage onNavigate={navigate} />;
       return (
         <p className="text-xs text-slate-500" role="status">
-          Abrindo...
+          Abrindo…
         </p>
       );
     }
@@ -488,7 +488,7 @@ function AppContent() {
   };
 
   return (
-    <div className="app-shell min-h-screen bg-slate-100 flex flex-col font-sans text-slate-800 antialiased selection:bg-teal-700 selection:text-white">
+    <div className="app-shell min-h-screen bg-brand-canvas flex flex-col font-sans text-brand-ink antialiased selection:bg-teal-700 selection:text-white">
       <a
         href="#conteudo-principal"
         className="sr-only z-[100] rounded-md bg-white px-4 py-2 text-sm font-semibold text-slate-950 shadow-lg focus:not-sr-only focus:fixed focus:left-4 focus:top-4"
@@ -526,10 +526,10 @@ function AppContent() {
           pendingSyncCount={pendingSyncCount}
         />
 
-        <main id="conteudo-principal" tabIndex={-1} className="app-content flex-1 overflow-y-auto scrollbar-thin p-3 sm:p-5 lg:p-6">
+        <main id="conteudo-principal" tabIndex={-1} className="app-content flex-1 overflow-y-auto scrollbar-thin p-3 sm:p-5 lg:p-7">
           <div className="max-w-[1440px] mx-auto">
             <ErrorBoundary resetKey={currentPath}>
-              <Suspense fallback={<p className="text-xs text-slate-500" role="status">Carregando tela...</p>}>{renderView()}</Suspense>
+              <Suspense fallback={<p className="text-xs text-slate-500" role="status">Carregando tela…</p>}>{renderView()}</Suspense>
             </ErrorBoundary>
           </div>
         </main>

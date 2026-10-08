@@ -15,7 +15,7 @@ export const AccessDeniedPage: React.FC<AccessDeniedPageProps> = ({ onNavigate }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-sky-950 flex items-center justify-center p-4 selection:bg-sky-500 selection:text-white relative overflow-hidden">
+    <div className="min-h-screen bg-brand-deep flex items-center justify-center p-4 selection:bg-teal-600 selection:text-white relative overflow-hidden">
       <div className="w-full max-w-md z-10">
         <div className="bg-slate-900/80 backdrop-blur-xl border border-slate-800/80 rounded-2xl p-6 sm:p-8 shadow-2xl text-center">
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-rose-600/20 text-rose-400 border border-rose-500/30 mb-4">

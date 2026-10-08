@@ -30,7 +30,7 @@ export const LiraaHubView: React.FC<{ initialTab?: LiraaTab; onTabChange?: (tab:
   return (
     <div className="space-y-4">
       <TabSwitcher activeTab={activeTab} onChange={(id) => setActiveTab(id as LiraaTab)} tabs={tabs} />
-      <Suspense fallback={<p className="text-xs text-slate-500" role="status">Carregando...</p>}>
+      <Suspense fallback={<p className="text-xs text-slate-500" role="status">Carregando…</p>}>
         {activeTab === 'painel' && <LiraaDashboardView />}
         {activeTab === 'levantamentos' && <LiraaSurveysView />}
         {activeTab === 'campo' && <LiraaFieldView />}
