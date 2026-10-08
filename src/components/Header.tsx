@@ -95,7 +95,7 @@ export const Header: React.FC<HeaderProps> = ({
   }, []);
 
   return (
-    <header className="sticky top-0 z-30 border-b border-brand-line bg-white/95 text-slate-900 shadow-[0_1px_0_rgba(6,56,75,0.03)] backdrop-blur-md">
+    <header className="sticky top-0 z-30 shrink-0 border-b border-brand-line bg-white/95 text-slate-900 shadow-[0_1px_0_rgba(6,56,75,0.03)] backdrop-blur-md">
       <div className="flex min-h-[4.25rem] items-center gap-3 px-3 sm:px-5 lg:px-6">
         <button type="button" onClick={onToggleSidebar} className={`${iconButton} lg:hidden`} aria-label="Abrir menu">
           <Menu className="h-5 w-5" aria-hidden="true" />

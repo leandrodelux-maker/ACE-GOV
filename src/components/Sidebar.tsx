@@ -128,7 +128,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       <aside
         aria-label="Navegação principal"
-        className={`fixed inset-y-0 left-0 z-50 flex w-72 flex-col border-r border-white/10 bg-brand-deep text-white shadow-2xl transition-transform duration-200 lg:static lg:z-20 lg:translate-x-0 lg:shadow-none ${
+        className={`fixed inset-y-0 left-0 z-50 flex min-h-0 w-72 flex-col overflow-hidden border-r border-white/10 bg-brand-deep text-white shadow-2xl transition-transform duration-200 lg:static lg:z-20 lg:h-full lg:translate-x-0 lg:shadow-none ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -159,7 +159,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
         </div>
 
-        <nav className="flex-1 overflow-y-auto px-3 py-4" aria-label="Módulos do sistema">
+        <nav className="scrollbar-none min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-4" aria-label="Módulos do sistema">
           <div className="space-y-2">
             {groups.map((group) => {
               const expanded = openSections[group.id] !== false;

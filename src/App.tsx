@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
 import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
 import { db } from './services/storage';
@@ -117,6 +117,7 @@ function AppContent() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [pendingSyncCount, setPendingSyncCount] = useState<number>(() => readPendingOfflineCount());
   const [isQuickCreateOpen, setIsQuickCreateOpen] = useState(false);
+  const mainContentRef = useRef<HTMLElement>(null);
 
   /**
    * Navega para um id de tela (ex.: 'visits') ou URL (ex.: '/visitas').
@@ -164,6 +165,11 @@ function AppContent() {
   // Contagem de visitas offline pendentes (atualiza ao navegar e quando outra aba altera o armazenamento)
   useEffect(() => {
     setPendingSyncCount(readPendingOfflineCount());
+  }, [currentPath]);
+
+  // Cada rota começa no topo, mesmo quando a tela anterior tinha conteúdo longo.
+  useEffect(() => {
+    mainContentRef.current?.scrollTo({ top: 0, left: 0, behavior: 'auto' });
   }, [currentPath]);
   useEffect(() => {
     const refresh = () => setPendingSyncCount(readPendingOfflineCount());
@@ -488,7 +494,7 @@ function AppContent() {
   };
 
   return (
-    <div className="app-shell min-h-screen bg-brand-canvas flex flex-col font-sans text-brand-ink antialiased selection:bg-teal-700 selection:text-white">
+    <div className="app-shell flex h-screen h-dvh overflow-hidden bg-brand-canvas flex-col font-sans text-brand-ink antialiased selection:bg-teal-700 selection:text-white">
       <a
         href="#conteudo-principal"
         className="sr-only z-[100] rounded-md bg-white px-4 py-2 text-sm font-semibold text-slate-950 shadow-lg focus:not-sr-only focus:fixed focus:left-4 focus:top-4"
@@ -512,7 +518,7 @@ function AppContent() {
         onOpenQuickCreate={() => setIsQuickCreateOpen(true)}
       />
 
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex min-h-0 flex-1 overflow-hidden">
         <Sidebar
           currentView={currentView}
           onSelectView={(v) => {
@@ -526,7 +532,7 @@ function AppContent() {
           pendingSyncCount={pendingSyncCount}
         />
 
-        <main id="conteudo-principal" tabIndex={-1} className="app-content flex-1 overflow-y-auto scrollbar-thin p-3 sm:p-5 lg:p-7">
+        <main ref={mainContentRef} id="conteudo-principal" tabIndex={-1} className="app-content min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain scrollbar-thin p-3 sm:p-5 lg:p-7">
           <div className="max-w-[1440px] mx-auto">
             <ErrorBoundary resetKey={currentPath}>
               <Suspense fallback={<p className="text-xs text-slate-500" role="status">Carregando tela…</p>}>{renderView()}</Suspense>
